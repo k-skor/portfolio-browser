@@ -1,0 +1,830 @@
+{
+  "name": "column_left",
+  "version": 33,
+  "source-key": {
+    "type": "figma",
+    "file": "EAbVU7yz8uCoF8Jy1RQmEq",
+    "node": "414:824",
+    "version": "6869197525",
+    "component-id": "bd3a209de62c0330b13b45ea570e39e4ad72fcdd"
+  },
+  "default": "Column Left",
+  "documentation": "Left column of hero tile",
+  "design": {
+    "atoms": [
+      {
+        "type": "group",
+        "id": "top_level",
+        "root": "true"
+      },
+      {
+        "type": "group",
+        "id": "Content"
+      },
+      {
+        "type": "group",
+        "id": "Group"
+      },
+      {
+        "type": "group",
+        "id": "Actions"
+      },
+      {
+        "type": "text",
+        "id": "Title"
+      },
+      {
+        "type": "text",
+        "id": "Description"
+      },
+      {
+        "type": "group",
+        "id": "Location"
+      },
+      {
+        "type": "group",
+        "id": "Hire"
+      },
+      {
+        "type": "group",
+        "id": "Location Icon"
+      },
+      {
+        "type": "text",
+        "id": "Location Text"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 2"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 1"
+      },
+      {
+        "type": "group",
+        "id": "Hire Icon"
+      },
+      {
+        "type": "text",
+        "id": "Hire Text"
+      },
+      {
+        "type": "group",
+        "id": "icon-dot-emerald-500"
+      },
+      {
+        "type": "group",
+        "id": "Links"
+      },
+      {
+        "type": "group",
+        "id": "GitHub Icon"
+      },
+      {
+        "type": "group",
+        "id": "Twitter Icon"
+      },
+      {
+        "type": "group",
+        "id": "Figma Icon"
+      },
+      {
+        "type": "group",
+        "id": "Icon 1"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 4"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 3"
+      },
+      {
+        "type": "group",
+        "id": "Icon 2"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 5"
+      },
+      {
+        "type": "group",
+        "id": "Icon 3"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 10"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 9"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 8"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 7"
+      },
+      {
+        "type": "vector",
+        "id": "Vector 6"
+      }
+    ],
+    "modes": {
+      "Column Left": {
+        "rules": [
+          {
+            "id": "top_level",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "cross-axis-align": "start",
+            "children": [
+              "Content",
+              "Group",
+              "Actions"
+            ],
+            "item-spacing": 48.0
+          },
+          {
+            "id": "Content",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "cross-axis-align": "start",
+            "children": [
+              "Title",
+              "Description"
+            ],
+            "item-spacing": 8.0,
+            "clip-content": false
+          },
+          {
+            "id": "Group",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "cross-axis-align": "start",
+            "children": [
+              "Location",
+              "Hire"
+            ],
+            "item-spacing": 8.0,
+            "clip-content": false
+          },
+          {
+            "id": "Actions",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "main-axis-align": "start",
+            "cross-axis-align": "start",
+            "children": [
+              "Links"
+            ],
+            "item-spacing": 16.0,
+            "clip-content": false
+          },
+          {
+            "id": "Title",
+            "font-weight": 700.0,
+            "color": {
+              "alpha": 1.0,
+              "hue": 220.9090909090909,
+              "saturation": 0.5641025641025641,
+              "value": 0.15294117647058825
+            },
+            "text-content": "Hi, I’m Sagar 👋",
+            "overflow": "visible",
+            "text-align": "left",
+            "text-size": 60.0,
+            "letter-spacing": -1.2,
+            "line-height": 1.2,
+            "typeface": "Inter"
+          },
+          {
+            "id": "Description",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 768.0
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "color": {
+              "alpha": 1.0,
+              "hue": 215.0,
+              "saturation": 0.2424242424242424,
+              "value": 0.38823529411764707
+            },
+            "text-content": "I'm a full stack developer (React.js & Node.js) with a focus on creating (and occasionally designing) exceptional digital experiences that are fast, accessible, visually appealing, and responsive. Even though I have been creating web applications for over 7 years, I still love it as if it was something new.",
+            "overflow": "visible",
+            "max-lines": -1,
+            "text-align": "left",
+            "text-size": 16.0,
+            "line-height": 1.5,
+            "typeface": "Inter"
+          },
+          {
+            "id": "Location",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "arrangement": "row",
+            "main-axis-align": "start",
+            "children": [
+              "Location Icon",
+              "Location Text"
+            ],
+            "item-spacing": 8.0,
+            "clip-content": false
+          },
+          {
+            "id": "Hire",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "arrangement": "row",
+            "main-axis-align": "start",
+            "children": [
+              "Hire Icon",
+              "Hire Text"
+            ],
+            "item-spacing": 8.0,
+            "clip-content": false
+          },
+          {
+            "id": "Location Icon",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              }
+            },
+            "is-structured": false,
+            "children": [
+              "Vector 2",
+              "Vector 1"
+            ]
+          },
+          {
+            "id": "Location Text",
+            "color": {
+              "alpha": 1.0,
+              "hue": 215.0,
+              "saturation": 0.2424242424242424,
+              "value": 0.38823529411764707
+            },
+            "text-content": "Ahmedabad, India",
+            "overflow": "visible",
+            "text-align": "left",
+            "text-size": 16.0,
+            "line-height": 1.5,
+            "typeface": "Inter"
+          },
+          {
+            "id": "Vector 2",
+            "margin": {
+              "left": 4.0,
+              "top": 2.0,
+              "right": 4.0,
+              "bottom": 2.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_2.svg"
+          },
+          {
+            "id": "Vector 1",
+            "margin": {
+              "left": 9.0,
+              "top": 7.0,
+              "right": 9.0,
+              "bottom": 11.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_1.svg"
+          },
+          {
+            "id": "Hire Icon",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              }
+            },
+            "children": [
+              "icon-dot-emerald-500"
+            ]
+          },
+          {
+            "id": "Hire Text",
+            "color": {
+              "alpha": 1.0,
+              "hue": 215.0,
+              "saturation": 0.2424242424242424,
+              "value": 0.38823529411764707
+            },
+            "text-content": "Available for new projects",
+            "overflow": "visible",
+            "text-align": "left",
+            "text-size": 16.0,
+            "line-height": 1.5,
+            "typeface": "Inter"
+          },
+          {
+            "id": "icon-dot-emerald-500",
+            "border-radius": 20.0,
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 8.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 8.0
+              }
+            },
+            "is-structured": false,
+            "background-color": {
+              "alpha": 1.0,
+              "hue": 160.11834319526628,
+              "saturation": 0.9135135135135135,
+              "value": 0.7254901960784313
+            }
+          },
+          {
+            "id": "Links",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "arrangement": "row",
+            "main-axis-align": "start",
+            "children": [
+              "GitHub Icon",
+              "Twitter Icon",
+              "Figma Icon"
+            ],
+            "item-spacing": 4.0
+          },
+          {
+            "id": "GitHub Icon",
+            "padding": 6.0,
+            "border-radius": 8.0,
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "stroke-alignment": "outside",
+            "arrangement": "row",
+            "children": [
+              "Icon 1"
+            ],
+            "clip-content": false
+          },
+          {
+            "id": "Twitter Icon",
+            "padding": 6.0,
+            "border-radius": 8.0,
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "stroke-alignment": "outside",
+            "arrangement": "row",
+            "children": [
+              "Icon 2"
+            ],
+            "clip-content": false
+          },
+          {
+            "id": "Figma Icon",
+            "padding": 6.0,
+            "border-radius": 8.0,
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "shrink"
+              },
+              "height-constraints": {
+                "sizing-mode": "shrink"
+              }
+            },
+            "stroke-alignment": "outside",
+            "arrangement": "row",
+            "children": [
+              "Icon 3"
+            ],
+            "clip-content": false
+          },
+          {
+            "id": "Icon 1",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              }
+            },
+            "is-structured": false,
+            "children": [
+              "Vector 4",
+              "Vector 3"
+            ]
+          },
+          {
+            "id": "Vector 4",
+            "margin": {
+              "left": 3.988525390625,
+              "top": 2.0,
+              "right": 3.988759994506836,
+              "bottom": 2.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_4.svg"
+          },
+          {
+            "id": "Vector 3",
+            "margin": {
+              "left": 2.0,
+              "top": 16.0,
+              "right": 15.0,
+              "bottom": 5.440000057220459
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_3.svg"
+          },
+          {
+            "id": "Icon 2",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              }
+            },
+            "is-structured": false,
+            "children": [
+              "Vector 5"
+            ]
+          },
+          {
+            "id": "Vector 5",
+            "margin": {
+              "left": 2.0,
+              "top": 3.9921646118164062,
+              "right": 2.0,
+              "bottom": 2.9998111724853516
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -0.9997119903564453
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_5.svg"
+          },
+          {
+            "id": "Icon 3",
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              },
+              "height-constraints": {
+                "sizing-mode": "fixed",
+                "value": 24.0
+              }
+            },
+            "is-structured": false,
+            "children": [
+              "Vector 10",
+              "Vector 9",
+              "Vector 8",
+              "Vector 7",
+              "Vector 6"
+            ]
+          },
+          {
+            "id": "Vector 10",
+            "margin": {
+              "left": 5.0,
+              "top": 2.0,
+              "right": 12.0,
+              "bottom": 15.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_10.svg"
+          },
+          {
+            "id": "Vector 9",
+            "margin": {
+              "left": 12.0,
+              "top": 2.0,
+              "right": 5.0,
+              "bottom": 15.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_9.svg"
+          },
+          {
+            "id": "Vector 8",
+            "margin": {
+              "left": 12.0,
+              "top": 9.0,
+              "right": 5.0,
+              "bottom": 8.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_8.svg"
+          },
+          {
+            "id": "Vector 7",
+            "margin": {
+              "left": 5.0,
+              "top": 16.0,
+              "right": 12.0,
+              "bottom": 1.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_7.svg"
+          },
+          {
+            "id": "Vector 6",
+            "margin": {
+              "left": 5.0,
+              "top": 9.0,
+              "right": 12.0,
+              "bottom": 8.0
+            },
+            "alignment": {
+              "horizontal": {
+                "attachment": "start",
+                "offset": -1.0
+              },
+              "vertical": {
+                "attachment": "start",
+                "offset": -1.0
+              }
+            },
+            "size-constraints": {
+              "width-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              },
+              "height-constraints": {
+                "sizing-mode": "proportional",
+                "value": 1.0
+              }
+            },
+            "vector-content": "vector_6.svg"
+          }
+        ]
+      }
+    }
+  },
+  "previews": [
+    {
+      "design": "Column Left",
+      "size": {
+        "width": 768.0,
+        "height": 360.0
+      }
+    }
+  ],
+  "adin-component-search-paths": [],
+  "image-search-paths": [],
+  "vector-search-paths": []
+}

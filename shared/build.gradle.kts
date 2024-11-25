@@ -1,3 +1,4 @@
+import com.android.build.api.variant.BuildConfigField
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
@@ -5,9 +6,12 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidLibrary)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
+    alias(libs.plugins.kotlinx.serialization)
 }
 
 kotlin {
+    androidTarget()
+
     listOf(
         iosX64(),
         iosArm64(),
@@ -24,6 +28,14 @@ kotlin {
             //put your multiplatform dependencies here
             implementation(libs.koin)
             implementation(libs.ktor.cio)
+            implementation(libs.ktor.content.negotiation)
+            implementation(libs.ktor.json.serialization)
+            implementation(libs.kotlinx.serialization)
+            implementation(libs.orbitmvi.core)
+            implementation(libs.appcash.paging.common)
+        }
+        androidMain.dependencies {
+            implementation(libs.kotlin.logging)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
@@ -41,18 +53,25 @@ android {
         buildConfig = true
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    secrets {
+        propertiesFileName = "secrets.local"
+        defaultPropertiesFileName = "secrets.default"
     }
 }
 
-secrets {
-    propertiesFileName = "environment.local"
-    defaultPropertiesFileName = "environment.default"
+// Recipe: https://github.com/android/gradle-recipes/tree/agp-8.7/addCustomBuildConfigFields#adding-fields
+androidComponents {
+    onVariants {
+        it.buildConfigFields.put("TAG", BuildConfigField("String", "\"${rootProject.name}\"", "Logging tag"))
+    }
 }
 
 tasks.withType(KotlinCompile::class.java) {
     compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_1_8)
+        jvmTarget.set(JvmTarget.JVM_11)
     }
 }

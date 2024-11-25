@@ -5,14 +5,30 @@ lifecycle = "2.8.6"
 compose = "1.7.4"
 compose-material3 = "1.3.0"
 androidx-activityCompose = "1.9.3"
+androidx-navigation = "2.8.3"
 orbit-mvi = "9.0.0"
 koin = "4.0.0"
 ktor = "3.0.0"
 secretsGradlePlugin = "2.0.1"
+kotlin-logging = "2.0.11"
+logging-backend = "2.0.16"
+kotlinx-serialization = "1.7.3"
+paging-common = "3.1.1-0.3.1"
+paging-runtime = "3.1.1-0.1.1"
+androidx-pagingCompose = "3.3.2"
+coil = "3.0.0-rc01"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
+androidx-navigation = { module = "androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle"}
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle"}
+appcash-paging-common = { module = "app.cash.paging:paging-common", version.ref = "paging-common" }
+appcash-paging-runtime = { module = "app.cash.paging:paging-runtime", version.ref = "paging-runtime" }
+androidx-paging-compose = { group = "androidx.paging", name = "paging-compose", version.ref = "androidx-pagingCompose" }
+androidx-paging-compose-android = { group = "androidx.paging", name = "paging-compose-android", version.ref = "androidx-pagingCompose" }
 compose-ui = { module = "androidx.compose.ui:ui", version.ref = "compose" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling", version.ref = "compose" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview", version.ref = "compose" }
@@ -22,9 +38,17 @@ orbitmvi-core = { module = "org.orbit-mvi:orbit-core", version.ref = "orbit-mvi"
 orbitmvi-android = { module = "org.orbit-mvi:orbit-viewmodel", version.ref = "orbit-mvi" }
 orbitmvi-compose = { module = "org.orbit-mvi:orbit-compose", version.ref = "orbit-mvi" }
 koin = { module = "io.insert-koin:koin-core", version.ref = "koin" }
+koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
 koin-test = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
 ktor-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
+ktor-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
+ktor-json-serialization = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 secrets-gradle-plugin = { module = "com.google.android.libraries.mapsplatform.secrets-gradle-plugin:secrets-gradle-plugin", version.ref = "secretsGradlePlugin" }
+kotlin-logging = { module = "io.github.microutils:kotlin-logging-jvm", version.ref = "kotlin-logging" }
+logging-backend = { module = "org.slf4j:slf4j-simple", version.ref = "logging-backend" }
+coil = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -33,3 +57,4 @@ kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinCocoapods = { id = "org.jetbrains.kotlin.native.cocoapods", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

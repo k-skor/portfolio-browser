@@ -4,8 +4,8 @@ import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import kotlin.random.Random
 
 class InfiniteColorPicker(currentColorMap: StackColorMap) {
-    val colorMap: MutableMap<String, Int> = mutableMapOf<String, Int>().apply {
-        putAll(currentColorMap)
+    val colorMap: MutableMap<String, Int> by lazy {
+        currentColorMap.toMutableMap()
     }
 
     fun pick(key: String): Int {

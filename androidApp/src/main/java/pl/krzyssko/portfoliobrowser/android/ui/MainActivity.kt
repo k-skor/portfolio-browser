@@ -42,6 +42,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -59,10 +60,18 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
+import androidx.paging.filter
+import androidx.paging.map
 import coil3.compose.AsyncImage
 import com.google.relay.compose.thenIf
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.shareIn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -81,7 +90,7 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 class MainActivity : ComponentActivity() {
     private val projectViewModel: ProjectViewModel by viewModel()
     private val projectDetailsViewModel: ProjectDetailsViewModel by viewModel()
-    private val log: Logging by inject()
+    private val logging: Logging by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,7 +100,7 @@ class MainActivity : ComponentActivity() {
                     projectViewModel.stateFlow.collect { render(it) }
                 }
                 launch {
-                    projectViewModel.sideEffectFlow.collect { handleSideEffect(it) }
+                    projectViewModel.sideEffectsFlow.collect { handleSideEffect(it) }
                 }
             }
         }
@@ -102,12 +111,19 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun render(state: pl.krzyssko.portfoliobrowser.store.State.ProjectsListState) {
-
+        logging.debug("new state")
+        //state.projects.onEach { page ->
+        //    logging.debug("page key=${page.key}:")
+        //    page.value.onEach { project ->
+        //        logging.debug("\tproject name=${project.name}}")
+        //        logging.debug("\tproject stack=${project.stack.joinToString()}")
+        //    }
+        //}
     }
 
     private fun handleSideEffect(sideEffects: UserSideEffects) {
         when (sideEffects) {
-            is UserSideEffects.Trace -> log.debug(sideEffects.message)
+            is UserSideEffects.Trace -> logging.debug(sideEffects.message)
             is UserSideEffects.Toast -> Toast.makeText(this, sideEffects.message, Toast.LENGTH_SHORT).show()
             else -> {}
         }
@@ -124,8 +140,13 @@ fun PortfolioApp(
     detailsViewModel: ProjectDetailsViewModel
 ) {
     val lazyPagingItems = listViewModel.pagingFlow.collectAsLazyPagingItems()
-    //val sideEffectsHandler = detailsViewModel.sideEffectsFlow.collectAsState(UserSideEffects.None)
+    val sideEffectsHandler = listViewModel.sideEffectsFlow.collectAsState(UserSideEffects.None)
+    if (sideEffectsHandler.value == UserSideEffects.Refresh) {
+        //lazyPagingItems.refresh()
+    }
+    val list = listViewModel.stateFlow.map { it.projects.flatMap { page -> page.value } }
     val details = detailsViewModel.stateFlow.collectAsState()
+    val shared = listViewModel.sharedStateFlow.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -140,7 +161,7 @@ fun PortfolioApp(
         }) { innerPadding ->
         NavHost(navController = navController, startDestination = Route.ProjectsList, modifier = modifier) {
             composable<Route.ProjectsList> {
-                ListScreen(modifier, innerPadding, lazyPagingItems, details) { name ->
+                ListScreen(modifier, innerPadding, lazyPagingItems, list, shared, details) { name ->
                     name?.let {
                         detailsViewModel.loadProjectWith(name)
                         coroutineScope.launch {
@@ -154,17 +175,29 @@ fun PortfolioApp(
                 }
             }
             composable<Route.ProjectDetails> {
-                DetailsScreen(modifier, details)
+                DetailsScreen(modifier, details, shared)
             }
         }
     }
 }
 
 @Composable
-fun ListScreen(modifier: Modifier = Modifier, innerPadding: PaddingValues, lazyPagingItems: LazyPagingItems<Project>, detailsState: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>, onFetchDetails: (name: String?) -> Unit) {
+fun ListScreen(
+    modifier: Modifier = Modifier,
+    innerPadding: PaddingValues,
+    lazyPagingItems: LazyPagingItems<Project>,
+    listState: Flow<List<Project>>,
+    sharedState: State<pl.krzyssko.portfoliobrowser.store.State.SharedState>,
+    detailsState: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>,
+    onFetchDetails: (name: String?) -> Unit
+) {
     val projectClicked = remember { mutableStateOf("") }
-        Surface(modifier = modifier.padding(innerPadding), color = MaterialTheme.colorScheme.background) {
-            if (lazyPagingItems.loadState.refresh == LoadState.Loading) {
+    val projectState = listState.collectAsState(emptyList())
+    Surface(
+        modifier = modifier.padding(innerPadding),
+        color = MaterialTheme.colorScheme.background
+    ) {
+        if (lazyPagingItems.loadState.refresh == LoadState.Loading) {
                 CircularProgressIndicator(
                     modifier = Modifier
                         .fillMaxSize()
@@ -229,45 +262,48 @@ fun ListScreen(modifier: Modifier = Modifier, innerPadding: PaddingValues, lazyP
                                             fontSize = 18.sp
                                         )
                                     }
-                                    val sum =
-                                        item.stack.map { it.lines }
-                                            .reduce { sum, lines -> sum + lines }
-                                    Column {
-                                        Row(
-                                            modifier = modifier
-                                                .fillMaxWidth()
-                                                .padding(4.dp)
-                                        ) {
-                                            for (stackIt in item.stack) {
-                                                val weight = stackIt.lines.toFloat() / sum
-                                                Surface(
-                                                    modifier = Modifier
-                                                        .height(4.dp)
-                                                        .weight(weight),
-                                                    color = Color(stackIt.color),
-                                                    shape = RectangleShape
-                                                ) { }
-                                            }
-                                        }
-                                        Column(
-                                            modifier = modifier.padding(
-                                                horizontal = 4.dp,
-                                                vertical = 4.dp
-                                            )
-                                        ) {
-                                            for (stackIt in item.stack) {
-                                                Row {
+                                    if (projectState.value.isNotEmpty() && projectState.value[index].stack.isNotEmpty()) {
+                                        val stack = projectState.value[index].stack
+                                        val sum =
+                                            stack.map { it.lines }
+                                                .reduce { sum, lines -> sum + lines }
+                                        Column {
+                                            Row(
+                                                modifier = modifier
+                                                    .fillMaxWidth()
+                                                    .padding(4.dp)
+                                            ) {
+                                                for (stackIt in stack) {
+                                                    val weight = stackIt.lines.toFloat() / sum
                                                     Surface(
                                                         modifier = Modifier
-                                                            .size(6.dp)
-                                                            .align(Alignment.CenterVertically),
-                                                        color = Color(stackIt.color),
-                                                        shape = CircleShape
+                                                            .height(4.dp)
+                                                            .weight(weight),
+                                                        color = Color(sharedState.value.stackColorMap[stackIt.name] ?: Color.Black.toArgb()),
+                                                        shape = RectangleShape
                                                     ) { }
-                                                    Text(
-                                                        modifier = modifier.padding(start = 4.dp),
-                                                        text = stackIt.name
-                                                    )
+                                                }
+                                            }
+                                            Column(
+                                                modifier = modifier.padding(
+                                                    horizontal = 4.dp,
+                                                    vertical = 4.dp
+                                                )
+                                            ) {
+                                                for (stackIt in stack) {
+                                                    Row {
+                                                        Surface(
+                                                            modifier = Modifier
+                                                                .size(6.dp)
+                                                                .align(Alignment.CenterVertically),
+                                                            color = Color(sharedState.value.stackColorMap[stackIt.name] ?: Color.Black.toArgb()),
+                                                            shape = CircleShape
+                                                        ) { }
+                                                        Text(
+                                                            modifier = modifier.padding(start = 4.dp),
+                                                            text = stackIt.name
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
@@ -306,7 +342,7 @@ fun ListScreen(modifier: Modifier = Modifier, innerPadding: PaddingValues, lazyP
 }
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>) {
+fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>, sharedState: State<pl.krzyssko.portfoliobrowser.store.State.SharedState>) {
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         val item = state.value.project
         val textModifier = modifier
@@ -349,7 +385,7 @@ fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfo
                             modifier = Modifier
                                 .height(4.dp)
                                 .weight(weight),
-                            color = Color(stackIt.color),
+                            color = Color(sharedState.value.stackColorMap[stackIt.name] ?: Color.Black.toArgb()),
                             shape = RectangleShape
                         ) { }
                     }
@@ -366,7 +402,7 @@ fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfo
                                 modifier = Modifier
                                     .size(6.dp)
                                     .align(Alignment.CenterVertically),
-                                color = Color(stackIt.color),
+                                color = Color(sharedState.value.stackColorMap[stackIt.name] ?: Color.Black.toArgb()),
                                 shape = CircleShape
                             ) { }
                             Text(
@@ -407,14 +443,19 @@ val fakeData: List<Project> = listOf(
 )
 val pagingData = PagingData.from(fakeData)
 val fakeDataFlow = MutableStateFlow(pagingData)
-val fakeDetails= pl.krzyssko.portfoliobrowser.store.State.ProjectState(loading = true, project = fakeData[0])
+val fakeList = pl.krzyssko.portfoliobrowser.store.State.ProjectsListState(loading = true, projects = mapOf(null to fakeData))
+val fakeDetails = pl.krzyssko.portfoliobrowser.store.State.ProjectState(loading = true, project = fakeData[0])
+val fakeShared = pl.krzyssko.portfoliobrowser.store.State.SharedState(stackColorMap = mapOf("Kotlin" to (0x00DA02B8 or (0xFF shl 24)), "Java" to (0x3F0AB7C3 or (0xFF shl 24))))
 
 @Preview(widthDp = 320)
 @Composable
 fun DefaultPreview() {
     MyApplicationTheme {
         val details = remember { mutableStateOf(fakeDetails) }
-        ListScreen(modifier = Modifier.fillMaxSize(), innerPadding = PaddingValues(), detailsState = details, lazyPagingItems = fakeDataFlow.collectAsLazyPagingItems()) { name -> }
+        val list = remember { mutableStateOf(fakeList) }
+        val shared = remember { mutableStateOf(fakeShared) }
+        ListScreen(modifier = Modifier.fillMaxSize(), innerPadding = PaddingValues(), listState = flowOf(
+            fakeData), detailsState = details, sharedState = shared, lazyPagingItems = fakeDataFlow.collectAsLazyPagingItems()) { name -> }
         //DetailsScreen(modifier = Modifier.fillMaxSize(), MutableStateFlow(fakeDetails).collectAsState())
     }
 }

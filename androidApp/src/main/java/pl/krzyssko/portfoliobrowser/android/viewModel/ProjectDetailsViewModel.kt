@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.android.viewModel
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import org.koin.core.component.KoinComponent
@@ -12,9 +13,17 @@ import pl.krzyssko.portfoliobrowser.store.State
 import pl.krzyssko.portfoliobrowser.store.loadFrom
 import pl.krzyssko.portfoliobrowser.store.project
 
-class ProjectDetailsViewModel(private val repository: ProjectRepository, ): ViewModel(), KoinComponent {
+class ProjectDetailsViewModel(
+    private val savedStateHandle: SavedStateHandle,
+    private val repository: ProjectRepository,
+) : ViewModel(), KoinComponent {
 
-    private val store: OrbitStore<State.ProjectState> by inject(NAMED_DETAILS) { parametersOf(viewModelScope, State.ProjectState()) }
+    private val store: OrbitStore<State.ProjectState> by inject(NAMED_DETAILS) {
+        parametersOf(
+            viewModelScope,
+            State.ProjectState()
+        )
+    }
 
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow

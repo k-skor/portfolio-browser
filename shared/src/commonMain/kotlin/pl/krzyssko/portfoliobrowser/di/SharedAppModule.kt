@@ -5,6 +5,7 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
@@ -21,6 +22,7 @@ import pl.krzyssko.portfoliobrowser.store.State
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
+val NAMED_SHARED = named("shared")
 
 fun sharedAppModule() = module {
 
@@ -47,6 +49,12 @@ fun sharedAppModule() = module {
         OrbitStore(
             coroutineScope,
             initialState
+        )
+    }
+    single<OrbitStore<State.SharedState>>(NAMED_SHARED) { (initialState: State.SharedState?) ->
+        OrbitStore(
+            CoroutineScope(Dispatchers.Default),
+            initialState ?: State.SharedState()
         )
     }
 }

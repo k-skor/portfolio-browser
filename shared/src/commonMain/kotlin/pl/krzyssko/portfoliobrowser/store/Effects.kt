@@ -16,4 +16,5 @@ sealed class UserSideEffects {
     class Trace(val message: String) : UserSideEffects()
     class NavigateTo(route: Route) : UserSideEffects()
     class Filter(val stackFilter: List<String>) : UserSideEffects()
+    data object Refresh: UserSideEffects()
 }

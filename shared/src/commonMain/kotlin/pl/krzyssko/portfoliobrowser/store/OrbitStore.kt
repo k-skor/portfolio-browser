@@ -3,7 +3,6 @@ package pl.krzyssko.portfoliobrowser.store
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.reduce
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.container
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
@@ -12,37 +11,32 @@ import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 
-class OrbitContainerHost<TState: State>(coroutineScope: CoroutineScope, initialState: TState): ContainerHost<TState, UserSideEffects> {
+class OrbitContainerHost<TState : State>(coroutineScope: CoroutineScope, initialState: TState) :
+    ContainerHost<TState, UserSideEffects> {
     override val container = coroutineScope.container<TState, UserSideEffects>(
         initialState
     )
 }
 
-fun OrbitContainerHost<State.ProjectState>.loadFrom(repository: ProjectRepository, projectName: String) = intent {
+fun OrbitContainerHost<State.ProjectState>.loadFrom(
+    repository: ProjectRepository,
+    projectName: String
+) = intent {
     postSideEffect(UserSideEffects.Block)
 
     reduce {
         state.copy(loading = true)
     }
 
-    val colorPicker = InfiniteColorPicker(emptyMap())
+    val response = repository.fetchProjectDetails(projectName)
 
-    repository.fetchProjectDetails(projectName).map { project ->
-        val response2 = repository.fetchStack(project.name)
-
-        response2.map { stack ->
-            stack.map { entry -> Stack(entry.key, entry.value, colorPicker.pick(entry.key)) }
-        }
-            .map { stack2 ->
-                Project(
-                    project.id,
-                    project.name,
-                    project.description,
-                    stack2,
-                    Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
-                )
-            }.reduce { _, value -> value }
-
+    response.map { project ->
+        Project(
+            id = project.id,
+            name = project.name,
+            description = project.description,
+            icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
+        )
     }.collect {
         reduce {
             state.copy(loading = false, project = it)
@@ -57,7 +51,10 @@ fun OrbitContainerHost<State.ProjectState>.loadFrom(repository: ProjectRepositor
  * 3. Reduce to state
  * 4. Return State, Flow, etc.
  */
-fun OrbitContainerHost<State.ProjectsListState>.loadPageFrom(repository: ProjectRepository, pageKey: String?) = intent {
+fun OrbitContainerHost<State.ProjectsListState>.loadPageFrom(
+    repository: ProjectRepository,
+    pageKey: String?
+) = intent {
     postSideEffect(UserSideEffects.Toast("Loading projects list ${pageKey ?: "initial"} page"))
 
     reduce {
@@ -70,24 +67,64 @@ fun OrbitContainerHost<State.ProjectsListState>.loadPageFrom(repository: Project
 
     flowOf(response).map {
         response.data.map { project ->
-            val response2 = repository.fetchStack(project.name)
-
-            response2.map { stack1 ->
-                stack1.map { entry -> Stack(entry.key, entry.value, colorPicker.pick(entry.key)) }
-            }.map { stack2 ->
-                Project(
-                    project.id,
-                    project.name,
-                    project.description,
-                    stack2,
-                    Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
-                )
-            }.reduce { _, value -> value }
+            Project(
+                id = project.id,
+                name = project.name,
+                description = project.description,
+                icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
+            )
         }
+    }.map {
+        state.projects + (pageKey to it)
     }.collect {
         reduce {
-            state.copy(loading = false, projectsPage = it, nextPageUrl = response.next, isLastPage = response.next == null, stackColorMap = colorPicker.colorMap)
+            state.copy(
+                loading = false,
+                projects = it,
+                currentPageUrl = pageKey,
+                nextPageUrl = response.next,
+                isLastPage = response.next == null,
+                stackColorMap = colorPicker.colorMap
+            )
         }
+    }
+}
+
+fun OrbitContainerHost<State.ProjectsListState>.loadStackForProject(
+    repository: ProjectRepository,
+    projectName: String
+) =
+    intent {
+        reduce {
+            state.copy(loading = true)
+        }
+        repository.fetchStack(projectName).map { entries ->
+            entries.map { entry ->
+                Stack(
+                    name = entry.key,
+                    lines = entry.value
+                )
+            }
+        }.map { stack ->
+            state.projects.mapValues {
+                it.value.map { project ->
+                    if (project.name == projectName) project.copy(stack = stack) else project
+                }
+            }
+        }.collect {
+            reduce {
+                state.copy(loading = false, projects = it)
+            }
+        }
+    }
+
+fun OrbitContainerHost<State.SharedState>.saveStackColors(stack: List<Stack>) = intent {
+    reduce {
+        state.copy(stackColorMap = InfiniteColorPicker(state.stackColorMap).also { picker ->
+            stack.onEach {
+                picker.pick(it.name)
+            }
+        }.colorMap)
     }
 }
 
@@ -103,5 +140,9 @@ fun OrbitStore<State.ProjectState>.project(block: OrbitContainerHost<State.Proje
 }
 
 fun OrbitStore<State.ProjectsListState>.projectsList(block: OrbitContainerHost<State.ProjectsListState>.() -> Unit) {
+    containerHost.apply(block)
+}
+
+fun OrbitStore<State.SharedState>.shared(block: OrbitContainerHost<State.SharedState>.() -> Unit) {
     containerHost.apply(block)
 }

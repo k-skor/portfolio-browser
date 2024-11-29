@@ -16,11 +16,15 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.State
 import pl.krzyssko.portfoliobrowser.store.loadPageFrom
+import pl.krzyssko.portfoliobrowser.store.loadStackForProject
 import pl.krzyssko.portfoliobrowser.store.projectsList
 
 //@Suppress("CAST_NEVER_SUCCEEDS")
-class MyPagingSource(private val repository: ProjectRepository, private val store: OrbitStore<State.ProjectsListState>): PagingSource<String, Project>() {
-    private val log: Logging = getLogging()
+class MyPagingSource(
+    private val repository: ProjectRepository,
+    private val store: OrbitStore<State.ProjectsListState>
+) : PagingSource<String, Project>() {
+    private val logging: Logging = getLogging()
 
     override fun getRefreshKey(state: PagingState<String, Project>): String? = null
 
@@ -37,14 +41,19 @@ class MyPagingSource(private val repository: ProjectRepository, private val stor
             store.projectsList {
                 launch {
                     loadPageFrom(repository, nextPagingKey).join()
+                    // 1. connect InfiniteColorPicker with Stack flow
+                    // 2. update shared state when color is picked
+                    // 3. update colors after loading page and stack
+                    state.value.projects[nextPagingKey]?.onEach {
+                        loadStackForProject(repository, it.name)
+                    }
                 }
             }
         }
-
-        log.debug("Load state projects size=${state.value.projectsPage.size}")
+        logging.debug("Load state projects size=${state.value.projects[nextPagingKey]?.size}")
 
         return PagingSourceLoadResultPage(
-            data = state.value.projectsPage,
+            data = state.value.projects[nextPagingKey] ?: emptyList(),
             nextKey = state.value.nextPageUrl,
             prevKey = null,
         ) as PagingSourceLoadResult<String, Project>

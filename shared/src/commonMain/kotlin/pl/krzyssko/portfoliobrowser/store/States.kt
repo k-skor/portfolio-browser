@@ -6,12 +6,13 @@ typealias StackColorMap = Map<String, Int>
 
 
 sealed class State {
+    data class SharedState(val stackColorMap: StackColorMap = emptyMap()): State()
     data class ProjectState(val loading: Boolean = false, val project: Project? = null) :
         State()
-
     data class ProjectsListState(
         val loading: Boolean = false,
-        val projectsPage: List<Project> = emptyList(),
+        val projects: Map<String?, List<Project>> = emptyMap(),
+        val currentPageUrl: String? = null,
         val nextPageUrl: String? = null,
         val isLastPage: Boolean = false,
         val stackFilter: List<String> = emptyList(),

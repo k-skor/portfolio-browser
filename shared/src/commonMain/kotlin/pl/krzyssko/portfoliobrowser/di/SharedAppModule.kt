@@ -18,7 +18,9 @@ import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
-import pl.krzyssko.portfoliobrowser.store.State
+import pl.krzyssko.portfoliobrowser.store.ProjectState
+import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+import pl.krzyssko.portfoliobrowser.store.SharedState
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
@@ -39,22 +41,22 @@ fun sharedAppModule() = module {
     }
     factory<Configuration> { getConfiguration() }
     factory<Logging> { getLogging() }
-    factory<OrbitStore<State.ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: State.ProjectsListState) ->
+    factory<OrbitStore<ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: ProjectsListState) ->
         OrbitStore(
             coroutineScope,
             initialState
         )
     }
-    factory<OrbitStore<State.ProjectState>>(NAMED_DETAILS) { (coroutineScope: CoroutineScope, initialState: State.ProjectState) ->
+    factory<OrbitStore<ProjectState>>(NAMED_DETAILS) { (coroutineScope: CoroutineScope, initialState: ProjectState) ->
         OrbitStore(
             coroutineScope,
             initialState
         )
     }
-    single<OrbitStore<State.SharedState>>(NAMED_SHARED) { (initialState: State.SharedState?) ->
+    single<OrbitStore<SharedState>>(NAMED_SHARED) { (initialState: SharedState?) ->
         OrbitStore(
             CoroutineScope(Dispatchers.Default),
-            initialState ?: State.SharedState()
+            initialState ?: SharedState()
         )
     }
 }

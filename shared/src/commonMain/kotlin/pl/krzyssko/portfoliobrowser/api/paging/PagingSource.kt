@@ -14,15 +14,15 @@ import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
-import pl.krzyssko.portfoliobrowser.store.State
+import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.loadPageFrom
-import pl.krzyssko.portfoliobrowser.store.loadStackForProject
+import pl.krzyssko.portfoliobrowser.store.loadStackForProjects
 import pl.krzyssko.portfoliobrowser.store.projectsList
 
 //@Suppress("CAST_NEVER_SUCCEEDS")
 class MyPagingSource(
     private val repository: ProjectRepository,
-    private val store: OrbitStore<State.ProjectsListState>
+    private val store: OrbitStore<ProjectsListState>
 ) : PagingSource<String, Project>() {
     private val logging: Logging = getLogging()
 
@@ -45,7 +45,7 @@ class MyPagingSource(
                     // 2. update shared state when color is picked
                     // 3. update colors after loading page and stack
                     state.value.projects[nextPagingKey]?.onEach {
-                        loadStackForProject(repository, it.name)
+                        loadStackForProjects(repository, it.name)
                     }
                 }
             }

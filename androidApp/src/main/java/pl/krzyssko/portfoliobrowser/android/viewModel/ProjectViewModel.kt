@@ -7,8 +7,6 @@ import app.cash.paging.Pager
 import app.cash.paging.PagingConfig
 import app.cash.paging.cachedIn
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
@@ -20,8 +18,9 @@ import pl.krzyssko.portfoliobrowser.di.NAMED_SHARED
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
+import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+import pl.krzyssko.portfoliobrowser.store.SharedState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
-import pl.krzyssko.portfoliobrowser.store.State
 import pl.krzyssko.portfoliobrowser.store.saveStackColors
 import pl.krzyssko.portfoliobrowser.store.shared
 
@@ -35,15 +34,15 @@ class ProjectViewModel(
     }
 
     private val logging by inject<Logging>()
-    private val store: OrbitStore<State.ProjectsListState> by inject(NAMED_LIST) {
+    private val store: OrbitStore<ProjectsListState> by inject(NAMED_LIST) {
         parametersOf(
             viewModelScope,
-            State.ProjectsListState()
+            ProjectsListState()
         )
     }
-    private val shared by inject<OrbitStore<State.SharedState>>(NAMED_SHARED) {
+    private val shared by inject<OrbitStore<SharedState>>(NAMED_SHARED) {
         parametersOf(savedStateHandle.get<StackColorMap>(SHARED_STATE_KEY)
-            ?.let { State.SharedState(it) })
+            ?.let { SharedState(it) })
     }
 
     val stateFlow = store.stateFlow
@@ -58,7 +57,6 @@ class ProjectViewModel(
     init {
         viewModelScope.launch {
             stateFlow.map { it.projects.flatMap { page -> page.value.map { project -> project.stack } } }
-                .filter { it.isNotEmpty() }
                 .distinctUntilChanged().collect {
                     logging.debug("updating colors map")
                     shared.shared {

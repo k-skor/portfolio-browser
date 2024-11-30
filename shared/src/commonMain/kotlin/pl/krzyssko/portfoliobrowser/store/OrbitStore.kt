@@ -1,6 +1,7 @@
 package pl.krzyssko.portfoliobrowser.store
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import org.orbitmvi.orbit.ContainerHost
@@ -11,21 +12,21 @@ import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 
-class OrbitContainerHost<TState : State>(coroutineScope: CoroutineScope, initialState: TState) :
+class OrbitContainerHost<TState : Any>(coroutineScope: CoroutineScope, initialState: TState) :
     ContainerHost<TState, UserSideEffects> {
     override val container = coroutineScope.container<TState, UserSideEffects>(
         initialState
     )
 }
 
-fun OrbitContainerHost<State.ProjectState>.loadFrom(
+fun OrbitContainerHost<ProjectState>.loadFrom(
     repository: ProjectRepository,
     projectName: String
 ) = intent {
     postSideEffect(UserSideEffects.Block)
 
     reduce {
-        state.copy(loading = true)
+        ProjectState.Loading
     }
 
     val response = repository.fetchProjectDetails(projectName)
@@ -39,7 +40,7 @@ fun OrbitContainerHost<State.ProjectState>.loadFrom(
         )
     }.collect {
         reduce {
-            state.copy(loading = false, project = it)
+            ProjectState.Ready(it)
         }
         postSideEffect(UserSideEffects.NavigateTo(Route.ProjectDetails))
     }
@@ -51,17 +52,11 @@ fun OrbitContainerHost<State.ProjectState>.loadFrom(
  * 3. Reduce to state
  * 4. Return State, Flow, etc.
  */
-fun OrbitContainerHost<State.ProjectsListState>.loadPageFrom(
+fun OrbitContainerHost<ProjectsListState>.loadPageFrom(
     repository: ProjectRepository,
     pageKey: String?
 ) = intent {
     postSideEffect(UserSideEffects.Toast("Loading projects list ${pageKey ?: "initial"} page"))
-
-    reduce {
-        state.copy(loading = true)
-    }
-
-    val colorPicker = InfiniteColorPicker(state.stackColorMap)
 
     val response = repository.fetchProjects(pageKey)
 
@@ -83,21 +78,40 @@ fun OrbitContainerHost<State.ProjectsListState>.loadPageFrom(
                 projects = it,
                 currentPageUrl = pageKey,
                 nextPageUrl = response.next,
-                isLastPage = response.next == null,
-                stackColorMap = colorPicker.colorMap
+                isLastPage = response.next == null
             )
         }
     }
 }
 
-fun OrbitContainerHost<State.ProjectsListState>.loadStackForProject(
+fun OrbitContainerHost<ProjectState>.loadStackForProject(
     repository: ProjectRepository,
     projectName: String
 ) =
     intent {
-        reduce {
-            state.copy(loading = true)
+        (state as? ProjectState.Ready)?.let {
+            repository.fetchStack(projectName).map { entries ->
+                entries.map { entry ->
+                    Stack(
+                        name = entry.key,
+                        lines = entry.value
+                    )
+                }
+            }.map { stack ->
+                it.project.copy(stack = stack)
+            }.collect { project ->
+                reduce {
+                    it.copy(project = project)
+                }
+            }
         }
+    }
+
+fun OrbitContainerHost<ProjectsListState>.loadStackForProjects(
+    repository: ProjectRepository,
+    projectName: String
+) =
+    intent {
         repository.fetchStack(projectName).map { entries ->
             entries.map { entry ->
                 Stack(
@@ -118,7 +132,7 @@ fun OrbitContainerHost<State.ProjectsListState>.loadStackForProject(
         }
     }
 
-fun OrbitContainerHost<State.SharedState>.saveStackColors(stack: List<Stack>) = intent {
+fun OrbitContainerHost<SharedState>.saveStackColors(stack: List<Stack>) = intent {
     reduce {
         state.copy(stackColorMap = InfiniteColorPicker(state.stackColorMap).also { picker ->
             stack.onEach {
@@ -128,21 +142,21 @@ fun OrbitContainerHost<State.SharedState>.saveStackColors(stack: List<Stack>) = 
     }
 }
 
-class OrbitStore<TState : State>(coroutineScope: CoroutineScope, initialState: TState) {
+class OrbitStore<TState : Any>(coroutineScope: CoroutineScope, initialState: TState) {
     val containerHost = OrbitContainerHost(coroutineScope, initialState)
 
     val stateFlow = containerHost.container.stateFlow
     val sideEffectFlow = containerHost.container.sideEffectFlow
 }
 
-fun OrbitStore<State.ProjectState>.project(block: OrbitContainerHost<State.ProjectState>.() -> Unit) {
+fun OrbitStore<ProjectState>.project(block: OrbitContainerHost<ProjectState>.() -> Unit) {
     containerHost.apply(block)
 }
 
-fun OrbitStore<State.ProjectsListState>.projectsList(block: OrbitContainerHost<State.ProjectsListState>.() -> Unit) {
+fun OrbitStore<ProjectsListState>.projectsList(block: OrbitContainerHost<ProjectsListState>.() -> Unit) {
     containerHost.apply(block)
 }
 
-fun OrbitStore<State.SharedState>.shared(block: OrbitContainerHost<State.SharedState>.() -> Unit) {
+fun OrbitStore<SharedState>.shared(block: OrbitContainerHost<SharedState>.() -> Unit) {
     containerHost.apply(block)
 }

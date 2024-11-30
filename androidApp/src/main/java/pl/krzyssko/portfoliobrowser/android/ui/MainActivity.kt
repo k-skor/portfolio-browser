@@ -60,18 +60,10 @@ import androidx.paging.PagingData
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
-import androidx.paging.filter
-import androidx.paging.map
 import coil3.compose.AsyncImage
 import com.google.relay.compose.thenIf
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -84,7 +76,10 @@ import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.store.ProjectState
+import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.Route
+import pl.krzyssko.portfoliobrowser.store.SharedState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 
 class MainActivity : ComponentActivity() {
@@ -110,7 +105,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun render(state: pl.krzyssko.portfoliobrowser.store.State.ProjectsListState) {
+    private fun render(state: ProjectsListState) {
         logging.debug("new state")
         //state.projects.onEach { page ->
         //    logging.debug("page key=${page.key}:")
@@ -144,7 +139,12 @@ fun PortfolioApp(
     if (sideEffectsHandler.value == UserSideEffects.Refresh) {
         //lazyPagingItems.refresh()
     }
-    val list = listViewModel.stateFlow.map { it.projects.flatMap { page -> page.value } }
+    //val list =
+    //    listViewModel.stateFlow.map { (it as? ProjectsListState.Ready)?.projects?.flatMap { page -> page.value } }
+    //        .collectAsState(
+    //            emptyList()
+    //        )
+    val list = listViewModel.stateFlow.collectAsState()
     val details = detailsViewModel.stateFlow.collectAsState()
     val shared = listViewModel.sharedStateFlow.collectAsState()
     Scaffold(
@@ -186,13 +186,13 @@ fun ListScreen(
     modifier: Modifier = Modifier,
     innerPadding: PaddingValues,
     lazyPagingItems: LazyPagingItems<Project>,
-    listState: Flow<List<Project>>,
-    sharedState: State<pl.krzyssko.portfoliobrowser.store.State.SharedState>,
-    detailsState: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>,
+    listState: State<ProjectsListState>,
+    sharedState: State<SharedState>,
+    detailsState: State<ProjectState>,
     onFetchDetails: (name: String?) -> Unit
 ) {
     val projectClicked = remember { mutableStateOf("") }
-    val projectState = listState.collectAsState(emptyList())
+    val projectsState = listState.value.projects.flatMap { it.value }
     Surface(
         modifier = modifier.padding(innerPadding),
         color = MaterialTheme.colorScheme.background
@@ -227,7 +227,7 @@ fun ListScreen(
                                     projectClicked.value = item.name
                                 }
                             }) {
-                            Box(Modifier.thenIf(detailsState.value.loading && item.name == projectClicked.value) {
+                            Box(Modifier.thenIf((detailsState.value is ProjectState.Loading) && item.name == projectClicked.value) {
                                 Modifier.alpha(
                                     0.22f
                                 )
@@ -262,8 +262,8 @@ fun ListScreen(
                                             fontSize = 18.sp
                                         )
                                     }
-                                    if (projectState.value.isNotEmpty() && projectState.value[index].stack.isNotEmpty()) {
-                                        val stack = projectState.value[index].stack
+                                    if (index < projectsState.size && projectsState[index].stack.isNotEmpty()) {
+                                        val stack = projectsState[index].stack
                                         val sum =
                                             stack.map { it.lines }
                                                 .reduce { sum, lines -> sum + lines }
@@ -309,7 +309,7 @@ fun ListScreen(
                                         }
                                     }
                                 }
-                                if (detailsState.value.loading && item.name == projectClicked.value) {
+                                if ((detailsState.value is ProjectState.Loading) && item.name == projectClicked.value) {
                                     CircularProgressIndicator(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -342,9 +342,9 @@ fun ListScreen(
 }
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfoliobrowser.store.State.ProjectState>, sharedState: State<pl.krzyssko.portfoliobrowser.store.State.SharedState>) {
+fun DetailsScreen(modifier: Modifier = Modifier, state: State<ProjectState>, sharedState: State<SharedState>) {
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
-        val item = state.value.project
+        val item = (state.value as? ProjectState.Ready)?.project
         val textModifier = modifier
             .padding(horizontal = 4.dp, vertical = 8.dp)
             .padding(bottom = 12.dp)
@@ -372,9 +372,10 @@ fun DetailsScreen(modifier: Modifier = Modifier, state: State<pl.krzyssko.portfo
                 fontSize = 18.sp
             )
         }
-        item?.stack?.let { stack ->
+        if (!item?.stack.isNullOrEmpty()) {
             val sum =
-                stack.map { it.lines }.reduce { sum, lines -> sum + lines }
+                item?.stack?.map { it.lines }?.reduce { sum, lines -> sum + lines } ?: 0
+            val stack = item?.stack ?: emptyList()
             Column {
                 Row(modifier = modifier
                     .fillMaxWidth()
@@ -443,9 +444,9 @@ val fakeData: List<Project> = listOf(
 )
 val pagingData = PagingData.from(fakeData)
 val fakeDataFlow = MutableStateFlow(pagingData)
-val fakeList = pl.krzyssko.portfoliobrowser.store.State.ProjectsListState(loading = true, projects = mapOf(null to fakeData))
-val fakeDetails = pl.krzyssko.portfoliobrowser.store.State.ProjectState(loading = true, project = fakeData[0])
-val fakeShared = pl.krzyssko.portfoliobrowser.store.State.SharedState(stackColorMap = mapOf("Kotlin" to (0x00DA02B8 or (0xFF shl 24)), "Java" to (0x3F0AB7C3 or (0xFF shl 24))))
+val fakeList = ProjectsListState(projects = mapOf(null to fakeData))
+val fakeDetails = ProjectState.Ready(fakeData[0])
+val fakeShared = SharedState(stackColorMap = mapOf("Kotlin" to (0x00DA02B8 or (0xFF shl 24)), "Java" to (0x3F0AB7C3 or (0xFF shl 24))))
 
 @Preview(widthDp = 320)
 @Composable
@@ -454,8 +455,7 @@ fun DefaultPreview() {
         val details = remember { mutableStateOf(fakeDetails) }
         val list = remember { mutableStateOf(fakeList) }
         val shared = remember { mutableStateOf(fakeShared) }
-        ListScreen(modifier = Modifier.fillMaxSize(), innerPadding = PaddingValues(), listState = flowOf(
-            fakeData), detailsState = details, sharedState = shared, lazyPagingItems = fakeDataFlow.collectAsLazyPagingItems()) { name -> }
+        ListScreen(modifier = Modifier.fillMaxSize(), innerPadding = PaddingValues(), listState = list, detailsState = details, sharedState = shared, lazyPagingItems = fakeDataFlow.collectAsLazyPagingItems()) { name -> }
         //DetailsScreen(modifier = Modifier.fillMaxSize(), MutableStateFlow(fakeDetails).collectAsState())
     }
 }

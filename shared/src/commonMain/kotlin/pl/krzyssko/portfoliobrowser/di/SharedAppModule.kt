@@ -9,6 +9,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
 import org.koin.core.qualifier.named
 import org.koin.dsl.module
+import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.Api
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
 import pl.krzyssko.portfoliobrowser.platform.Configuration
@@ -20,11 +21,10 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
-import pl.krzyssko.portfoliobrowser.store.SharedState
+import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
-val NAMED_SHARED = named("shared")
 
 fun sharedAppModule() = module {
 
@@ -41,6 +41,7 @@ fun sharedAppModule() = module {
     }
     factory<Configuration> { getConfiguration() }
     factory<Logging> { getLogging() }
+    single<InfiniteColorPicker> { (colorMap: StackColorMap?) -> InfiniteColorPicker(colorMap ?: emptyMap()) }
     factory<OrbitStore<ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: ProjectsListState) ->
         OrbitStore(
             coroutineScope,
@@ -51,12 +52,6 @@ fun sharedAppModule() = module {
         OrbitStore(
             coroutineScope,
             initialState
-        )
-    }
-    single<OrbitStore<SharedState>>(NAMED_SHARED) { (initialState: SharedState?) ->
-        OrbitStore(
-            CoroutineScope(Dispatchers.Default),
-            initialState ?: SharedState()
         )
     }
 }

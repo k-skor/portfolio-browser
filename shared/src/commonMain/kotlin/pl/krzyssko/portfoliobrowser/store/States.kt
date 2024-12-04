@@ -5,8 +5,6 @@ import pl.krzyssko.portfoliobrowser.data.Project
 typealias StackColorMap = Map<String, Int>
 
 
-data class SharedState(val stackColorMap: StackColorMap = emptyMap())
-
 sealed class ProjectState {
     data object Loading: ProjectState()
     data class Ready(val project: Project): ProjectState()

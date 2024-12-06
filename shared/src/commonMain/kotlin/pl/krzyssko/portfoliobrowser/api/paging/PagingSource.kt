@@ -6,27 +6,29 @@ import app.cash.paging.PagingSourceLoadResult
 import app.cash.paging.PagingSourceLoadResultPage
 import app.cash.paging.PagingState
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
-import org.orbitmvi.orbit.annotation.OrbitExperimental
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.platform.Logging
-import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.loadPageFrom
-import pl.krzyssko.portfoliobrowser.store.loadStack
 import pl.krzyssko.portfoliobrowser.store.projectsList
+import pl.krzyssko.portfoliobrowser.store.searchProjects
 
 //@Suppress("CAST_NEVER_SUCCEEDS")
 class MyPagingSource(
     private val repository: ProjectRepository,
     private val colorPicker: InfiniteColorPicker,
     private val store: OrbitStore<ProjectsListState>
-) : PagingSource<String, Project>() {
-    private val logging: Logging = getLogging()
+) : PagingSource<String, Project>(), KoinComponent {
+    private val logging: Logging by inject()
 
     override fun getRefreshKey(state: PagingState<String, Project>): String? = null
 
@@ -35,28 +37,28 @@ class MyPagingSource(
      *  2. Suspend
      *  3. Observe for state updates and return from load function
      */
-    @OrbitExperimental
-    override suspend fun load(params: PagingSourceLoadParams<String>): PagingSourceLoadResult<String, Project> {
+    override suspend fun load(params: PagingSourceLoadParams<String>): PagingSourceLoadResult<String, Project> = withContext(Dispatchers.Default) {
         val nextPagingKey = params.key
 
         val state = store.stateFlow
-        withContext(Dispatchers.Default) {
-            store.projectsList {
-                launch {
-                    loadPageFrom(repository, nextPagingKey).join()
-                    // 1. connect InfiniteColorPicker with Stack flow
-                    // 2. update shared state when color is picked
-                    // 3. update colors after loading page and stack
-                    loadStack(repository, colorPicker, nextPagingKey)
-                }
+        val phrase = state.value.searchPhrase
+        store.projectsList {
+            if (!phrase.isNullOrEmpty()) {
+                searchProjects(repository, colorPicker, nextPagingKey)
+            } else {
+                loadPageFrom(repository, colorPicker, nextPagingKey)
             }
         }
-        logging.debug("Load state projects size=${state.value.projects[nextPagingKey]?.size}")
+        val page = state.onEach { logging.debug("loading page new state!!!") }
+            .filter { it.currentPageUrl == nextPagingKey }.filter { it.projects.isNotEmpty() }
+            .first()
 
-        return PagingSourceLoadResultPage(
-            data = state.value.projects[nextPagingKey] ?: emptyList(),
-            nextKey = state.value.nextPageUrl,
-            prevKey = null,
+        logging.debug("Load state projects size=${page.projects[nextPagingKey]?.size}")
+
+        PagingSourceLoadResultPage(
+            data = page.projects[nextPagingKey] ?: emptyList(),
+            nextKey = page.nextPageUrl,
+            prevKey = page.prevPageUrl,
         ) as PagingSourceLoadResult<String, Project>
     }
 }

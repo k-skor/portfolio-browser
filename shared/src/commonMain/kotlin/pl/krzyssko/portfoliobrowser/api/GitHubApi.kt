@@ -8,15 +8,39 @@ import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.url
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
 import io.ktor.http.headers
 import io.ktor.http.parseQueryString
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubLanguage
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubProject
+import pl.krzyssko.portfoliobrowser.api.dto.GitHubSearch
 import pl.krzyssko.portfoliobrowser.api.paging.LinkHeaderPageParser
 import pl.krzyssko.portfoliobrowser.api.paging.PagingKey
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+
+data class PagedResponse<out T>(
+    val data: List<T>,
+    val prev: String? = null,
+    val next: String? = null,
+    val last: String? = null
+)
+
+data class PagedSearchResult<out T>(
+    val data: T,
+    val prev: String? = null,
+    val next: String? = null,
+    val last: String? = null
+)
+
+interface Api {
+    suspend fun getRepos(page: Number = 1): List<GitHubProject>
+    suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject>
+    suspend fun getRepoLanguages(repoName: String): GitHubLanguage
+    suspend fun getRepoBy(name: String): GitHubProject
+    suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch>
+}
 
 class GitHubApi(private val httpClient: HttpClient, configuration: Configuration) : Api {
 
@@ -58,18 +82,18 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
         return result
     }
 
-    override suspend fun getRepos(query: String?): PagedResponse<GitHubProject> {
+    override suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject> {
         val request = httpClient.get {
             getHttpRequestBuilderBlock(this, "users/$user/repos") {
-                if (query == null) {
+                if (queryParams == null) {
                     url.parameters.apply {
                         append("per_page", "5")
                         append("page", "1")
                     }
                 } else {
-                    val startIndex = query.indexOfFirst { c -> c == '?' }
+                    val startIndex = queryParams.indexOfFirst { c -> c == '?' }
                     url.parameters.apply {
-                        appendAll(parseQueryString(query, startIndex + 1))
+                        appendAll(parseQueryString(queryParams, startIndex + 1))
                     }
                 }
                 log.debug("Requesting URL $url")
@@ -89,13 +113,17 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
     }
 
     override suspend fun getRepoLanguages(repoName: String): GitHubLanguage {
-        val result = httpClient.get {
-            getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
-        }.body<GitHubLanguage>()
+        try {
+            val result = httpClient.get {
+                getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
+            }.body<GitHubLanguage>()
 
-        log.debug(result.toString())
+            log.debug(result.toString())
 
-        return result
+            return result
+        } catch (ex: Exception) {
+            return emptyMap()
+        }
     }
 
     override suspend fun getRepoBy(name: String): GitHubProject {
@@ -106,5 +134,51 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
         log.debug(result.toString())
 
         return result
+    }
+
+    /**
+     * Query example: android in:name in:description user:k-skor
+     */
+    override suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch> {
+        try {
+        val request = httpClient.get {
+            getHttpRequestBuilderBlock(this, "search/repositories") {
+                url.parameters.apply {
+                    appendAll(parseQueryString(query))
+                }
+                if (queryParams == null) {
+                    url.parameters.apply {
+                        append("per_page", "5")
+                        append("page", "1")
+                    }
+                } else {
+                    val startIndex = queryParams.indexOfFirst { c -> c == '?' }
+                    url.parameters.apply {
+                        appendAll(parseQueryString(queryParams, startIndex + 1))
+                    }
+                }
+                log.debug("Requesting URL $url")
+            }
+        }
+
+        if (request.status != HttpStatusCode.OK) {
+            return PagedSearchResult(GitHubSearch(emptyList()))
+        }
+
+        val result = request.body<GitHubSearch>()
+
+        val paging = LinkHeaderPageParser()
+        if (request.headers.contains("link")) {
+            log.debug("Raw link=${request.headers["link"]}")
+            paging.parse(request.headers["link"]!!)
+        } else {
+            log.debug("No link headers")
+        }
+
+        return PagedSearchResult(result, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last))
+
+        } catch (error: Error) {
+            return PagedSearchResult(GitHubSearch(projects = emptyList()))
+        }
     }
 }

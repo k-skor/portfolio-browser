@@ -18,6 +18,8 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
+import pl.krzyssko.portfoliobrowser.store.projectsList
+import pl.krzyssko.portfoliobrowser.store.updateSearchPhrase
 
 class ProjectViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -50,6 +52,12 @@ class ProjectViewModel(
             colorPicker.colorMapStateFlow.collectLatest {
                 savedStateHandle[COLORS_STATE_KEY] = it
             }
+        }
+    }
+
+    fun updateSearchPhrase(searchFieldText: String) {
+        store.projectsList {
+            updateSearchPhrase(searchFieldText)
         }
     }
 }

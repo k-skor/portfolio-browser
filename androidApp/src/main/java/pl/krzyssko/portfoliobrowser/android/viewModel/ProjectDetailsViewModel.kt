@@ -3,7 +3,6 @@ package pl.krzyssko.portfoliobrowser.android.viewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
@@ -15,7 +14,6 @@ import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import pl.krzyssko.portfoliobrowser.store.loadFrom
-import pl.krzyssko.portfoliobrowser.store.loadStackForProject
 import pl.krzyssko.portfoliobrowser.store.project
 
 class ProjectDetailsViewModel(
@@ -38,10 +36,7 @@ class ProjectDetailsViewModel(
 
     fun loadProjectWith(name: String) {
         store.project {
-            viewModelScope.launch {
-                loadFrom(repository, name).join()
-                loadStackForProject(repository, colorPicker, name)
-            }
+            loadFrom(repository, colorPicker, name)
         }
     }
 }

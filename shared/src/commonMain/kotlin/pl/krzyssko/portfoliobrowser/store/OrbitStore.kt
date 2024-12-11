@@ -1,14 +1,22 @@
 package pl.krzyssko.portfoliobrowser.store
 
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.container
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
+import pl.krzyssko.portfoliobrowser.api.PagedResponse
+import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.data.Paging
+import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.data.Stack
+import pl.krzyssko.portfoliobrowser.db.Firestore
+import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 
 class OrbitContainerHost<TState : Any>(coroutineScope: CoroutineScope, initialState: TState) :
@@ -36,14 +44,67 @@ fun OrbitContainerHost<ProjectState>.loadFrom(
                 emit(project)
             }
         }
-    }.onStart {
-        reduce { ProjectState.Loading }
     }.collect {
         it.collect {
             reduce {
                 ProjectState.Ready(it)
             }
             postSideEffect(UserSideEffects.NavigateTo(Route.ProjectDetails))
+        }
+    }
+}
+
+fun OrbitContainerHost<ProjectsListState>.initAuth(auth: Auth) = intent {
+    (state as? ProjectsListState.Idling)?.let {
+        auth.initAuth()
+        reduce {
+            ProjectsListState.Initialized
+        }
+    }
+}
+
+fun OrbitContainerHost<ProjectsListState>.reauthenticate(uiHandler: Any?, auth: Auth) = authenticateWithGitHub(uiHandler, auth, true)
+
+fun OrbitContainerHost<ProjectsListState>.authenticateWithGitHub(uiHandler: Any?, auth: Auth, reauthenticate: Boolean = false) = intent {
+    (state as? ProjectsListState.Initialized)?.let {
+        auth.startSignInFlow(uiHandler, reauthenticate)?.let {
+            reduce {
+                ProjectsListState.Authenticated(user = it)
+            }
+            postSideEffect(UserSideEffects.Toast("Preparing user account..."))
+        }
+    }
+}
+
+fun OrbitContainerHost<ProjectsListState>.resetAuth(auth: Auth) = intent {
+    auth.signOut()
+    reduce {
+        ProjectsListState.Initialized
+    }
+}
+
+fun loadPage(
+    projectFlow: () -> Flow<PagedResponse<Project>>,
+    stackFlow: (projectName: String) -> Flow<List<Stack>>,
+    colorPicker: InfiniteColorPicker
+): Flow<Flow<PagedResponse<Project>>> {
+    return projectFlow().map {
+        flow {
+            emit(it)
+
+            val data = it.data.toMutableList()
+            for (index in it.data.indices) {
+                val project = it.data[index]
+                stackFlow(project.name).collect { list ->
+                    data[index] = project.copy(stack = list.map { stack ->
+                        stack.copy(
+                            color = colorPicker.pick(stack.name)
+                        )
+                    })
+                    getLogging().debug("store stack emit size=${list.size}")
+                    emit(it.copy(data = data))
+                }
+            }
         }
     }
 }
@@ -61,46 +122,56 @@ fun OrbitContainerHost<ProjectsListState>.loadPageFrom(
 ) = intent {
     postSideEffect(UserSideEffects.Toast("Loading projects list ${pageKey ?: "initial"} page"))
 
-    repository.fetchProjects(pageKey).map {
-        flow {
-            emit(it)
+    val getPaging = { page: PagedResponse<Any> ->
+        Paging(
+            currentPageUrl = pageKey,
+            nextPageUrl = page.next,
+            prevPageUrl = page.prev,
+            isLastPage = pageKey == page.last
+        )
+    }
 
-            val data = it.data.toMutableList()
-            for (index in it.data.indices) {
-                val project = it.data[index]
-                repository.fetchStack(project.name).collect { list ->
-                    data[index] = project.copy(stack = list.map { stack ->
-                        stack.copy(
-                            color = colorPicker.pick(stack.name)
-                        )
-                    })
-                    emit(it.copy(data = data))
+    when (state) {
+        is ProjectsListState.Authenticated -> loadPage(
+            { repository.fetchProjects(pageKey) },
+            { projectName -> repository.fetchStack(projectName) },
+            colorPicker
+        ).collect {
+            it.collect { page ->
+                reduce {
+                    ProjectsListState.Ready(
+                        projects = mapOf(pageKey to page.data),
+                        paging = getPaging(page)
+                    )
                 }
             }
         }
-    }.onStart {
-        reduce { state.copy(loading = true) }
-    }.onCompletion {
-        reduce { state.copy(loading = false) }
-    }.collect {
-        it.collect { page ->
-            reduce {
-                state.copy(
-                    projects = state.projects + (pageKey to page.data),
-                    currentPageUrl = pageKey,
-                    nextPageUrl = page.next,
-                    isLastPage = pageKey == page.last
-                )
+        is ProjectsListState.Ready -> loadPage(
+            { repository.fetchProjects(pageKey) },
+            { projectName -> repository.fetchStack(projectName) },
+            colorPicker
+        ).collect {
+            it.collect { page ->
+                reduce {
+                    val state = (state as ProjectsListState.Ready)
+                    state.copy(
+                        projects = state.projects + (pageKey to page.data),
+                        paging = getPaging(page)
+                    )
+                }
             }
         }
+        else -> return@intent
     }
 }
 
 fun OrbitContainerHost<ProjectsListState>.updateSearchPhrase(
     phrase: String?,
 ) = intent {
-    if (phrase != state.searchPhrase) {
-        reduce { state.copy(searchPhrase = phrase, projects = emptyMap()) }
+    (state as? ProjectsListState.Ready)?.let {
+        if (phrase != it.searchPhrase) {
+            reduce { it.copy(searchPhrase = phrase, projects = emptyMap()) }
+        }
     }
 }
 
@@ -109,99 +180,48 @@ fun OrbitContainerHost<ProjectsListState>.searchProjects(
     colorPicker: InfiniteColorPicker,
     pageKey: String?
 ) = intent {
-    if (state.searchPhrase.isNullOrEmpty()) {
-        return@intent
-    }
+    (state as? ProjectsListState.Ready)?.let { state ->
 
-    // TODO: move to API layer
-    val query = "q=${state.searchPhrase} in:name in:description user:k-skor"
+        // TODO: move to API layer
+        val query = "q=${state.searchPhrase} in:name in:description user:k-skor"
 
-    repository.searchProjects(query, pageKey).map {
-        flow {
-            emit(it)
-
-            val data = it.data.toMutableList()
-            for (index in it.data.indices) {
-                val project = it.data[index]
-                repository.fetchStack(project.name).collect { list ->
-                    data[index] = project.copy(stack = list.map { stack ->
-                        stack.copy(
-                            color = colorPicker.pick(stack.name)
+        loadPage(
+            { repository.searchProjects(query, pageKey) },
+            { projectName -> repository.fetchStack(projectName) },
+            colorPicker
+        ).takeIf { !state.searchPhrase.isNullOrEmpty() }?.collect {
+            it.collect { page ->
+                reduce {
+                    state.copy(
+                        projects = state.projects + (pageKey to page.data),
+                        paging = Paging(
+                            currentPageUrl = pageKey,
+                            nextPageUrl = page.next,
+                            prevPageUrl = page.prev,
+                            isLastPage = pageKey == page.last
                         )
-                    })
-                    emit(it.copy(data = data))
+                    )
                 }
-            }
-        }
-    }.onStart {
-        reduce { state.copy(loading = true) }
-    }.onCompletion {
-        reduce { state.copy(loading = false) }
-    }.collect {
-        it.collect { page ->
-            reduce {
-                state.copy(
-                    projects = state.projects + (pageKey to page.data),
-                    currentPageUrl = pageKey,
-                    nextPageUrl = page.next,
-                    prevPageUrl = page.prev,
-                    isLastPage = pageKey == page.last
-                )
             }
         }
     }
 }
 
-//fun OrbitContainerHost<ProjectState>.loadStackForProject(
-//    repository: ProjectRepository,
-//    colorPicker: InfiniteColorPicker,
-//    projectName: String
-//) =
-//    intent {
-//        (state as? ProjectState.Ready)?.let { state ->
-//            repository.fetchStack(projectName).map { stack ->
-//                state.project.copy(stack = stack)
-//            }.collect {
-//                reduce {
-//                    state.copy(project = it)
-//                }
-//            }
-//        }
-//    }
+fun OrbitContainerHost<ProjectsListState>.createUser(
+    firestore: Firestore
+) = intent {
+    (state as? ProjectsListState.Authenticated)?.let {
+        firestore.createUser(it.user?.profile ?: return@intent)
+    }
+}
 
-//fun OrbitContainerHost<ProjectsListState>.loadStack(
-//    repository: ProjectRepository,
-//    colorPicker: InfiniteColorPicker,
-//    pageKey: String?
-//) =
-//    intent {
-//        var list: List<Project> = listOf()
-//        state.projects[pageKey]?.onEach { project ->
-//            repository.fetchStack(project.name).map { entries ->
-//                entries.map { entry ->
-//                    Stack(
-//                        name = entry.key,
-//                        lines = entry.value,
-//                        color = colorPicker.pick(entry.key)
-//                    )
-//                }
-//            }.onEach { stack ->
-//                list = list + project.copy(stack = stack)
-//            }.map {
-//                state.projects + (pageKey to list)
-//            }.collect {
-//                reduce {
-//                    state.copy(projects = it)
-//                }
-//            }
-//        }
-//    }
-
-class OrbitStore<TState : Any>(coroutineScope: CoroutineScope, initialState: TState) {
+class OrbitStore<TState : Any>(private val coroutineScope: CoroutineScope, initialState: TState) {
     val containerHost = OrbitContainerHost(coroutineScope, initialState)
 
     val stateFlow = containerHost.container.stateFlow
     val sideEffectFlow = containerHost.container.sideEffectFlow
+
+    fun stateIn(stateFlow: Flow<TState>, initialState: TState) = stateFlow.stateIn(coroutineScope, SharingStarted.Lazily, initialState)
 }
 
 fun OrbitStore<ProjectState>.project(block: OrbitContainerHost<ProjectState>.() -> Unit) {

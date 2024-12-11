@@ -7,14 +7,13 @@ sealed class Route {
     data object ProjectsList : Route()
     @Serializable
     data object ProjectDetails : Route()
+    @Serializable
+    data object Account : Route()
 }
 
 sealed class UserSideEffects {
-    data object None: UserSideEffects()
-    data object Block : UserSideEffects()
     class Toast(val message: String): UserSideEffects()
     class Trace(val message: String) : UserSideEffects()
-    class NavigateTo(route: Route) : UserSideEffects()
-    class Filter(val stackFilter: List<String>) : UserSideEffects()
+    class NavigateTo(val route: Route) : UserSideEffects()
     data object Refresh: UserSideEffects()
 }

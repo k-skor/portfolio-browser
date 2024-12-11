@@ -5,14 +5,16 @@ import android.util.Log
 import mu.KotlinLogging
 import org.slf4j.event.Level
 import pl.krzyssko.portfoliobrowser.BuildConfig
+import pl.krzyssko.portfoliobrowser.data.Config
 
 class AndroidPlatform : Platform {
     override val name: String = "Android ${android.os.Build.VERSION.SDK_INT}"
 }
 
 class AndroidConfiguration: Configuration {
-    override val gitHubApiUser: String = BuildConfig.githubApiUser
-    override val gitHubApiToken: String = BuildConfig.githubApiKey
+    //override val gitHubApiUser: String = BuildConfig.githubApiUser
+    //override val gitHubApiToken: String = BuildConfig.githubApiKey
+    override val config = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
 }
 
 class AndroidLogging: Logging {

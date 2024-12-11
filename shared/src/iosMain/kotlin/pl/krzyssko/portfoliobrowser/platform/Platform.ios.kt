@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.platform
 
+import pl.krzyssko.portfoliobrowser.data.Config
 import platform.UIKit.UIDevice
 
 class IOSPlatform: Platform {
@@ -7,8 +8,9 @@ class IOSPlatform: Platform {
 }
 
 class IosConfiguration: Configuration {
-    override val gitHubApiUser: String = TODO("Not yet implemented")
-    override val gitHubApiToken: String = TODO("Not yet implemented")
+    //override val gitHubApiUser: String = TODO("Not yet implemented")
+    //override val gitHubApiToken: String = TODO("Not yet implemented")
+    override val config = Config(TODO("Not yet implemented"), TODO("Not yet implemented"))
 }
 
 class IosLogging: Logging {

@@ -35,26 +35,25 @@ data class PagedSearchResult<out T>(
 )
 
 interface Api {
-    suspend fun getRepos(page: Number = 1): List<GitHubProject>
+    suspend fun getRepos(): List<GitHubProject>
     suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject>
     suspend fun getRepoLanguages(repoName: String): GitHubLanguage
     suspend fun getRepoBy(name: String): GitHubProject
     suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch>
 }
 
-class GitHubApi(private val httpClient: HttpClient, configuration: Configuration) : Api {
+class GitHubApi(private val httpClient: HttpClient, private val configuration: Configuration) : Api {
 
     companion object Urls {
         const val BASE_URL = "https://api.github.com"
     }
 
-    private val user: String = configuration.gitHubApiUser
-    private val token: String = configuration.gitHubApiToken
     private val apiVersion = "2022-11-28"
 
     private val log = getLogging()
 
     private fun getHttpRequestBuilderBlock(builder: HttpRequestBuilder, path: String, block: HttpRequestBuilder.() -> Unit) {
+        val token = configuration.config.gitHubApiToken
         with(builder) {
             url( Url("$BASE_URL/$path") )
             headers {
@@ -66,14 +65,10 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
         }
     }
 
-    override suspend fun getRepos(page: Number): List<GitHubProject> {
+    override suspend fun getRepos(): List<GitHubProject> {
+        val user = configuration.config.gitHubApiUser
         val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "users/$user/repos") {
-                url.parameters.apply {
-                    append("per_page", "5")
-                    append("page", page.toString())
-                }
-            }
+            getHttpRequestBuilderBlock(this, "users/$user/repos") {}
         }
         val result = request.body<List<GitHubProject>>()
 
@@ -83,6 +78,7 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
     }
 
     override suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject> {
+        val user = configuration.config.gitHubApiUser
         val request = httpClient.get {
             getHttpRequestBuilderBlock(this, "users/$user/repos") {
                 if (queryParams == null) {
@@ -113,6 +109,7 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
     }
 
     override suspend fun getRepoLanguages(repoName: String): GitHubLanguage {
+        val user = configuration.config.gitHubApiUser
         try {
             val result = httpClient.get {
                 getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
@@ -127,6 +124,7 @@ class GitHubApi(private val httpClient: HttpClient, configuration: Configuration
     }
 
     override suspend fun getRepoBy(name: String): GitHubProject {
+        val user = configuration.config.gitHubApiUser
         val result = httpClient.get {
             getHttpRequestBuilderBlock(this, "repos/$user/$name") {}
         }.body<GitHubProject>()

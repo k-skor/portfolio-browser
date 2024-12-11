@@ -11,6 +11,10 @@ import org.koin.dsl.module
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.Api
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
+import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
+import pl.krzyssko.portfoliobrowser.db.Firestore
+import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getConfiguration
@@ -38,8 +42,10 @@ fun sharedAppModule() = module {
             }
         }
     }
-    factory<Configuration> { getConfiguration() }
+    single<Configuration> { getConfiguration() }
     factory<Logging> { getLogging() }
+    single<Auth> { getPlatformAuth() }
+    single<Firestore> { getFirestore() }
     single<InfiniteColorPicker> { (colorMap: StackColorMap?) -> InfiniteColorPicker(colorMap ?: emptyMap()) }
     factory<OrbitStore<ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: ProjectsListState) ->
         OrbitStore(

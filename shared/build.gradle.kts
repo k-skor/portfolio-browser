@@ -35,7 +35,14 @@ kotlin {
             implementation(libs.appcash.paging.common)
         }
         androidMain.dependencies {
+            // Logging
             implementation(libs.kotlin.logging)
+            // Firebase
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.auth)
+            implementation(libs.firebase.analytics)
+            implementation(libs.firebase.auth.ktx)
+            implementation(libs.firebase.firestore)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

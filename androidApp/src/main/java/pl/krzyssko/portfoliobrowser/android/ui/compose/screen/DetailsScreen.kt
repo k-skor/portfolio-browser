@@ -1,4 +1,4 @@
-package pl.krzyssko.portfoliobrowser.android.ui.compose
+package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,6 +14,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,6 +26,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
@@ -31,7 +35,8 @@ import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, state: ProjectState) {
+fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, stateFlow: StateFlow<ProjectState>) {
+    val state by stateFlow.collectAsState()
     Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(top = contentPaddingValues.calculateTopPadding())) {
         val item = (state as? ProjectState.Ready)?.project ?: return
         val textModifier = modifier
@@ -117,11 +122,12 @@ private val fakeData = Project(
 
     )
 val fakeDetails = ProjectState.Ready(fakeData)
+val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 
 @Preview(widthDp = 320)
 @Composable
 fun DetailsPreview() {
     MyApplicationTheme {
-        DetailsScreen(modifier = Modifier.fillMaxSize(), PaddingValues(), fakeDetails)
+        DetailsScreen(modifier = Modifier.fillMaxSize(), PaddingValues(), fakeDetailsFlow)
     }
 }

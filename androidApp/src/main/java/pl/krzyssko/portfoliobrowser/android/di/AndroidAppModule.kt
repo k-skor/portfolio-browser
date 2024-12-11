@@ -8,7 +8,7 @@ import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
 
 val androidAppModule = module {
     viewModel { (handle: SavedStateHandle) ->
-        ProjectViewModel(handle, get())
+        ProjectViewModel(handle, get(), get(), get())
     }
     viewModel { (handle: SavedStateHandle) ->
         ProjectDetailsViewModel(handle, get())

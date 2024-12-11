@@ -1,4 +1,4 @@
-package pl.krzyssko.portfoliobrowser.android.ui.compose
+package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +21,6 @@ import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Card
@@ -37,7 +36,10 @@ import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,31 +60,48 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.paging.LoadState
 import androidx.paging.PagingData
-import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.single
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
+import pl.krzyssko.portfoliobrowser.data.Paging
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
+import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+
+interface ListScreenActions {
+    fun onProjectClicked(name: String?)
+    fun onSearch(phrase: String)
+    fun onAvatarClicked()
+}
 
 @ExperimentalMaterial3Api
 @Composable
 fun ListScreen(
     modifier: Modifier = Modifier,
     contentPaddingValues: PaddingValues,
-    lazyPagingItems: LazyPagingItems<Project>,
-    listState: ProjectsListState,
-    detailsState: ProjectState,
-    onFetchDetails: (name: String?) -> Unit,
-    onSearch: (phrase: String) -> Unit
+    pagingFlow: Flow<PagingData<Project>>,
+    listFlow: StateFlow<ProjectsListState>,
+    detailsState: StateFlow<ProjectState>,
+    actions: ListScreenActions
 ) {
-    var projectClicked by remember { mutableStateOf("") }
-    val projectsState = listState.projects.flatMap { it.value }
+    val list by listFlow.collectAsState()
+    val details by detailsState.collectAsState()
+    val userFlow = listFlow.filter { it is ProjectsListState.Authenticated }.map { it as ProjectsListState.Authenticated }
+    val projectsFlow = listFlow.filter { it is ProjectsListState.Ready }.map { it as ProjectsListState.Ready }
+
     val textFieldState = rememberTextFieldState()
     var expanded by rememberSaveable { mutableStateOf(false) }
     Surface(
@@ -105,13 +124,13 @@ fun ListScreen(
                         },
                         onSearch = {
                             expanded = false
-                            onSearch(it)
+                            actions.onSearch(it)
                         },
                         expanded = expanded,
                         onExpandedChange = { expanded = it },
-                        placeholder = { Text("Search project...") },
+                        placeholder = { Text("Search projects") },
                         leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        trailingIcon = { Icon(Icons.Default.MoreVert, contentDescription = null) },
+                        trailingIcon = { Avatar(Modifier.size(30.dp), userFlow) { actions.onAvatarClicked() } },
                     )
                 },
                 expanded = expanded,
@@ -137,6 +156,26 @@ fun ListScreen(
                     }
                 }
             }
+            if (list !is ProjectsListState.Ready && list !is ProjectsListState.Authenticated) {
+                return@Box
+            }
+
+            //val phrase = (list as? ProjectsListState.Ready)?.searchPhrase
+            //val projects = (list as? ProjectsListState.Ready)?.projects?.flatMap { it.value } ?: emptyList()
+            //val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
+            val phrase by projectsFlow.map { it.searchPhrase }.collectAsState(null)
+            //val projects by projectsFlow.map { it.projects.flatMap { project -> project.value } }.collectAsState(
+            //    emptyList()
+            //)
+            val projects = projectsFlow.map { it.projects.flatMap { project -> project.value } }
+            val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
+
+            var projectClicked by remember { mutableStateOf("") }
+
+            LaunchedEffect(phrase) {
+                lazyPagingItems.refresh()
+            }
+
             if (lazyPagingItems.loadState.refresh == LoadState.Loading) {
                 CircularProgressIndicator(
                     modifier = Modifier
@@ -162,14 +201,14 @@ fun ListScreen(
                             elevation = CardDefaults.cardElevation(2.dp),
                             onClick = {
                                 if (projectClicked.isEmpty()) {
-                                    onFetchDetails(item.name)
+                                    actions.onProjectClicked(item.name)
                                     projectClicked = item.name
                                 }
                             }) {
-                            Box(Modifier.alpha(if ((detailsState is ProjectState.Loading) && item.name == projectClicked) 0.22f else 1f), contentAlignment = Alignment.Center) {
-                                val project = if (index < projectsState.size && projectsState[index].stack.isNotEmpty() && projectsState[index].name == item.name) projectsState[index] else null
-                                ProjectOverview(modifier = modifier, item, project?.stack ?: emptyList())
-                                if ((detailsState is ProjectState.Loading) && item.name == projectClicked) {
+                            Box(Modifier.alpha(if ((details is ProjectState.Loading) && item.name == projectClicked) 0.22f else 1f), contentAlignment = Alignment.Center) {
+                                getLogging().debug("stack index=${index}")
+                                ProjectOverview(modifier = modifier, item, projects.onEach { getLogging().debug("projects size=${it.size}") }.map { if (index < it.size) it[index] else null }.filterNotNull())
+                                if ((details is ProjectState.Loading) && item.name == projectClicked) {
                                     CircularProgressIndicator(
                                         modifier = Modifier
                                             .fillMaxSize()
@@ -203,7 +242,8 @@ fun ListScreen(
 }
 
 @Composable
-fun ProjectOverview(modifier: Modifier = Modifier, item: Project, stack: List<Stack>) {
+fun ProjectOverview(modifier: Modifier = Modifier, item: Project, projectState: Flow<Project>) {
+    val project by projectState.collectAsState(null)
     Column(modifier) {
         val textModifier = modifier
             .padding(horizontal = 4.dp, vertical = 8.dp)
@@ -233,6 +273,8 @@ fun ProjectOverview(modifier: Modifier = Modifier, item: Project, stack: List<St
                 fontSize = 18.sp
             )
         }
+        val stack = project?.stack ?: emptyList()
+        getLogging().debug("stack size=${stack.size}")
         if (stack.isNotEmpty()) {
             val sum =
                 stack.map { it.lines }
@@ -315,20 +357,33 @@ private val fakeData: List<Project> = listOf(
 )
 val pagingData = PagingData.from(fakeData)
 val fakeDataFlow = MutableStateFlow(pagingData)
-val fakeList = ProjectsListState(projects = mapOf(null to fakeData))
+val fakeList = ProjectsListState.Ready(projects = mapOf(null to fakeData), paging = Paging())
+val fakeListFlow = MutableStateFlow(fakeList)
 
 @ExperimentalMaterial3Api
 @Preview(widthDp = 320)
 @Composable
 fun DefaultPreview() {
     MyApplicationTheme {
+        darkColorScheme()
         ListScreen(
             modifier = Modifier.fillMaxSize(),
             contentPaddingValues = PaddingValues(),
-            listState = fakeList,
-            detailsState = fakeDetails,
-            lazyPagingItems = fakeDataFlow.collectAsLazyPagingItems(),
-            onFetchDetails = { },
-            onSearch = { })
+            listFlow = fakeListFlow,
+            detailsState = fakeDetailsFlow,
+            pagingFlow = fakeDataFlow,
+            actions = object : ListScreenActions {
+                override fun onProjectClicked(name: String?) {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onSearch(phrase: String) {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onAvatarClicked() {
+                    TODO("Not yet implemented")
+                }
+            })
     }
 }

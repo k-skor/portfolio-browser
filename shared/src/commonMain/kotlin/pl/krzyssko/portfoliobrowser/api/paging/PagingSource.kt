@@ -8,6 +8,7 @@ import app.cash.paging.PagingState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
@@ -41,7 +42,7 @@ class MyPagingSource(
         val nextPagingKey = params.key
 
         val state = store.stateFlow
-        val phrase = state.value.searchPhrase
+        val phrase = (state.value as? ProjectsListState.Ready)?.searchPhrase
         store.projectsList {
             if (!phrase.isNullOrEmpty()) {
                 searchProjects(repository, colorPicker, nextPagingKey)
@@ -50,15 +51,17 @@ class MyPagingSource(
             }
         }
         val page = state.onEach { logging.debug("loading page new state!!!") }
-            .filter { it.currentPageUrl == nextPagingKey }.filter { it.projects.isNotEmpty() }
+            .filter { it is ProjectsListState.Ready }.map { it as ProjectsListState.Ready }
+            .filter { it.paging.currentPageUrl == nextPagingKey }
+            .filter { it.projects.isNotEmpty() }
             .first()
 
         logging.debug("Load state projects size=${page.projects[nextPagingKey]?.size}")
 
         PagingSourceLoadResultPage(
             data = page.projects[nextPagingKey] ?: emptyList(),
-            nextKey = page.nextPageUrl,
-            prevKey = page.prevPageUrl,
+            nextKey = page.paging.nextPageUrl,
+            prevKey = page.paging.prevPageUrl,
         ) as PagingSourceLoadResult<String, Project>
     }
 }

@@ -1,12 +1,13 @@
 package pl.krzyssko.portfoliobrowser.platform
 
+import pl.krzyssko.portfoliobrowser.data.Config
+
 interface Platform {
     val name: String
 }
 
 interface Configuration {
-    val gitHubApiUser: String
-    val gitHubApiToken: String
+    val config: Config
 }
 
 interface Logging {

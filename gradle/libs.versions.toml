@@ -1,5 +1,6 @@
 [versions]
 agp = "8.6.0"
+firebase = "33.7.0"
 kotlin = "2.0.20"
 lifecycle = "2.8.6"
 compose = "1.7.5"
@@ -17,8 +18,13 @@ paging-common = "3.1.1-0.3.1"
 paging-runtime = "3.1.1-0.1.1"
 androidx-pagingCompose = "3.3.2"
 coil = "3.0.0-rc01"
+firebaseAuthKtx = "23.1.0"
 
 [libraries]
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase" }
+firebase-auth = { module = "com.google.firebase:firebase-auth" }
+firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
+firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
@@ -49,6 +55,7 @@ logging-backend = { module = "org.slf4j:slf4j-simple", version.ref = "logging-ba
 coil = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
+firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

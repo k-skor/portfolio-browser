@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.android.ui
 
+import android.content.Context
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -13,27 +14,28 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.navigation.findNavController
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import pl.krzyssko.portfoliobrowser.android.ui.compose.AppBar
-import pl.krzyssko.portfoliobrowser.android.ui.compose.DetailsScreen
-import pl.krzyssko.portfoliobrowser.android.ui.compose.ListScreen
+import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.AccountScreen
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreen
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreenActions
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.LoginActions
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppBar
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -62,7 +64,15 @@ class MainActivity : ComponentActivity() {
         }
         getLogging().debug("HELLLOOOOOO!!!!")
         setContent {
-            PortfolioApp(modifier = Modifier.fillMaxSize(), coroutineScope = lifecycleScope, listViewModel = projectViewModel, detailsViewModel = projectDetailsViewModel)
+            MyApplicationTheme {
+                PortfolioApp(
+                    modifier = Modifier.fillMaxSize(),
+                    context = this,
+                    coroutineScope = lifecycleScope,
+                    listViewModel = projectViewModel,
+                    detailsViewModel = projectDetailsViewModel
+                )
+            }
         }
     }
 
@@ -84,6 +94,7 @@ class MainActivity : ComponentActivity() {
 fun PortfolioApp(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
+    context: Context,
     coroutineScope: CoroutineScope,
     listViewModel: ProjectViewModel,
     detailsViewModel: ProjectDetailsViewModel
@@ -100,7 +111,7 @@ fun PortfolioApp(
             )
         },
         content = {
-            AppContent(modifier, navController, coroutineScope, listViewModel, detailsViewModel, it)
+            AppContent(modifier, context, navController, coroutineScope, listViewModel, detailsViewModel, it)
         }
     )
 }
@@ -108,21 +119,21 @@ fun PortfolioApp(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppContent(modifier: Modifier = Modifier,
+               context: Context,
                navController: NavHostController,
                coroutineScope: CoroutineScope,
                listViewModel: ProjectViewModel,
                detailsViewModel: ProjectDetailsViewModel,
                contentPaddingValues: PaddingValues
 ) {
-    val lazyPagingItems = listViewModel.pagingFlow.collectAsLazyPagingItems()
-    val list by listViewModel.stateFlow.collectAsState()
-    val phrase by listViewModel.stateFlow.map { it.searchPhrase }.collectAsStateWithLifecycle(null)
-    val details by detailsViewModel.stateFlow.collectAsState()
-
-    LaunchedEffect(phrase) {
-        lazyPagingItems.refresh()
+    LaunchedEffect("navigation") {
+        listViewModel.sideEffectsFlow.collect {
+            when (it) {
+                is UserSideEffects.NavigateTo -> navController.navigate(it.route)
+                else -> {}
+            }
+        }
     }
-
     Column {
         NavHost(
             navController = navController,
@@ -130,23 +141,43 @@ fun AppContent(modifier: Modifier = Modifier,
             modifier = modifier
         ) {
             composable<Route.ProjectsList> {
-                ListScreen(modifier, contentPaddingValues, lazyPagingItems, list, details, { name ->
-                    name?.let {
-                        detailsViewModel.loadProjectWith(name)
-                        coroutineScope.launch {
-                            detailsViewModel.sideEffectsFlow.collect { effect ->
-                                if (effect is UserSideEffects.NavigateTo) {
-                                    navController.navigate(route = Route.ProjectDetails)
+                ListScreen(modifier, contentPaddingValues, listViewModel.pagingFlow, listViewModel.stateFlow, detailsViewModel.stateFlow, object : ListScreenActions {
+                    override fun onProjectClicked(name: String?) {
+                        name?.let {
+                            detailsViewModel.loadProjectWith(name)
+                            // TODO: reduce state
+                            coroutineScope.launch {
+                                detailsViewModel.sideEffectsFlow.collect { effect ->
+                                    if (effect is UserSideEffects.NavigateTo) {
+                                        navController.navigate(route = Route.ProjectDetails)
+                                    }
                                 }
                             }
                         }
                     }
-                }, {
-                    listViewModel.updateSearchPhrase(it)
+
+                    override fun onSearch(phrase: String) {
+                        listViewModel.updateSearchPhrase(phrase)
+                    }
+
+                    override fun onAvatarClicked() {
+                        navController.navigate(Route.Account)
+                    }
                 })
             }
             composable<Route.ProjectDetails> {
-                DetailsScreen(modifier, contentPaddingValues, details)
+                DetailsScreen(modifier, contentPaddingValues, detailsViewModel.stateFlow)
+            }
+            composable<Route.Account> {
+                AccountScreen(modifier, contentPaddingValues, listViewModel.stateFlow, object : LoginActions {
+                    override fun onGitHubSignIn() {
+                        listViewModel.authenticateUser(context)
+                    }
+
+                    override fun onGitHubSignOut() {
+                        listViewModel.resetAuthentication()
+                    }
+                })
             }
         }
     }

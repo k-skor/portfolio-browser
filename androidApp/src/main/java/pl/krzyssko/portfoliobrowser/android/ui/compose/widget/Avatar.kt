@@ -20,10 +20,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.Flow
-import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+import pl.krzyssko.portfoliobrowser.store.ProfileState
 
 @Composable
-fun Avatar(modifier: Modifier = Modifier, userFlow: Flow<ProjectsListState.Authenticated>, onAvatarClicked: () -> Unit) {
+fun Avatar(modifier: Modifier = Modifier, userFlow: Flow<ProfileState.Authenticated>, onAvatarClicked: () -> Unit) {
     val userState by userFlow.collectAsState(null)
     Box(
         Modifier
@@ -35,7 +35,8 @@ fun Avatar(modifier: Modifier = Modifier, userFlow: Flow<ProjectsListState.Authe
                 )
             ), contentAlignment = Alignment.Center
     ) {
-        (userState?.user?.profile?.photoUrl)?.let {
+        val photo = userState?.user?.additionalData?.get("avatar_url") ?: userState?.user?.profile?.photoUrl
+        (photo)?.let {
             AsyncImage(
                 model = it,
                 modifier = modifier.size(30.dp).clip(RoundedCornerShape(50)),

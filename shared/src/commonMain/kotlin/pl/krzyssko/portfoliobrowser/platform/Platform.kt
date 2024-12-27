@@ -7,7 +7,8 @@ interface Platform {
 }
 
 interface Configuration {
-    val config: Config
+    val default: Config
+    var config: Config
 }
 
 interface Logging {

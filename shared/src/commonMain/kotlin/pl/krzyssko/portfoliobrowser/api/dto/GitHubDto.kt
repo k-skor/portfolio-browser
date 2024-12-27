@@ -6,6 +6,9 @@ import kotlinx.serialization.Serializable
 typealias GitHubLanguage = Map<String, Int>
 
 @Serializable
+data class GitHubUser(val id: Int, val login: String, val email: String)
+
+@Serializable
 data class GitHubProject(val id: Int, val name: String, val description: String?, val fork: Boolean, @SerialName("languages_url") val languagesUrl: String)
 
 @Serializable

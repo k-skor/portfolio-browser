@@ -20,6 +20,6 @@ typealias AdditionalUserData = Map<String, Any>
 
 data class Profile(val id: String, val name: String, val email: String, val photoUrl: String?, val isEmailVerified: Boolean)
 
-data class User(val profile: Profile, val additionalData: AdditionalUserData? = null, val token: String)
+data class User(val profile: Profile, val additionalData: AdditionalUserData? = null, val token: String? = null)
 
 data class Config(var gitHubApiUser: String, var gitHubApiToken: String)

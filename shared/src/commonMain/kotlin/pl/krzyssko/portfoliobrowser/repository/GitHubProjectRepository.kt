@@ -16,6 +16,10 @@ class GitHubProjectRepository(private val api: Api) : ProjectRepository {
     /**
      * ProjectRepository
      */
+    override fun fetchUser(): Flow<String> = flow {
+        emit(api.getUser().login)
+    }
+
     override fun fetchProjects(queryParams: String?): Flow<PagedResponse<Project>> = flow {
         val response = api.getRepos(queryParams)
         emit(PagedResponse(data = response.data.map {

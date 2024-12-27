@@ -36,8 +36,10 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreenActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.LoginActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppBar
+import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
+import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
@@ -47,6 +49,7 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 class MainActivity : ComponentActivity() {
     private val projectViewModel: ProjectViewModel by viewModel()
     private val projectDetailsViewModel: ProjectDetailsViewModel by viewModel()
+    private val profileViewModel: ProfileViewModel by viewModel()
     private val logging: Logging by inject()
 
     @ExperimentalMaterial3Api
@@ -70,7 +73,8 @@ class MainActivity : ComponentActivity() {
                     context = this,
                     coroutineScope = lifecycleScope,
                     listViewModel = projectViewModel,
-                    detailsViewModel = projectDetailsViewModel
+                    detailsViewModel = projectDetailsViewModel,
+                    profileViewModel = profileViewModel
                 )
             }
         }
@@ -97,7 +101,8 @@ fun PortfolioApp(
     context: Context,
     coroutineScope: CoroutineScope,
     listViewModel: ProjectViewModel,
-    detailsViewModel: ProjectDetailsViewModel
+    detailsViewModel: ProjectDetailsViewModel,
+    profileViewModel: ProfileViewModel
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     Scaffold(
@@ -111,7 +116,7 @@ fun PortfolioApp(
             )
         },
         content = {
-            AppContent(modifier, context, navController, coroutineScope, listViewModel, detailsViewModel, it)
+            AppContent(modifier, context, navController, coroutineScope, listViewModel, detailsViewModel, profileViewModel, it)
         }
     )
 }
@@ -124,6 +129,7 @@ fun AppContent(modifier: Modifier = Modifier,
                coroutineScope: CoroutineScope,
                listViewModel: ProjectViewModel,
                detailsViewModel: ProjectDetailsViewModel,
+               profileViewModel: ProfileViewModel,
                contentPaddingValues: PaddingValues
 ) {
     LaunchedEffect("navigation") {
@@ -141,7 +147,7 @@ fun AppContent(modifier: Modifier = Modifier,
             modifier = modifier
         ) {
             composable<Route.ProjectsList> {
-                ListScreen(modifier, contentPaddingValues, listViewModel.pagingFlow, listViewModel.stateFlow, detailsViewModel.stateFlow, object : ListScreenActions {
+                ListScreen(modifier, contentPaddingValues, listViewModel.pagingFlow, listViewModel.stateFlow, detailsViewModel.stateFlow, profileViewModel.stateFlow, object : ListScreenActions {
                     override fun onProjectClicked(name: String?) {
                         name?.let {
                             detailsViewModel.loadProjectWith(name)
@@ -160,6 +166,10 @@ fun AppContent(modifier: Modifier = Modifier,
                         listViewModel.updateSearchPhrase(phrase)
                     }
 
+                    override fun onClear() {
+                        listViewModel.resetProjects()
+                    }
+
                     override fun onAvatarClicked() {
                         navController.navigate(Route.Account)
                     }
@@ -169,13 +179,25 @@ fun AppContent(modifier: Modifier = Modifier,
                 DetailsScreen(modifier, contentPaddingValues, detailsViewModel.stateFlow)
             }
             composable<Route.Account> {
-                AccountScreen(modifier, contentPaddingValues, listViewModel.stateFlow, object : LoginActions {
+                AccountScreen(modifier, contentPaddingValues, profileViewModel.stateFlow, object : LoginActions {
                     override fun onGitHubSignIn() {
-                        listViewModel.authenticateUser(context)
+                        profileViewModel.authenticateUser(context)
                     }
 
                     override fun onGitHubSignOut() {
-                        listViewModel.resetAuthentication()
+                        profileViewModel.resetAuthentication()
+                    }
+
+                    override fun onGitHubLink() {
+                        profileViewModel.linkUser(context)
+                    }
+
+                    override fun onEmailCreate(login: String, password: String) {
+                        profileViewModel.createUser(context, login, password)
+                    }
+
+                    override fun onEmailSignIn(login: String, password: String) {
+                        profileViewModel.authenticateUser(context, login, password)
                     }
                 })
             }

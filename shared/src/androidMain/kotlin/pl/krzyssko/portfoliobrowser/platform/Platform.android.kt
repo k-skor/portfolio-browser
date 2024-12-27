@@ -12,9 +12,8 @@ class AndroidPlatform : Platform {
 }
 
 class AndroidConfiguration: Configuration {
-    //override val gitHubApiUser: String = BuildConfig.githubApiUser
-    //override val gitHubApiToken: String = BuildConfig.githubApiKey
-    override val config = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
+    override val default = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
+    override var config = Config("", "")//default
 }
 
 class AndroidLogging: Logging {

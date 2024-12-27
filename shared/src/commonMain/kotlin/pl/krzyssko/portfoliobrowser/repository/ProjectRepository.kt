@@ -6,6 +6,7 @@ import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
 
 interface ProjectRepository {
+    fun fetchUser(): Flow<String>
     fun fetchProjects(queryParams: String?): Flow<PagedResponse<Project>>
     fun fetchStack(name: String): Flow<List<Stack>>
     fun fetchProjectDetails(name: String): Flow<Project>

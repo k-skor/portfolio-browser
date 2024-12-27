@@ -12,14 +12,18 @@ sealed class ProjectState {
 }
 
 sealed class ProjectsListState {
-    data object Idling: ProjectsListState()
-    data object Initialized: ProjectsListState()
-    data class Authenticated(val isGuest: Boolean = false, val user: User): ProjectsListState()
+    data object Loading: ProjectsListState()
     data class Ready(
         val loading: Boolean = false,
         val projects: Map<String?, List<Project>> = emptyMap(),
-        val paging: Paging,
+        val paging: Paging = Paging(),
         val stackFilter: List<String> = emptyList(),
         val searchPhrase: String? = null
     ): ProjectsListState()
+}
+
+sealed class ProfileState {
+    data object Created: ProfileState()
+    data object Initialized: ProfileState()
+    data class Authenticated(val user: User): ProfileState()
 }

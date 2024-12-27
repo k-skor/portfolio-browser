@@ -8,12 +8,34 @@ import kotlin.coroutines.suspendCoroutine
 
 abstract class Auth {
 
-    suspend fun startSignInFlow(uiHandler: Any?, refresh: Boolean = false) = suspendCoroutine { continuation ->
+    lateinit var authenticationType: Provider
+
+    enum class Provider {
+        GitHub,
+        Email
+    }
+
+    suspend fun startSignInFlow(uiHandler: Any?, provider: Provider, create: Boolean = false, login: String? = null, password: String? = null, refresh: Boolean = false, linkWithProvider: Boolean = false) = suspendCoroutine { continuation ->
         val callback = createCallbackWithContinuation(
             onSuccess = continuation::resume,
             onFailure = continuation::resumeWithException
         )
-        signInWithGitHub(uiHandler, refresh, callback)
+        if (provider == Provider.Email && login != null && password != null) {
+            if (create) {
+                createWithEmail(uiHandler, login, password, callback)
+            } else {
+                signInWithEmail(uiHandler, login, password, callback)
+            }
+        } else if (provider == Provider.GitHub) {
+            if (linkWithProvider) {
+                signInLinkWithGitHub(uiHandler, callback)
+                //linkWithProvider("", callback)
+            } else {
+                signInWithGitHub(uiHandler, refresh, callback)
+            }
+        } else {
+            callback.onFailure(Error("Invalid arguments to sign in flow"))
+        }
     }
 
     interface LoginFlowCallback {
@@ -32,11 +54,16 @@ abstract class Auth {
         override fun onFailure(error: Throwable) = onFailure(error)
     }
 
+    abstract val isUserSignedIn: Boolean
+    abstract val userProfile: Profile?
+    abstract var accessToken: String?
+
     abstract fun initAuth()
-    abstract fun isUserSignedIn(): Boolean
-    abstract fun getUserProfile(): Profile?
-    abstract fun getAccessToken(): String
     abstract fun signInWithGitHub(uiHandler: Any?, refresh: Boolean = false, callback: LoginFlowCallback)
+    abstract fun signInLinkWithGitHub(uiHandler: Any?, callback: LoginFlowCallback)
+    abstract fun createWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback)
+    abstract fun signInWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback)
+    abstract fun linkWithProvider(token: String, callback: LoginFlowCallback)
     abstract fun signOut()
 }
 

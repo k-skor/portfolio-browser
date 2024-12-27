@@ -5,7 +5,7 @@ import pl.krzyssko.portfoliobrowser.data.Project
 
 
 interface Firestore {
-    suspend fun createUser(profile: Profile)
+    suspend fun createUser(uid: String, profile: Profile)
     suspend fun syncProjects(projectsList: List<Project>)
 }
 

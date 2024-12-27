@@ -22,12 +22,14 @@ import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
+import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
+val NAMED_PROFILE = named("profile")
 
 fun sharedAppModule() = module {
 
@@ -40,6 +42,7 @@ fun sharedAppModule() = module {
                     ignoreUnknownKeys = true
                 })
             }
+            expectSuccess = true
         }
     }
     single<Configuration> { getConfiguration() }
@@ -54,6 +57,12 @@ fun sharedAppModule() = module {
         )
     }
     factory<OrbitStore<ProjectState>>(NAMED_DETAILS) { (coroutineScope: CoroutineScope, initialState: ProjectState) ->
+        OrbitStore(
+            coroutineScope,
+            initialState
+        )
+    }
+    factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
         OrbitStore(
             coroutineScope,
             initialState

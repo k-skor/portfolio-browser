@@ -67,23 +67,23 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.single
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
 import pl.krzyssko.portfoliobrowser.data.Paging
+import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
-import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.data.User
+import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 
 interface ListScreenActions {
     fun onProjectClicked(name: String?)
     fun onSearch(phrase: String)
+    fun onClear()
     fun onAvatarClicked()
 }
 
@@ -95,11 +95,13 @@ fun ListScreen(
     pagingFlow: Flow<PagingData<Project>>,
     listFlow: StateFlow<ProjectsListState>,
     detailsState: StateFlow<ProjectState>,
+    profileState: StateFlow<ProfileState>,
     actions: ListScreenActions
 ) {
     val list by listFlow.collectAsState()
     val details by detailsState.collectAsState()
-    val userFlow = listFlow.filter { it is ProjectsListState.Authenticated }.map { it as ProjectsListState.Authenticated }
+    val user by profileState.collectAsState()
+    val userFlow = profileState.filter { it is ProfileState.Authenticated }.map { it as ProfileState.Authenticated }
     val projectsFlow = listFlow.filter { it is ProjectsListState.Ready }.map { it as ProjectsListState.Ready }
 
     val textFieldState = rememberTextFieldState()
@@ -156,17 +158,12 @@ fun ListScreen(
                     }
                 }
             }
-            if (list !is ProjectsListState.Ready && list !is ProjectsListState.Authenticated) {
+            if (list !is ProjectsListState.Ready && user !is ProfileState.Authenticated) {
+                actions.onClear()
                 return@Box
             }
 
-            //val phrase = (list as? ProjectsListState.Ready)?.searchPhrase
-            //val projects = (list as? ProjectsListState.Ready)?.projects?.flatMap { it.value } ?: emptyList()
-            //val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
             val phrase by projectsFlow.map { it.searchPhrase }.collectAsState(null)
-            //val projects by projectsFlow.map { it.projects.flatMap { project -> project.value } }.collectAsState(
-            //    emptyList()
-            //)
             val projects = projectsFlow.map { it.projects.flatMap { project -> project.value } }
             val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
 
@@ -206,8 +203,7 @@ fun ListScreen(
                                 }
                             }) {
                             Box(Modifier.alpha(if ((details is ProjectState.Loading) && item.name == projectClicked) 0.22f else 1f), contentAlignment = Alignment.Center) {
-                                getLogging().debug("stack index=${index}")
-                                ProjectOverview(modifier = modifier, item, projects.onEach { getLogging().debug("projects size=${it.size}") }.map { if (index < it.size) it[index] else null }.filterNotNull())
+                                ProjectOverview(modifier = modifier, item, projects.filter { index < it.size }.map { it[index] })
                                 if ((details is ProjectState.Loading) && item.name == projectClicked) {
                                     CircularProgressIndicator(
                                         modifier = Modifier
@@ -274,7 +270,6 @@ fun ProjectOverview(modifier: Modifier = Modifier, item: Project, projectState: 
             )
         }
         val stack = project?.stack ?: emptyList()
-        getLogging().debug("stack size=${stack.size}")
         if (stack.isNotEmpty()) {
             val sum =
                 stack.map { it.lines }
@@ -359,6 +354,8 @@ val pagingData = PagingData.from(fakeData)
 val fakeDataFlow = MutableStateFlow(pagingData)
 val fakeList = ProjectsListState.Ready(projects = mapOf(null to fakeData), paging = Paging())
 val fakeListFlow = MutableStateFlow(fakeList)
+val fakeUser = ProfileState.Authenticated(User(Profile("0123", "name", "email@dot.com", null, false)))
+val fakeUserFlow = MutableStateFlow(fakeUser)
 
 @ExperimentalMaterial3Api
 @Preview(widthDp = 320)
@@ -371,6 +368,7 @@ fun DefaultPreview() {
             contentPaddingValues = PaddingValues(),
             listFlow = fakeListFlow,
             detailsState = fakeDetailsFlow,
+            profileState = fakeUserFlow,
             pagingFlow = fakeDataFlow,
             actions = object : ListScreenActions {
                 override fun onProjectClicked(name: String?) {
@@ -382,6 +380,10 @@ fun DefaultPreview() {
                 }
 
                 override fun onAvatarClicked() {
+                    TODO("Not yet implemented")
+                }
+
+                override fun onClear() {
                     TODO("Not yet implemented")
                 }
             })

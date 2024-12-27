@@ -15,6 +15,7 @@ import io.ktor.http.parseQueryString
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubLanguage
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubProject
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubSearch
+import pl.krzyssko.portfoliobrowser.api.dto.GitHubUser
 import pl.krzyssko.portfoliobrowser.api.paging.LinkHeaderPageParser
 import pl.krzyssko.portfoliobrowser.api.paging.PagingKey
 import pl.krzyssko.portfoliobrowser.platform.Configuration
@@ -35,12 +36,15 @@ data class PagedSearchResult<out T>(
 )
 
 interface Api {
+    suspend fun getUser(): GitHubUser
     suspend fun getRepos(): List<GitHubProject>
     suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject>
     suspend fun getRepoLanguages(repoName: String): GitHubLanguage
     suspend fun getRepoBy(name: String): GitHubProject
     suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch>
 }
+
+class GitHubApiException(message: String?, throwable: Throwable?): Exception(message, throwable)
 
 class GitHubApi(private val httpClient: HttpClient, private val configuration: Configuration) : Api {
 
@@ -65,71 +69,147 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         }
     }
 
+    override suspend fun getUser(): GitHubUser {
+        var error: Throwable? = null
+        val result = try {
+            val request = httpClient.get {
+                getHttpRequestBuilderBlock(this, "user") {}
+            }
+            if (request.status == HttpStatusCode.OK) {
+                val result = request.body<GitHubUser>()
+
+                log.debug(result.toString())
+
+                result
+            } else null
+        } catch (e: Exception) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
+
+        return result
+    }
+
     override suspend fun getRepos(): List<GitHubProject> {
         val user = configuration.config.gitHubApiUser
-        val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "users/$user/repos") {}
-        }
-        val result = request.body<List<GitHubProject>>()
+        var error: Throwable? = null
+        val result = try {
+            val request = httpClient.get {
+                getHttpRequestBuilderBlock(this, "users/$user/repos") {}
+            }
+            if (request.status == HttpStatusCode.OK) {
+                val result = request.body<List<GitHubProject>>()
 
-        log.debug(result.toString())
+                log.debug(result.toString())
+
+                result
+            } else null
+        } catch (e: Exception) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
 
         return result
     }
 
     override suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject> {
         val user = configuration.config.gitHubApiUser
-        val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "users/$user/repos") {
-                if (queryParams == null) {
-                    url.parameters.apply {
-                        append("per_page", "5")
-                        append("page", "1")
+        var error: Throwable? = null
+        val result = try {
+            val request = httpClient.get {
+                getHttpRequestBuilderBlock(this, "users/$user/repos") {
+                    if (queryParams == null) {
+                        url.parameters.apply {
+                            append("per_page", "5")
+                            append("page", "1")
+                        }
+                    } else {
+                        val startIndex = queryParams.indexOfFirst { c -> c == '?' }
+                        url.parameters.apply {
+                            appendAll(parseQueryString(queryParams, startIndex + 1))
+                        }
                     }
-                } else {
-                    val startIndex = queryParams.indexOfFirst { c -> c == '?' }
-                    url.parameters.apply {
-                        appendAll(parseQueryString(queryParams, startIndex + 1))
-                    }
+                    log.debug("Requesting URL $url")
                 }
-                log.debug("Requesting URL $url")
             }
-        }
-        val result = request.body<List<GitHubProject>>()
+            if (request.status == HttpStatusCode.OK) {
+                val result = request.body<List<GitHubProject>>()
 
-        val paging = LinkHeaderPageParser()
-        if (request.headers.contains("link")) {
-            log.debug("Raw link=${request.headers["link"]}")
-            paging.parse(request.headers["link"]!!)
-        } else {
-            log.debug("No link headers")
-        }
+                val paging = LinkHeaderPageParser()
+                if (request.headers.contains("link")) {
+                    log.debug("Raw link=${request.headers["link"]}")
+                    paging.parse(request.headers["link"]!!)
+                } else {
+                    log.debug("No link headers")
+                }
 
-        return PagedResponse(result, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last))
+                PagedResponse(result, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last))
+            } else null
+        } catch (e: Exception) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
+
+        return result
     }
 
     override suspend fun getRepoLanguages(repoName: String): GitHubLanguage {
         val user = configuration.config.gitHubApiUser
-        try {
-            val result = httpClient.get {
+        //var result: GitHubLanguage? = null
+        var error: Throwable? = null
+        //try {
+        //    val request = httpClient.get {
+        //        getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
+        //    }
+        //    if (request.status == HttpStatusCode.OK) {
+        //        result = request.body<GitHubLanguage>()
+
+        //        log.debug(result.toString())
+        //    }
+        //} catch (e: Exception) {
+        //    throwable = e
+        //} finally {
+        //    if (result == null) {
+        //        throw GitHubApiException("GitHub API exception.", throwable)
+        //    }
+        //    return result
+        //}
+        val result = try {
+            val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
-            }.body<GitHubLanguage>()
+            }
+            if (request.status == HttpStatusCode.OK) {
+                val result = request.body<GitHubLanguage>()
 
-            log.debug(result.toString())
+                log.debug(result.toString())
 
-            return result
-        } catch (ex: Exception) {
-            return emptyMap()
-        }
+                result
+            } else null
+        } catch (e: Exception) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
+
+        return result
     }
 
     override suspend fun getRepoBy(name: String): GitHubProject {
         val user = configuration.config.gitHubApiUser
-        val result = httpClient.get {
-            getHttpRequestBuilderBlock(this, "repos/$user/$name") {}
-        }.body<GitHubProject>()
+        var error: Throwable? = null
 
-        log.debug(result.toString())
+        val result = try {
+            val request = httpClient.get {
+                getHttpRequestBuilderBlock(this, "repos/$user/$name") {}
+            }
+            if (request.status == HttpStatusCode.OK) {
+                val result = request.body<GitHubProject>()
+                log.debug(result.toString())
+                result
+            } else null
+        } catch (e: Exception) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
 
         return result
     }
@@ -138,45 +218,54 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
      * Query example: android in:name in:description user:k-skor
      */
     override suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch> {
-        try {
-        val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "search/repositories") {
-                url.parameters.apply {
-                    appendAll(parseQueryString(query))
-                }
-                if (queryParams == null) {
+        var error: Throwable? = null
+
+        val result = try {
+            val request = httpClient.get {
+                getHttpRequestBuilderBlock(this, "search/repositories") {
                     url.parameters.apply {
-                        append("per_page", "5")
-                        append("page", "1")
+                        appendAll(parseQueryString(query))
                     }
-                } else {
-                    val startIndex = queryParams.indexOfFirst { c -> c == '?' }
-                    url.parameters.apply {
-                        appendAll(parseQueryString(queryParams, startIndex + 1))
+                    if (queryParams == null) {
+                        url.parameters.apply {
+                            append("per_page", "5")
+                            append("page", "1")
+                        }
+                    } else {
+                        val startIndex = queryParams.indexOfFirst { c -> c == '?' }
+                        url.parameters.apply {
+                            appendAll(parseQueryString(queryParams, startIndex + 1))
+                        }
                     }
+                    log.debug("Requesting URL $url")
                 }
-                log.debug("Requesting URL $url")
             }
-        }
 
-        if (request.status != HttpStatusCode.OK) {
-            return PagedSearchResult(GitHubSearch(emptyList()))
-        }
+            if (request.status == HttpStatusCode.OK) {
 
-        val result = request.body<GitHubSearch>()
+                val result = request.body<GitHubSearch>()
 
-        val paging = LinkHeaderPageParser()
-        if (request.headers.contains("link")) {
-            log.debug("Raw link=${request.headers["link"]}")
-            paging.parse(request.headers["link"]!!)
-        } else {
-            log.debug("No link headers")
-        }
+                val paging = LinkHeaderPageParser()
+                if (request.headers.contains("link")) {
+                    log.debug("Raw link=${request.headers["link"]}")
+                    paging.parse(request.headers["link"]!!)
+                } else {
+                    log.debug("No link headers")
+                }
 
-        return PagedSearchResult(result, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last))
+                PagedSearchResult(
+                    result,
+                    paging.get(PagingKey.Rel.Prev),
+                    paging.get(PagingKey.Rel.Next),
+                    paging.get(PagingKey.Rel.Last)
+                )
+            } else null
 
-        } catch (error: Error) {
-            return PagedSearchResult(GitHubSearch(projects = emptyList()))
-        }
+        } catch (e: Error) {
+            error = e
+            null
+        } ?: throw GitHubApiException("GitHub API exception.", error)
+
+        return result
     }
 }

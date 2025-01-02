@@ -15,5 +15,5 @@ sealed class UserSideEffects {
     class Toast(val message: String): UserSideEffects()
     class Trace(val message: String) : UserSideEffects()
     class NavigateTo(val route: Route) : UserSideEffects()
-    data object Refresh: UserSideEffects()
+    class SyncSnack(val message: String) : UserSideEffects()
 }

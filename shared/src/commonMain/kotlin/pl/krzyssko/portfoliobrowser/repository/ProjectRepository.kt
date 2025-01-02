@@ -12,3 +12,9 @@ interface ProjectRepository {
     fun fetchProjectDetails(name: String): Flow<Project>
     fun searchProjects(query: String, queryParams: String?): Flow<PagedResponse<Project>>
 }
+
+interface ProjectDbRepository {
+    suspend fun uploadProject(docId: String, project: Project)
+    suspend fun uploadProjects(docId: String, projects: List<Project>)
+    suspend fun uploadProjects(projectsFlow: Flow<List<Project>>)
+}

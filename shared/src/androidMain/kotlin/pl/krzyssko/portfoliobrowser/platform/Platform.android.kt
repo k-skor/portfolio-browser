@@ -1,7 +1,9 @@
 package pl.krzyssko.portfoliobrowser.platform
 
 import android.Manifest
+import android.content.Context
 import android.util.Log
+import com.liftric.kvault.KVault
 import mu.KotlinLogging
 import org.slf4j.event.Level
 import pl.krzyssko.portfoliobrowser.BuildConfig
@@ -11,9 +13,18 @@ class AndroidPlatform : Platform {
     override val name: String = "Android ${android.os.Build.VERSION.SDK_INT}"
 }
 
-class AndroidConfiguration: Configuration {
-    override val default = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
-    override var config = Config("", "")//default
+class AndroidConfiguration(private val contextHandle: Any?): Configuration() {
+    override val vault by lazy { KVault(contextHandle as Context, "private_config") }
+    override val default = Config() //Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
+    override var config = default
+        set(value) {
+            field = value
+            save()
+        }
+
+    init {
+        restore()
+    }
 }
 
 class AndroidLogging: Logging {
@@ -33,5 +44,5 @@ class AndroidLogging: Logging {
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
-actual fun getConfiguration(): Configuration = AndroidConfiguration()
+actual fun getConfiguration(contextHandle: Any?): Configuration = AndroidConfiguration(contextHandle)
 actual fun getLogging(): Logging = AndroidLogging()

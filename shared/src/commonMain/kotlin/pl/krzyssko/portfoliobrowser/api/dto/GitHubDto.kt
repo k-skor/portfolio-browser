@@ -9,7 +9,7 @@ typealias GitHubLanguage = Map<String, Int>
 data class GitHubUser(val id: Int, val login: String, val email: String)
 
 @Serializable
-data class GitHubProject(val id: Int, val name: String, val description: String?, val fork: Boolean, @SerialName("languages_url") val languagesUrl: String)
+data class GitHubProject(val id: Int, val name: String, val description: String?, val fork: Boolean, @SerialName("languages_url") val languagesUrl: String, val private: Boolean, @SerialName("html_url") val externalLink: String)
 
 @Serializable
 data class GitHubSearch(@SerialName("items") val projects: List<GitHubProject>)

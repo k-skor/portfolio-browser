@@ -33,6 +33,7 @@ kotlin {
             implementation(libs.kotlinx.serialization)
             implementation(libs.orbitmvi.core)
             implementation(libs.appcash.paging.common)
+            implementation(libs.kvault)
         }
         androidMain.dependencies {
             // Logging

@@ -19,12 +19,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.flow.Flow
-import pl.krzyssko.portfoliobrowser.store.ProfileState
+import kotlinx.coroutines.flow.StateFlow
+import pl.krzyssko.portfoliobrowser.data.User
 
 @Composable
-fun Avatar(modifier: Modifier = Modifier, userFlow: Flow<ProfileState.Authenticated>, onAvatarClicked: () -> Unit) {
-    val userState by userFlow.collectAsState(null)
+fun Avatar(modifier: Modifier = Modifier, userFlow: StateFlow<User>, onAvatarClicked: () -> Unit) {
+    val user by userFlow.collectAsState()
     Box(
         Modifier
             .clickable(onClick = onAvatarClicked)
@@ -35,13 +35,12 @@ fun Avatar(modifier: Modifier = Modifier, userFlow: Flow<ProfileState.Authentica
                 )
             ), contentAlignment = Alignment.Center
     ) {
-        val photo = userState?.user?.additionalData?.get("avatar_url") ?: userState?.user?.profile?.photoUrl
-        (photo)?.let {
+        (user as? User.Authenticated)?.let {
             AsyncImage(
-                model = it,
-                modifier = modifier.size(30.dp).clip(RoundedCornerShape(50)),
-                contentDescription = "Project image",
-                contentScale = ContentScale.FillWidth
+                model = it.additionalData?.get("avatar_url") as? String ?: it.account.avatarUrl,
+            modifier = modifier.size(30.dp).clip(RoundedCornerShape(50)),
+            contentDescription = "Project image",
+            contentScale = ContentScale.FillWidth
             )
         } ?: Icon(Icons.Default.Person, contentDescription = null)
     }

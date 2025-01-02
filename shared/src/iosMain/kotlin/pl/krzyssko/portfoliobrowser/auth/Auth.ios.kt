@@ -1,6 +1,6 @@
 package pl.krzyssko.portfoliobrowser.auth
 
-import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.Account
 
 class IosAuth: Auth() {
     override fun initAuth() {
@@ -11,7 +11,7 @@ class IosAuth: Auth() {
         TODO("Not yet implemented")
     }
 
-    override fun getUserProfile(): Profile? {
+    override fun getUserProfile(): Account? {
         TODO("Not yet implemented")
     }
 
@@ -27,5 +27,7 @@ class IosAuth: Auth() {
         TODO("Not yet implemented")
     }
 }
+
+actual fun String.toLoginMethod(): Auth.LoginMethod = Auth.LoginMethod.Email
 
 actual fun getPlatformAuth(): Auth = IosAuth()

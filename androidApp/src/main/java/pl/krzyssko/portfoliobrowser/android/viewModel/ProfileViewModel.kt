@@ -3,17 +3,21 @@ package pl.krzyssko.portfoliobrowser.android.viewModel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.auth.Auth
-import pl.krzyssko.portfoliobrowser.data.Config
+import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
-import pl.krzyssko.portfoliobrowser.di.NAMED_LIST
 import pl.krzyssko.portfoliobrowser.di.NAMED_PROFILE
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -46,55 +50,72 @@ class ProfileViewModel(
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow
 
-    init {
-        //viewModelScope.launch {
-        //    stateFlow.filter { it is ProfileState.Authenticated }.map { it as ProfileState.Authenticated }.collectLatest {
-        //        logging.debug("AUTH user=${it.user.profile.id}, token=${it.user.token}")
-        //        val user = it.user.profile.id
-        //        val token = it.user.token
-        //        if (user.isNotEmpty()) {
-        //            config.config = Config(user, token.orEmpty())
-        //            firestore.createUser(user, it.user.profile)
-        //        }
-        //    }
-        //}
-        // TODO: move to store initializer block
-        initAuthentication()
-    }
+    val userState = stateFlow.map {
+        when(it) {
+            is ProfileState.Authenticated -> it.user
+            is ProfileState.Initialized -> User.Guest
+            else -> null
+        }
+    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), User.Guest)
 
-    fun initAuthentication() {
-        store.profile {
-            initAuth(auth)
+    val profileState = stateFlow.map {
+        when(it) {
+            is ProfileState.ProfileCreated -> it.profile
+            else -> null
+        }
+    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Profile())
+
+    val isSourceAvailable = stateFlow.onEach {
+        logging.debug("source state=$it")
+    }.map {
+        it is ProfileState.SourceAvailable
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    init {
+        // TODO: move to store initializer block
+        //initAuthentication()
+        with(store) {
+            profile {
+                initAuth(auth, config)
+                viewModelScope.launch {
+                    stateFlow.filter { it is ProfileState.ProfileCreated }
+                        .onStart {
+                            logging.debug("user profile created!!!")
+                        }.collect {
+
+                        }
+                }
+            }
         }
     }
 
     fun createUser(activity: Context, login: String, password: String) {
         store.profile {
-            createAccount(activity, auth, login, password)
+            createAccount(activity, auth, login, password, firestore)
         }
     }
 
     fun authenticateUser(activity: Context, refreshOnly: Boolean = false) {
         store.profile {
-            authenticateWithGitHub(activity, auth, repository, config, refreshOnly)
+            authenticateWithGitHub(activity, auth, config, repository, firestore, refreshOnly)
         }
     }
 
     fun authenticateUser(activity: Context, login: String, password: String) {
         store.profile {
-            authenticateWithEmail(activity, auth, login, password)
+            authenticateWithEmail(activity, auth, login, password, firestore)
         }
     }
 
     fun linkUser(activity: Context) {
         store.profile {
-            linkWithGitHub(activity, auth, repository, config, firestore)
+            linkWithGitHub(activity, auth, config, repository)
         }
     }
 
     fun resetAuthentication() {
         store.profile {
-            resetAuth(auth)
+            resetAuth(auth, config)
         }
     }
 }

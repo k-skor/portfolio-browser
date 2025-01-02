@@ -15,9 +15,7 @@ import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
-import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
-import pl.krzyssko.portfoliobrowser.platform.getConfiguration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
@@ -34,7 +32,7 @@ val NAMED_PROFILE = named("profile")
 fun sharedAppModule() = module {
 
     single<Api> { GitHubApi(get(), get()) }
-    single<ProjectRepository> { GitHubProjectRepository(get()) }
+    factory<ProjectRepository> { GitHubProjectRepository(get(), get()) }
     single<HttpClient> {
         HttpClient(CIO) {
             install(ContentNegotiation) {
@@ -45,7 +43,6 @@ fun sharedAppModule() = module {
             expectSuccess = true
         }
     }
-    single<Configuration> { getConfiguration() }
     factory<Logging> { getLogging() }
     single<Auth> { getPlatformAuth() }
     single<Firestore> { getFirestore() }

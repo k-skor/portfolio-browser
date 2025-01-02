@@ -30,8 +30,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
-import pl.krzyssko.portfoliobrowser.store.ProfileState
-import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+import pl.krzyssko.portfoliobrowser.data.User
 
 interface LoginActions {
     fun onGitHubSignIn()
@@ -48,14 +47,9 @@ enum class Error {
 
 @Composable
 fun AccountScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues,
-                  userFlow: StateFlow<ProfileState>, actions: LoginActions) {
+                  userFlow: StateFlow<User>, actions: LoginActions) {
     val user by userFlow.collectAsState()
-    var isSignedIn by remember { mutableStateOf(false) }
-    isSignedIn = when(user) {
-        is ProfileState.Authenticated -> true
-        is ProfileState.Initialized -> false
-        else -> isSignedIn
-    }
+    val isSignedIn = user is User.Authenticated
     Surface(
         modifier = modifier.padding(top = contentPaddingValues.calculateTopPadding()),
         color = MaterialTheme.colorScheme.background
@@ -76,11 +70,7 @@ fun AccountScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingVa
                 var createOrSignIn by remember { mutableStateOf(true) }
                 Text("Login with:", style = MaterialTheme.typography.labelMedium)
                 Button(onClick = {
-                    if (isSignedIn) {
-                        actions.onGitHubSignOut()
-                    } else {
-                        actions.onGitHubSignIn()
-                    }
+                    actions.onGitHubSignIn()
                 }) {
                     Text("GitHub sign in")
                 }
@@ -208,13 +198,11 @@ fun EmailSignIn(modifier: Modifier = Modifier, loginState: MutableState<String?>
     }
 }
 
-val fakeState = ProfileState.Initialized
-
 @Preview(widthDp = 320, heightDp = 320)
 @Composable
 fun AccountPreview() {
     MyApplicationTheme {
-        val stateFlow = MutableStateFlow(fakeState)
+        val stateFlow = MutableStateFlow(fakeUser)
         AccountScreen(Modifier.fillMaxSize(), PaddingValues(), stateFlow, object : LoginActions {
             override fun onGitHubSignIn() {
                 TODO("Not yet implemented")

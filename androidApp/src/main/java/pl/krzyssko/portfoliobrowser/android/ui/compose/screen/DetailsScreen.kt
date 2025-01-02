@@ -37,15 +37,17 @@ import pl.krzyssko.portfoliobrowser.store.ProjectState
 @Composable
 fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, stateFlow: StateFlow<ProjectState>) {
     val state by stateFlow.collectAsState()
-    Column(modifier = modifier.verticalScroll(rememberScrollState()).padding(top = contentPaddingValues.calculateTopPadding())) {
+    Column(modifier = modifier
+        .verticalScroll(rememberScrollState())
+        .padding(top = contentPaddingValues.calculateTopPadding())) {
         val item = (state as? ProjectState.Ready)?.project ?: return
         val textModifier = modifier
             .padding(horizontal = 4.dp, vertical = 8.dp)
             .padding(bottom = 12.dp)
         AsyncImage(
-            model = when (item.icon) {
-                is Resource.NetworkResource -> (item.icon as Resource.NetworkResource).url
-                is Resource.LocalResource -> (item.icon as Resource.LocalResource).name
+            model = when (item.image) {
+                is Resource.NetworkResource -> (item.image as Resource.NetworkResource).url
+                is Resource.LocalResource -> (item.image as Resource.LocalResource).name
                 else -> null
             },
             modifier = modifier
@@ -114,13 +116,17 @@ fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingVa
 
 
 private val fakeData = Project(
-        id = 1,
-        name = "Title 1",
-        description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
-        stack = listOf(Stack(name = "Kotlin", lines =  6342, color = 0x00DA02B8 or (0xFF shl 24)), Stack(name = "Java", lines =  1287, color = 0x3F0AB7C3 or (0xFF shl 24))),
-        icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
-
-    )
+    id = 1,
+    name = "Title 1",
+    description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
+    stack = listOf(
+        Stack(name = "Kotlin", lines = 6342, color = 0x00DA02B8 or (0xFF shl 24)),
+        Stack(name = "Java", lines = 1287, color = 0x3F0AB7C3 or (0xFF shl 24))
+    ),
+    image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+    createdBy = "k-skor",
+    createdOn = "2024-01-01T00:00:00Z"
+)
 val fakeDetails = ProjectState.Ready(fakeData)
 val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 

@@ -66,12 +66,10 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
 import pl.krzyssko.portfoliobrowser.data.Paging
-import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
@@ -81,7 +79,7 @@ import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 
 interface ListScreenActions {
-    fun onProjectClicked(name: String?)
+    fun onProjectClicked(name: String)
     fun onSearch(phrase: String)
     fun onClear()
     fun onAvatarClicked()
@@ -95,14 +93,15 @@ fun ListScreen(
     pagingFlow: Flow<PagingData<Project>>,
     listFlow: StateFlow<ProjectsListState>,
     detailsState: StateFlow<ProjectState>,
-    profileState: StateFlow<ProfileState>,
+    projectsFlow: StateFlow<List<Project>>,
+    phraseFlow: StateFlow<String?>,
+    userFlow: StateFlow<User>,
     actions: ListScreenActions
 ) {
-    val list by listFlow.collectAsState()
+    val listState by listFlow.collectAsState()
     val details by detailsState.collectAsState()
-    val user by profileState.collectAsState()
-    val userFlow = profileState.filter { it is ProfileState.Authenticated }.map { it as ProfileState.Authenticated }
-    val projectsFlow = listFlow.filter { it is ProjectsListState.Ready }.map { it as ProjectsListState.Ready }
+    val user by userFlow.collectAsState()
+    val projects by projectsFlow.collectAsState()
 
     val textFieldState = rememberTextFieldState()
     var expanded by rememberSaveable { mutableStateOf(false) }
@@ -158,13 +157,12 @@ fun ListScreen(
                     }
                 }
             }
-            if (list !is ProjectsListState.Ready && user !is ProfileState.Authenticated) {
+            if (user !is User.Authenticated &&  listState !is ProjectsListState.Ready) {
                 actions.onClear()
                 return@Box
             }
 
-            val phrase by projectsFlow.map { it.searchPhrase }.collectAsState(null)
-            val projects = projectsFlow.map { it.projects.flatMap { project -> project.value } }
+            val phrase by phraseFlow.collectAsState()
             val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
 
             var projectClicked by remember { mutableStateOf("") }
@@ -203,7 +201,7 @@ fun ListScreen(
                                 }
                             }) {
                             Box(Modifier.alpha(if ((details is ProjectState.Loading) && item.name == projectClicked) 0.22f else 1f), contentAlignment = Alignment.Center) {
-                                ProjectOverview(modifier = modifier, item, projects.filter { index < it.size }.map { it[index] })
+                                ProjectOverview(modifier = modifier, item, if (index < projects.size) projects[index].stack else emptyList())
                                 if ((details is ProjectState.Loading) && item.name == projectClicked) {
                                     CircularProgressIndicator(
                                         modifier = Modifier
@@ -238,16 +236,15 @@ fun ListScreen(
 }
 
 @Composable
-fun ProjectOverview(modifier: Modifier = Modifier, item: Project, projectState: Flow<Project>) {
-    val project by projectState.collectAsState(null)
+fun ProjectOverview(modifier: Modifier = Modifier, item: Project, stack: List<Stack>) {
     Column(modifier) {
         val textModifier = modifier
             .padding(horizontal = 4.dp, vertical = 8.dp)
             .padding(bottom = 12.dp)
         AsyncImage(
-            model = when (item.icon) {
-                is Resource.NetworkResource -> (item.icon as Resource.NetworkResource).url
-                is Resource.LocalResource -> (item.icon as Resource.LocalResource).name
+            model = when (item.image) {
+                is Resource.NetworkResource -> (item.image as Resource.NetworkResource).url
+                is Resource.LocalResource -> (item.image as Resource.LocalResource).name
                 else -> null
             },
             modifier = modifier
@@ -269,7 +266,6 @@ fun ProjectOverview(modifier: Modifier = Modifier, item: Project, projectState: 
                 fontSize = 18.sp
             )
         }
-        val stack = project?.stack ?: emptyList()
         if (stack.isNotEmpty()) {
             val sum =
                 stack.map { it.lines }
@@ -332,30 +328,34 @@ private val fakeData: List<Project> = listOf(
         name = "Title 1",
         description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
         stack = listOf(Stack(name = "Kotlin", lines =  6342, color = 0x00DA02B8 or (0xFF shl 24)), Stack(name = "Java", lines =  1287, color = 0x3F0AB7C3 or (0xFF shl 24))),
-        icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg")
-
+        image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+        createdBy = "ABCD1234",
+        createdOn = "2024-01-01T00:00:00Z"
     ),
     Project(
         id = 2,
         name = "Title 2",
         description = null,
         stack = listOf(Stack(name = "Kotlin", lines =  6342, color = 0x00DA02B8 or (0xFF shl 24)), Stack(name = "Java", lines =  1287, color = 0x3F0AB7C3 or (0xFF shl 24))),
-        icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+        image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+        createdBy = "ABCD1234",
+        createdOn = "2024-01-01T00:00:00Z"
     ),
     Project(
         id = 3,
         name = "Title 3",
         description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
-        stack = listOf(),
-        icon = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+        stack = emptyList(),
+        image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
+        createdBy = "ABCD1234",
+        createdOn = "2024-01-01T00:00:00Z"
     )
 )
 val pagingData = PagingData.from(fakeData)
 val fakeDataFlow = MutableStateFlow(pagingData)
 val fakeList = ProjectsListState.Ready(projects = mapOf(null to fakeData), paging = Paging())
 val fakeListFlow = MutableStateFlow(fakeList)
-val fakeUser = ProfileState.Authenticated(User(Profile("0123", "name", "email@dot.com", null, false)))
-val fakeUserFlow = MutableStateFlow(fakeUser)
+val fakeUser = User.Authenticated(Account("0123", "name", "email@dot.com", null, false))
 
 @ExperimentalMaterial3Api
 @Preview(widthDp = 320)
@@ -368,10 +368,12 @@ fun DefaultPreview() {
             contentPaddingValues = PaddingValues(),
             listFlow = fakeListFlow,
             detailsState = fakeDetailsFlow,
-            profileState = fakeUserFlow,
             pagingFlow = fakeDataFlow,
+            projectsFlow = MutableStateFlow(fakeData),
+            phraseFlow = MutableStateFlow(""),
+            userFlow = MutableStateFlow(fakeUser),
             actions = object : ListScreenActions {
-                override fun onProjectClicked(name: String?) {
+                override fun onProjectClicked(name: String) {
                     TODO("Not yet implemented")
                 }
 

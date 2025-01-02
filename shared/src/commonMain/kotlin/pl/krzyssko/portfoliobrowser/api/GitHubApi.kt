@@ -7,6 +7,7 @@ import io.ktor.client.request.accept
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.url
+import io.ktor.client.statement.request
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.Url
@@ -20,31 +21,6 @@ import pl.krzyssko.portfoliobrowser.api.paging.LinkHeaderPageParser
 import pl.krzyssko.portfoliobrowser.api.paging.PagingKey
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-
-data class PagedResponse<out T>(
-    val data: List<T>,
-    val prev: String? = null,
-    val next: String? = null,
-    val last: String? = null
-)
-
-data class PagedSearchResult<out T>(
-    val data: T,
-    val prev: String? = null,
-    val next: String? = null,
-    val last: String? = null
-)
-
-interface Api {
-    suspend fun getUser(): GitHubUser
-    suspend fun getRepos(): List<GitHubProject>
-    suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject>
-    suspend fun getRepoLanguages(repoName: String): GitHubLanguage
-    suspend fun getRepoBy(name: String): GitHubProject
-    suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch>
-}
-
-class GitHubApiException(message: String?, throwable: Throwable?): Exception(message, throwable)
 
 class GitHubApi(private val httpClient: HttpClient, private val configuration: Configuration) : Api {
 
@@ -69,9 +45,8 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         }
     }
 
-    override suspend fun getUser(): GitHubUser {
-        var error: Throwable? = null
-        val result = try {
+    override suspend fun getUser(): ApiResponse<GitHubUser> {
+        try {
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "user") {}
             }
@@ -80,20 +55,18 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
 
                 log.debug(result.toString())
 
-                result
-            } else null
+                return ApiResponse.Success(result)
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Exception) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 
-    override suspend fun getRepos(): List<GitHubProject> {
+    override suspend fun getRepos(): ApiResponse<List<GitHubProject>> {
         val user = configuration.config.gitHubApiUser
-        var error: Throwable? = null
-        val result = try {
+        try {
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "users/$user/repos") {}
             }
@@ -102,20 +75,18 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
 
                 log.debug(result.toString())
 
-                result
-            } else null
+                return ApiResponse.Success(result)
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Exception) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 
-    override suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject> {
-        val user = configuration.config.gitHubApiUser
-        var error: Throwable? = null
-        val result = try {
+    override suspend fun getRepos(queryParams: String?): ApiResponse<PagedResponse<GitHubProject>> {
+        try {
+            val user = configuration.config.gitHubApiUser
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "users/$user/repos") {
                     if (queryParams == null) {
@@ -133,7 +104,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
                 }
             }
             if (request.status == HttpStatusCode.OK) {
-                val result = request.body<List<GitHubProject>>()
+                val response = request.body<List<GitHubProject>>()
 
                 val paging = LinkHeaderPageParser()
                 if (request.headers.contains("link")) {
@@ -143,38 +114,18 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
                     log.debug("No link headers")
                 }
 
-                PagedResponse(result, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last))
-            } else null
+                return ApiResponse.Success(PagedResponse(response, paging.get(PagingKey.Rel.Prev), paging.get(PagingKey.Rel.Next), paging.get(PagingKey.Rel.Last)))
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Exception) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 
-    override suspend fun getRepoLanguages(repoName: String): GitHubLanguage {
+    override suspend fun getRepoLanguages(repoName: String): ApiResponse<GitHubLanguage> {
         val user = configuration.config.gitHubApiUser
-        //var result: GitHubLanguage? = null
-        var error: Throwable? = null
-        //try {
-        //    val request = httpClient.get {
-        //        getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
-        //    }
-        //    if (request.status == HttpStatusCode.OK) {
-        //        result = request.body<GitHubLanguage>()
-
-        //        log.debug(result.toString())
-        //    }
-        //} catch (e: Exception) {
-        //    throwable = e
-        //} finally {
-        //    if (result == null) {
-        //        throw GitHubApiException("GitHub API exception.", throwable)
-        //    }
-        //    return result
-        //}
-        val result = try {
+        try {
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "repos/$user/$repoName/languages") {}
             }
@@ -183,44 +134,38 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
 
                 log.debug(result.toString())
 
-                result
-            } else null
+                return ApiResponse.Success(result)
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Exception) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 
-    override suspend fun getRepoBy(name: String): GitHubProject {
+    override suspend fun getRepoBy(name: String): ApiResponse<GitHubProject> {
         val user = configuration.config.gitHubApiUser
-        var error: Throwable? = null
-
-        val result = try {
+        try {
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "repos/$user/$name") {}
             }
             if (request.status == HttpStatusCode.OK) {
                 val result = request.body<GitHubProject>()
                 log.debug(result.toString())
-                result
-            } else null
+                return ApiResponse.Success(result)
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Exception) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 
     /**
      * Query example: android in:name in:description user:k-skor
      */
-    override suspend fun searchRepos(query: String, queryParams: String?): PagedSearchResult<GitHubSearch> {
-        var error: Throwable? = null
-
-        val result = try {
+    override suspend fun searchRepos(query: String, queryParams: String?): ApiResponse<PagedSearchResult<GitHubSearch>> {
+        try {
             val request = httpClient.get {
                 getHttpRequestBuilderBlock(this, "search/repositories") {
                     url.parameters.apply {
@@ -253,19 +198,17 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
                     log.debug("No link headers")
                 }
 
-                PagedSearchResult(
+                return ApiResponse.Success(PagedSearchResult(
                     result,
                     paging.get(PagingKey.Rel.Prev),
                     paging.get(PagingKey.Rel.Next),
                     paging.get(PagingKey.Rel.Last)
-                )
-            } else null
-
+                ))
+            } else {
+                return ApiResponse.Failure(Error("Request ${request.request.url} failed with status: ${request.status}"))
+            }
         } catch (e: Error) {
-            error = e
-            null
-        } ?: throw GitHubApiException("GitHub API exception.", error)
-
-        return result
+            return ApiResponse.Failure(e)
+        }
     }
 }

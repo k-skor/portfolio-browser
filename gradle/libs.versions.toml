@@ -20,6 +20,7 @@ androidx-pagingCompose = "3.3.2"
 coil = "3.0.0-rc01"
 firebaseAuthKtx = "23.1.0"
 kvault = "1.12.0"
+konform = "0.10.0"
 
 [libraries]
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase" }
@@ -58,6 +59,7 @@ coil-network = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "
 coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 kvault = { module = "com.liftric:kvault", version.ref = "kvault" }
+konform = { module = "io.konform:konform", version.ref = "konform" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

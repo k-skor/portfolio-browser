@@ -7,18 +7,20 @@ import org.koin.dsl.module
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
+import pl.krzyssko.portfoliobrowser.di.NAMED_FIRESTORE
+import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getConfiguration
 
 val androidAppModule = module {
     viewModel { (handle: SavedStateHandle) ->
-        ProjectViewModel(handle, get(), get(), get())
+        ProjectViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(), get())
     }
     viewModel { (handle: SavedStateHandle) ->
-        ProjectDetailsViewModel(handle, get())
+        ProjectDetailsViewModel(handle, get(qualifier = NAMED_FIRESTORE))
     }
     viewModel {
-        ProfileViewModel(get(), get(), get(), get(), get())
+        ProfileViewModel(get(qualifier = NAMED_GITHUB), get(), get(), get(), get())
     }
     single<Configuration> { getConfiguration(androidContext()) }
 }

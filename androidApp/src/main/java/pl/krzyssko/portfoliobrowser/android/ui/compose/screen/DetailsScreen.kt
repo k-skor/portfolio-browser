@@ -70,21 +70,23 @@ fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingVa
         }
         if (item.stack.isNotEmpty()) {
             val sum =
-                item.stack.map { it.lines }.reduce { sum, lines -> sum + lines }
+                item.stack.map { it.percent }.reduce { sum, lines -> sum + lines }
             val stack = item.stack
             Column {
                 Row(modifier = modifier
                     .fillMaxWidth()
                     .padding(4.dp)) {
                     for (stackIt in stack) {
-                        val weight = stackIt.lines.toFloat() / sum
-                        Surface(
-                            modifier = Modifier
-                                .height(4.dp)
-                                .weight(weight),
-                            color = Color(stackIt.color),
-                            shape = RectangleShape
-                        ) { }
+                        val weight = stackIt.percent / sum
+                        if (weight > 0) {
+                            Surface(
+                                modifier = Modifier
+                                    .height(4.dp)
+                                    .weight(weight),
+                                color = Color(stackIt.color),
+                                shape = RectangleShape
+                            ) { }
+                        }
                     }
                 }
                 Column(
@@ -120,12 +122,12 @@ private val fakeData = Project(
     name = "Title 1",
     description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
     stack = listOf(
-        Stack(name = "Kotlin", lines = 6342, color = 0x00DA02B8 or (0xFF shl 24)),
-        Stack(name = "Java", lines = 1287, color = 0x3F0AB7C3 or (0xFF shl 24))
+        Stack(name = "Kotlin", percent = 67f, color = 0x00DA02B8 or (0xFF shl 24)),
+        Stack(name = "Java", percent = 33f, color = 0x3F0AB7C3 or (0xFF shl 24))
     ),
     image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
     createdBy = "k-skor",
-    createdOn = "2024-01-01T00:00:00Z"
+    createdOn = 11234567890
 )
 val fakeDetails = ProjectState.Ready(fakeData)
 val fakeDetailsFlow = MutableStateFlow(fakeDetails)

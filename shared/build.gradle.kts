@@ -34,6 +34,7 @@ kotlin {
             implementation(libs.orbitmvi.core)
             implementation(libs.appcash.paging.common)
             implementation(libs.kvault)
+            implementation(libs.konform)
         }
         androidMain.dependencies {
             // Logging

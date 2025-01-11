@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.ContainerHost
@@ -27,6 +26,7 @@ import pl.krzyssko.portfoliobrowser.business.Destination
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.business.SyncHandler
 import pl.krzyssko.portfoliobrowser.business.SyncResult
+import pl.krzyssko.portfoliobrowser.data.Role
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
@@ -160,6 +160,7 @@ fun OrbitContainerHost<ProfileState>.createUserProfile(db: Firestore) = intent {
                 postSideEffect(UserSideEffects.Toast("Preparing user account."))
                 val profile = Profile(
                     alias = user.account.name,
+                    role = Role.Developer.toString()
                 )
                 db.createProfile(user.account.id, profile)
                 reduce {
@@ -264,6 +265,28 @@ fun loadPage(
     }
 }
 
+fun loadPage2(
+    projectFlow: () -> Flow<List<Project>>,
+    stackFlow: ((projectName: String) -> Flow<List<Stack>>)?
+): Flow<List<Project>> = flow {
+    projectFlow().collect {
+        emit(it)
+
+        if (stackFlow == null) {
+            return@collect
+        }
+        val data = it.toMutableList()
+        for (index in it.indices) {
+            val project = it[index]
+            stackFlow(project.name).collect { list ->
+                data[index] = project.copy(stack = list)
+                getLogging().debug("store stack emit size=${list.size}")
+                emit(data)
+            }
+        }
+    }
+}
+
 /**
  * 1. Called from PagingSource
  * 2. Take repository
@@ -271,40 +294,42 @@ fun loadPage(
  * 4. Return State, Flow, etc.
  */
 fun OrbitContainerHost<ProjectsListState>.loadPageFrom(
-    repository: ProjectRepository,
-    colorPicker: InfiniteColorPicker,
-    pageKey: String?
+    repository: ProjectRepository
 ) = intent {
-    postSideEffect(UserSideEffects.Toast("Loading projects list ${pageKey ?: "initial"} page"))
+    postSideEffect(UserSideEffects.Toast("Loading projects list ${repository.pagingState?.paging?.pageKey ?: "initial"} page"))
 
     if (state.isStateReady()) {
-         loadPage(
-            { repository.fetchProjects(pageKey) },
-            { projectName -> repository.fetchStack(projectName) },
-            colorPicker
+        val colorPicker = InfiniteColorPicker()
+        loadPage2(
+            { repository.nextPage() },
+            null
         ).catch { e ->
+            e.printStackTrace()
             postSideEffect(UserSideEffects.Toast(e.toString()))
             reduce {
                 ProjectsListState.Error(e)
             }
+        }.map {
+            it.map { project ->
+                project.copy(stack = project.stack.map { stack ->
+                    stack.copy(
+                        color = colorPicker.pick(
+                            stack.name
+                        )
+                    )
+                })
+            }
         }.collect { page ->
-            val paging = Paging(
-                currentPageUrl = pageKey,
-                nextPageUrl = page.next,
-                prevPageUrl = page.prev,
-                isLastPage = page.next == null
-            )
+            val newPageKey = repository.pagingState?.paging?.pageKey
             (state as? ProjectsListState.Ready)?.let {
                 reduce {
                     it.copy(
-                        projects = it.projects + (pageKey to page.page),
-                        paging = paging
+                        projects = it.projects + (newPageKey to page)
                     )
                 }
             } ?: reduce {
                 ProjectsListState.Ready(
-                    projects = mapOf(pageKey to page.page),
-                    paging = paging
+                    projects = mapOf(newPageKey to page)
                 )
             }
         }
@@ -341,9 +366,9 @@ fun OrbitContainerHost<ProjectsListState>.searchProjects(
                 current.copy(
                     projects = current.projects + (pageKey to page.page),
                     paging = Paging(
-                        currentPageUrl = pageKey,
-                        nextPageUrl = page.next,
-                        prevPageUrl = page.prev,
+                        pageKey = pageKey,
+                        nextPageKey = page.next,
+                        prevPageKey = page.prev,
                         isLastPage = page.next == null
                     )
                 )
@@ -360,34 +385,34 @@ fun OrbitContainerHost<ProjectsListState>.clearProjects() = intent {
     }
 }
 
-fun OrbitContainerHost<ProjectsListState>.doImport(repository: ProjectRepository, firestore: Firestore, user: User.Authenticated) = intent {
+fun OrbitContainerHost<ProjectsListState>.importProjects(repository: ProjectRepository, firestore: Firestore, user: User.Authenticated) = intent {
+
+    repository.resetPagingState()
 
     val source = pl.krzyssko.portfoliobrowser.business.Source(
         flow {
-            var nextPageUrl: String? = null
             var isLastPage = false
             while (!isLastPage) {
-                val projects = loadPage(
-                    { repository.fetchProjects(nextPageUrl) },
-                    { projectName -> repository.fetchStack(projectName) },
-                    InfiniteColorPicker()
+                val projects = loadPage2(
+                    { repository.nextPage() },
+                    { projectName -> repository.fetchStack(projectName) }
                 ).catch { e ->
                     postSideEffect(UserSideEffects.Toast(e.toString()))
                     reduce {
                         ProjectsListState.ImportError(e)
                     }
+                    emit(emptyList())
                 }.onStart {
                     reduce {
                         ProjectsListState.ImportStarted
                     }
-                }.onEach { page ->
-                    isLastPage = page.next == null
-                    nextPageUrl = page.next
                 }.last()
 
-                projects.page.forEach { emit(it) }
+                projects.forEach { emit(it) }
+                isLastPage = repository.pagingState?.paging?.isLastPage == true || projects.isEmpty()
             }
-        }
+        },
+        Source.GitHub
     )
 
     val destination = Destination(firestore, user)
@@ -401,7 +426,7 @@ fun OrbitContainerHost<ProjectsListState>.doImport(repository: ProjectRepository
     }
 }
 
-class OrbitStore<TState : Any>(private val coroutineScope: CoroutineScope, initialState: TState) {
+class OrbitStore<TState : Any>(coroutineScope: CoroutineScope, initialState: TState) {
     val containerHost = OrbitContainerHost(coroutineScope, initialState)
 
     val stateFlow = containerHost.container.stateFlow

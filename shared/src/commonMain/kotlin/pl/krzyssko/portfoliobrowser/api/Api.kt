@@ -6,7 +6,7 @@ import pl.krzyssko.portfoliobrowser.api.dto.GitHubSearch
 import pl.krzyssko.portfoliobrowser.api.dto.GitHubUser
 
 data class PagedResponse<out T>(
-    val page: List<T>,
+    val page: List<T> = emptyList(),
     val prev: String? = null,
     val next: String? = null,
     val last: String? = null

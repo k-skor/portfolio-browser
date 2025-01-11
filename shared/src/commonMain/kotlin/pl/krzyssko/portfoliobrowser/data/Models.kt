@@ -1,29 +1,32 @@
 package pl.krzyssko.portfoliobrowser.data
 
+import pl.krzyssko.portfoliobrowser.db.transfer.DataSyncDto
+import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
+
 sealed class Resource {
     data class LocalResource(val name: String): Resource()
     data class NetworkResource(val url: String): Resource()
 }
 
 data class Paging(
-    val currentPageUrl: String? = null,
-    val nextPageUrl: String? = null,
-    val prevPageUrl: String? = null,
+    val pageKey: String? = null,
+    val nextPageKey: String? = null,
+    val prevPageKey: String? = null,
     val isLastPage: Boolean = false
 )
 
-data class Stack(val name: String, val lines: Int, val color: Int = 0x00FFFFFF)
+data class Stack(val name: String, val percent: Float = 0f, val color: Int = 0x00FFFFFF)
 
 enum class Source {
     GitHub
 }
 data class Widget(val origin: Source = Source.GitHub, val name: String, val description: String?, val externalUrl: String)
-data class Project(val id: Int, val name: String, val description: String?, val stack: List<Stack> = emptyList(), val image: Resource, val followers: List<String> = emptyList(), val createdBy: String, val createdOn: String, val coauthors: List<String> = emptyList(), val accessRestriction: List<String> = emptyList(), val source: Source? = null)
+data class Follower(val uid: String, val name: String)
+data class Project(val id: Int, val name: String, val description: String? = null, val stack: List<Stack> = emptyList(), val image: Resource?, val followersCount: Int = 0, val followers: List<Follower> = emptyList(), val createdBy: String, val createdOn: Long, val coauthors: List<String> = emptyList(), val public: Boolean = true, val source: Source? = null)
 
 typealias AdditionalUserData = Map<String, Any>
 
 data class Account(val id: String, val name: String, val email: String, val avatarUrl: String?, val isEmailVerified: Boolean) //, val projectsRefId: String? = null
-data class SyncData(val uid: String, val timestamp: Long, val source: Source = Source.GitHub, val projectIds: List<Int>)
 
 enum class SocialMediaType {
     LinkedIn,
@@ -42,7 +45,6 @@ enum class Role {
     Developer,
     Designer
 }
-data class Profile(val firstName: String? = null, val lastName: String? = null, val alias: String? = null, val role: Role? = null, val title: String? = null, val assets: List<String> = emptyList(), val experience: Int? = null, val location: String? = null, val contact: List<Contact> = emptyList())
 
 data class Provider(val providerId: String, val uid: String, val name: String, val email: String, val photoUrl: String)
 sealed class User {
@@ -51,3 +53,6 @@ sealed class User {
 }
 
 data class Config(var gitHubApiUser: String = "", var gitHubApiToken: String = "", var lastSignInMethod: String = "")
+
+typealias DataSync = DataSyncDto
+typealias Profile = ProfileDto

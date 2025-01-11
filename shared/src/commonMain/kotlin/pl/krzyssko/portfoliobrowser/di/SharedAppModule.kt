@@ -17,6 +17,7 @@ import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.repository.FirestoreProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
@@ -28,11 +29,14 @@ import pl.krzyssko.portfoliobrowser.store.StackColorMap
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
 val NAMED_PROFILE = named("profile")
+val NAMED_GITHUB = named("github")
+val NAMED_FIRESTORE = named("firestore")
 
 fun sharedAppModule() = module {
 
     single<Api> { GitHubApi(get(), get()) }
-    factory<ProjectRepository> { GitHubProjectRepository(get(), get()) }
+    factory<ProjectRepository>(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) }
+    factory<ProjectRepository>(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) }
     single<HttpClient> {
         HttpClient(CIO) {
             install(ContentNegotiation) {

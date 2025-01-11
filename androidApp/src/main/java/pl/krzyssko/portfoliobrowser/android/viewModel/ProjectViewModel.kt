@@ -19,6 +19,7 @@ import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.paging.MyPagingSource
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
+import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.di.NAMED_LIST
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
@@ -26,7 +27,7 @@ import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import pl.krzyssko.portfoliobrowser.store.clearProjects
-import pl.krzyssko.portfoliobrowser.store.doImport
+import pl.krzyssko.portfoliobrowser.store.importProjects
 import pl.krzyssko.portfoliobrowser.store.projectsList
 import pl.krzyssko.portfoliobrowser.store.updateSearchPhrase
 
@@ -50,6 +51,7 @@ class ProjectViewModel(
             ProjectsListState.Initialized
         )
     }
+    private val sourceRepository: ProjectRepository by inject(NAMED_GITHUB)
 
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow
@@ -84,7 +86,7 @@ class ProjectViewModel(
 
     fun importProjects(user: User.Authenticated) {
         store.projectsList {
-            doImport(repository, firestore, user)
+            importProjects(sourceRepository, firestore, user)
         }
     }
 

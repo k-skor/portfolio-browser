@@ -1,21 +1,38 @@
 package pl.krzyssko.portfoliobrowser.auth
 
 import pl.krzyssko.portfoliobrowser.data.Account
+import pl.krzyssko.portfoliobrowser.data.Config
 import pl.krzyssko.portfoliobrowser.data.User
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
+class AuthException(message: String) : Exception(message)
+class AuthLinkFailedException(message: String) : Exception(message)
+
 abstract class Auth {
 
-    lateinit var requestedLoginMethod: LoginMethod
+    var requestedLoginMethod: LoginMethod? = null
+        protected set
 
     enum class LoginMethod {
+        Anonymous,
         GitHub,
         Email
     }
 
-    suspend fun startSignInFlow(uiHandler: Any?, providerType: LoginMethod, create: Boolean = false, login: String? = null, password: String? = null, refresh: Boolean = false, token: String? = null, linkWithProvider: Boolean = false) = suspendCoroutine { continuation ->
+    fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerType != requestedLoginMethod
+
+    suspend fun startSignInFlow(
+        uiHandler: Any?,
+        providerType: LoginMethod,
+        create: Boolean = false,
+        login: String? = null,
+        password: String? = null,
+        refresh: Boolean = false,
+        token: String? = null,
+        linkWithProvider: Boolean = false
+    ) = suspendCoroutine { continuation ->
         val callback = createCallbackWithContinuation(
             onSuccess = continuation::resume,
             onFailure = continuation::resumeWithException
@@ -30,8 +47,13 @@ abstract class Auth {
         //        return@suspendCoroutine
         //    }
         //}
-        if (providerType == LoginMethod.Email && login != null && password != null) {
-            if (create) {
+        if (providerType == LoginMethod.Anonymous) {
+            signInAnonymous(callback)
+            requestedLoginMethod = LoginMethod.Anonymous
+        } else if (providerType == LoginMethod.Email && login != null && password != null) {
+            if (linkWithProvider) {
+                linkWithProvider(login, password, callback)
+            } else if (create) {
                 createWithEmail(uiHandler, login, password, callback)
             } else {
                 signInWithEmail(uiHandler, login, password, callback)
@@ -71,7 +93,8 @@ abstract class Auth {
     abstract var accessToken: String?
     abstract val hasGitHubProvider: Boolean
 
-    abstract fun initAuth()
+    abstract fun initAuth(config: Config? = null)
+    abstract fun signInAnonymous(callback: LoginFlowCallback)
     abstract fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false, callback: LoginFlowCallback)
     abstract fun signInLinkWithGitHub(uiHandler: Any?, callback: LoginFlowCallback)
     abstract fun createWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback)

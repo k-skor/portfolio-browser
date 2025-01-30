@@ -12,6 +12,7 @@ import androidx.compose.material3.TopAppBarDefaults.TopAppBarExpandedHeight
 import androidx.compose.material3.TopAppBarDefaults.topAppBarColors
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import pl.krzyssko.portfoliobrowser.BuildConfig
 
 
@@ -23,21 +24,24 @@ import pl.krzyssko.portfoliobrowser.BuildConfig
 fun AppBar(scrollBehavior: TopAppBarScrollBehavior, onBackPressed: (() -> Unit)? = null) {
     TopAppBar(
         colors = topAppBarColors(
-            containerColor = MaterialTheme.colorScheme.primaryContainer,
-            titleContentColor = MaterialTheme.colorScheme.primary,
+            //containerColor = MaterialTheme.colorScheme.primaryContainer,
+            //titleContentColor = MaterialTheme.colorScheme.primary,
+            containerColor = Color.Transparent,
+            scrolledContainerColor = Color.Transparent
         ),
         title = {
-            Text(BuildConfig.TAG)
+            //Text(BuildConfig.TAG)
         },
         expandedHeight = TopAppBarExpandedHeight,
         navigationIcon = {
             onBackPressed?.let {
-                IconButton(onClick = onBackPressed) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Default.ArrowBack,
-                        contentDescription = "Back"
-                    )
-                }
+                //IconButton(onClick = onBackPressed) {
+                //    Icon(
+                //        imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                //        contentDescription = "Back"
+                //    )
+                //}
+                AppBackButton { onBackPressed() }
             }
         },
         scrollBehavior = scrollBehavior

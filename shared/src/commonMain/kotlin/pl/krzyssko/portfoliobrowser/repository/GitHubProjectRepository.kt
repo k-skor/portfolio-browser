@@ -54,15 +54,17 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
-    override fun fetchProjectDetails(name: String): Flow<Project> = flow {
-        when (val response = api.getRepoBy(name)) {
+    override fun fetchProjectDetails(uid: String, id: String): Flow<Project> = flow {
+        when (val response = api.getRepoBy(id)) {
             is ApiResponse.Success -> emit(Project(
-                id = response.data.id,
+                id = response.data.id.toString(),
                 name = response.data.name,
                 description = response.data.description,
                 image = Resource.NetworkResource("https://picsum.photos/500/500"),
                 createdBy = auth.userProfile?.id ?: "",
-                createdOn = 11234567890
+                createdByName = auth.userProfile?.name ?: "",
+                createdOn = 11234567890,
+                public = !response.data.private
             ))
             is ApiResponse.Failure -> throw response.throwable ?: GitHubRepositoryException()
         }
@@ -72,12 +74,14 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         when (val response = api.searchRepos(query, queryParams)) {
             is ApiResponse.Success -> emit(PagedResponse(page = response.data.page.projects.map {
                 Project(
-                    id = it.id,
+                    id = it.id.toString(),
                     name = it.name,
                     description = it.description,
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userProfile?.id ?: "",
-                    createdOn = 11234567890
+                    createdByName = auth.userProfile?.name ?: "",
+                    createdOn = 11234567890,
+                    public = !it.private
                 )
             }, next = response.data.next, prev = response.data.prev, last = response.data.last))
             is ApiResponse.Failure -> throw response.throwable ?: GitHubRepositoryException()
@@ -99,12 +103,14 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                 )
             }.page.map {
                 Project(
-                    id = it.id,
+                    id = it.id.toString(),
                     name = it.name,
                     description = it.description,
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userProfile?.id ?: "",
+                    createdByName = auth.userProfile?.name ?: "",
                     createdOn = 11234567890,
+                    public = !it.private,
                     source = Source.GitHub
                 )
             })

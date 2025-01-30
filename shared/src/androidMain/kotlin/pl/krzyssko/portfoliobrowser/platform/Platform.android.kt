@@ -1,6 +1,5 @@
 package pl.krzyssko.portfoliobrowser.platform
 
-import android.Manifest
 import android.content.Context
 import android.util.Log
 import com.liftric.kvault.KVault
@@ -15,16 +14,10 @@ class AndroidPlatform : Platform {
 
 class AndroidConfiguration(private val contextHandle: Any?): Configuration() {
     override val vault by lazy { KVault(contextHandle as Context, "private_config") }
-    override val default = Config() //Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
-    override var config = default
-        set(value) {
-            field = value
-            save()
-        }
-
-    init {
-        restore()
-    }
+    //override val default = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
+    override var config: Config
+        get() = restore()
+        set(value) = save(value)
 }
 
 class AndroidLogging: Logging {

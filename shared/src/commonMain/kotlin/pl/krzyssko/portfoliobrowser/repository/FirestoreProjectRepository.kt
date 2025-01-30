@@ -6,14 +6,13 @@ import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Paging
 import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.data.Resource
-import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.Stack
-import pl.krzyssko.portfoliobrowser.db.transfer.toProject
 import pl.krzyssko.portfoliobrowser.db.Firestore
-import pl.krzyssko.portfoliobrowser.db.QueryPagedResult
+import pl.krzyssko.portfoliobrowser.db.transfer.toProject
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+
+class FirestoreException(message: String): Exception(message)
 
 class FirestorePagingState(val nextPageCursor: Any? = null, override val paging: Paging): PagingState
 
@@ -66,8 +65,14 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         emit(emptyList())
     }
 
-    override fun fetchProjectDetails(name: String): Flow<Project> {
-        TODO("Not yet implemented")
+    override fun fetchProjectDetails(uid: String, id: String): Flow<Project> = flow {
+        if (!auth.isUserSignedIn) {
+            throw IllegalArgumentException("User not signed in.")
+        }
+        emit(
+            firestore.getProject(auth.userProfile?.id!!, uid, id)?.toProject()
+                ?: throw FirestoreException("Project not found.")
+        )
     }
 
     override fun searchProjects(query: String, queryParams: String?): Flow<PagedResponse<Project>> {
@@ -84,7 +89,7 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
             firestorePagingState = FirestorePagingState(it.cursor, Paging(
                 pageKey = pageKey,
                 prevPageKey = firestorePagingState?.paging?.pageKey,
-                nextPageKey = nextKey, //.takeIf { nextKey.toString() != pageKey }
+                nextPageKey = nextKey,
                 isLastPage = nextKey == null
             ))
         }.value.map {

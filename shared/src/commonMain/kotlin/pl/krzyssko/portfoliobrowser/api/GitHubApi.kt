@@ -38,7 +38,9 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
             url( Url("$BASE_URL/$path") )
             headers {
                 accept(ContentType("application", "vnd.github+json"))
-                bearerAuth(token)
+                token?.let {
+                    bearerAuth(token)
+                }
                 append("X-GitHub-Api-Version", apiVersion)
             }
             block()

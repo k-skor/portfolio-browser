@@ -17,7 +17,7 @@ interface ProjectRepository {
     fun fetchUser(): Flow<String>
     fun nextPage(): Flow<List<Project>>
     fun fetchStack(name: String): Flow<List<Stack>>
-    fun fetchProjectDetails(name: String): Flow<Project>
+    fun fetchProjectDetails(uid: String, id: String): Flow<Project>
     fun searchProjects(query: String, queryParams: String?): Flow<PagedResponse<Project>>
     fun nextSearchPage(query: String): Flow<List<Project>>
 }

@@ -4,13 +4,10 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
@@ -24,6 +21,7 @@ import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProfileState
+import pl.krzyssko.portfoliobrowser.store.authenticateAnonymous
 import pl.krzyssko.portfoliobrowser.store.authenticateWithEmail
 import pl.krzyssko.portfoliobrowser.store.authenticateWithGitHub
 import pl.krzyssko.portfoliobrowser.store.createAccount
@@ -50,7 +48,7 @@ class ProfileViewModel(
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow
 
-    val userState = stateFlow.map {
+    val userState = stateFlow.onEach { logging.debug("USER STATE=${it}") }.map {
         when(it) {
             is ProfileState.Authenticated -> it.user
             is ProfileState.Initialized -> User.Guest
@@ -76,26 +74,24 @@ class ProfileViewModel(
         //initAuthentication()
         with(store) {
             profile {
-                initAuth(auth, config)
-                viewModelScope.launch {
-                    stateFlow.filter { it is ProfileState.ProfileCreated }
-                        .onStart {
-                            logging.debug("user profile created!!!")
-                        }.collect {
-
-                        }
-                }
+                initAuth(auth, config, firestore)
             }
         }
     }
 
     fun createUser(activity: Context, login: String, password: String) {
         store.profile {
-            createAccount(activity, auth, login, password, firestore)
+            createAccount(activity, auth, login, password, firestore, config)
         }
     }
 
-    fun authenticateUser(activity: Context, refreshOnly: Boolean = false) {
+    fun authenticateGuest() {
+        store.profile {
+            authenticateAnonymous(auth, firestore, config)
+        }
+    }
+
+    fun authenticateUser(activity: Context, refreshOnly: Boolean = false, forceSignIn: Boolean = false) {
         store.profile {
             authenticateWithGitHub(activity, auth, config, repository, firestore, refreshOnly)
         }
@@ -103,7 +99,7 @@ class ProfileViewModel(
 
     fun authenticateUser(activity: Context, login: String, password: String) {
         store.profile {
-            authenticateWithEmail(activity, auth, login, password, firestore)
+            authenticateWithEmail(activity, auth, login, password, firestore, config)
         }
     }
 

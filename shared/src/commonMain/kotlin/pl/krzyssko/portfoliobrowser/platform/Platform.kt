@@ -8,27 +8,26 @@ interface Platform {
 }
 
 abstract class Configuration {
-    //private val vault: KVault by lazy { getKVault() }
     abstract val vault: KVault
-    abstract val default: Config
+    //abstract val default: Config
     abstract var config: Config
 
-    //init {
-    //    restore()
-    //}
-
-    //abstract fun getKVault(): KVault
-
-    fun save() {
-        vault.set("config.gitHubApiUser", config.gitHubApiUser)
-        vault.set("config.gitHubApiToken", config.gitHubApiToken)
-        vault.set("config.lastSignInMethod", config.lastSignInMethod)
+    fun update(config: Config) {
+        this.config = config
     }
 
-    fun restore() {
-        this.config.gitHubApiUser = vault.string("config.gitHubApiUser") ?: ""
-        this.config.gitHubApiToken = vault.string("config.gitHubApiToken") ?: ""
-        this.config.lastSignInMethod = vault.string("config.lastSignInMethod") ?: ""
+    fun save(config: Config) {
+        config.gitHubApiUser?.let { vault.set("config.gitHubApiUser", it) }
+        config.gitHubApiToken?.let { vault.set("config.gitHubApiToken", it) }
+        config.lastSignInMethod?.let { vault.set("config.lastSignInMethod", it) }
+    }
+
+    fun restore(): Config {
+        return Config(
+            gitHubApiUser = vault.string("config.gitHubApiUser"),
+            gitHubApiToken = vault.string("config.gitHubApiToken"),
+            lastSignInMethod = vault.string("config.lastSignInMethod")
+        )
     }
 
     fun clear() {

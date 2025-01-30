@@ -39,11 +39,12 @@ fun ProjectDto.toProject(): Project {
         description = this.description,
         stack = this.stack.map { dto -> dto.toStack() },
         image = this.image?.let {
-            if (it.startsWith("http")) Resource.NetworkResource(this.image) else Resource.LocalResource(this.image)
+            if (it.startsWith("http")) Resource.NetworkResource(this.image) else Resource.LocalResource(this.image.toInt())
         }, // ?: throw IllegalArgumentException("image is required")
         followersCount = this.followersCount,
         followers = this.followers.map { dto -> dto.toFollower() },
         createdBy = this.createdBy ?: throw IllegalArgumentException("createdBy is required"),
+        createdByName = this.createdByName ?: throw IllegalArgumentException("createdByName is required"),
         createdOn = this.createdOn ?: throw IllegalArgumentException("createdOn is required"),
         coauthors = this.coauthors,
         public = this.public,
@@ -59,13 +60,14 @@ fun Project.toDto(): ProjectDto {
         stack = this.stack.map { stack -> stack.toDto() },
         image = this.image?.let {
             when (it) {
-                is Resource.LocalResource -> it.name
+                is Resource.LocalResource -> it.res.toString()
                 is Resource.NetworkResource -> it.url
             }
         },
         followersCount = this.followersCount,
         followers = this.followers.map { follower -> follower.toDto() },
         createdBy = this.createdBy,
+        createdByName = this.createdByName,
         createdOn = this.createdOn,
         coauthors = this.coauthors,
         public = this.public,
@@ -96,7 +98,7 @@ fun Follower.toDto(): FollowerDto {
 
 val stackDtoValidation = Validation<StackDto> {
     StackDto::name required {
-        pattern("^[a-zA-Z0-9 ]+\$") hint "Name must be alphanumeric"
+        pattern("^[a-zA-Z0-9 #+]+\$") hint "Name must be alphanumeric"
     }
 }
 

@@ -1,12 +1,10 @@
 package pl.krzyssko.portfoliobrowser.db
 
-import com.google.android.gms.tasks.Task
 import com.google.firebase.Firebase
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.Query
-import com.google.firebase.firestore.QuerySnapshot
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.snapshots
@@ -20,58 +18,23 @@ import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.db.transfer.DataSyncDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 
 class AndroidFirestore: Firestore {
     private val db = Firebase.firestore
 
-    private suspend fun <T> callOnDb(block: () -> Task<T>) = suspendCoroutine { continuation ->
-        val callback = createCallbackWithContinuation(
-            onSuccess = continuation::resume,
-            onFailure = continuation::resumeWithException
-        )
-
-        block().addOnSuccessListener { ref: T -> callback.onSuccess(ref) }
-            .addOnFailureListener { error -> callback.onFailure(error) }
-    }
-
-    interface DbFlowCallback<T> {
-        fun onSuccess(ref: T)
-        fun onFailure(error: Throwable)
-    }
-
-    private fun <T> createCallbackWithContinuation(
-        onSuccess: (ref: T) -> Unit,
-        onFailure: (Throwable) -> Unit
-    ) = object : DbFlowCallback<T> {
-        // Resume the coroutine with the result
-        override fun onSuccess(ref: T) = onSuccess(ref)
-
-        // Resume the coroutine with an exception
-        override fun onFailure(error: Throwable) = onFailure(error)
-    }
-
     override suspend fun isUserCreated(uid: String): Boolean {
-        val result = callOnDb {
-            db.collection("users").document(uid).get()
-        }
+        val result = db.collection("users").document(uid).get().await()
         return result.exists()
     }
 
     override suspend fun getProfile(uid: String): ProfileDto? {
-        val result = callOnDb {
-            db.collection("users").document(uid).get()
-        }
+        val result = db.collection("users").document(uid).get().await()
         return result?.toObject<ProfileDto>()
     }
 
     override suspend fun createProfile(uid: String, profile: ProfileDto) {
-        callOnDb {
-            db.collection("users").document(uid).set(profile, SetOptions.merge())
-        }
+        db.collection("users").document(uid).set(profile, SetOptions.merge()).await()
     }
 
     override suspend fun createProjects(): String {
@@ -82,24 +45,40 @@ class AndroidFirestore: Firestore {
     override suspend fun syncProjects(uid: String, projectsList: List<ProjectDto>, source: Source) {
         val usersRef = db.collection("users").document(uid)
         val syncsRef = db.collection("sync").document()
-        callOnDb {
-            db.runBatch { batch ->
-                for (project in projectsList) {
-                    val projectRef = usersRef.collection("projects").document()
-                    batch.set(projectRef, project)
-                }
-                batch.set(syncsRef, DataSyncDto(uid = uid, timestamp = Timestamp.now().let { it.seconds * 1_000 + it.nanoseconds.toLong() / 1_000_000 }, source = source.toString(), projectIds = projectsList.map { it.id!! }))
-                batch.commit()
+        db.runBatch { batch ->
+            for (project in projectsList) {
+                val projectRef = usersRef.collection("projects").document()
+                batch.set(projectRef, project.copy(id = projectRef.id))
             }
-        }
+            batch.set(
+                syncsRef,
+                DataSyncDto(
+                    uid = uid,
+                    timestamp = Timestamp.now()
+                        .let { it.seconds * 1_000 + it.nanoseconds.toLong() / 1_000_000 },
+                    source = source.toString(),
+                    projectIds = projectsList.map { it.id!! })
+            )
+            batch.commit()
+        }.await()
     }
 
     override suspend fun getProjects(cursor: Any?, uid: String): QueryPagedResult<ProjectDto> {
         val colRef = db.collectionGroup("projects")
-        var query = colRef.where(Filter.or(Filter.equalTo("public", true), Filter.equalTo("createdBy", uid))).orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
+        var query = colRef.where(
+            Filter.or(
+                Filter.equalTo("public", true),
+                Filter.equalTo("createdBy", uid)
+            )
+        ).orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
 
         (cursor as? DocumentSnapshot)?.let {
-            query = colRef.where(Filter.or(Filter.equalTo("public", true), Filter.equalTo("createdBy", uid))).orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
+            query = colRef.where(
+                Filter.or(
+                    Filter.equalTo("public", true),
+                    Filter.equalTo("createdBy", uid)
+                )
+            ).orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
         }
 
         val snapshot = query.get().await()
@@ -117,18 +96,46 @@ class AndroidFirestore: Firestore {
         }
     }
 
-    override suspend fun getLastSyncTimestampForSource(uid: String, source: Source): Long? {
-        val snapshot = callOnDb<QuerySnapshot> {
-            db.collection("sync").where(Filter.and(Filter.equalTo("uid", uid), Filter.equalTo("source", source))).orderBy("timestamp").limitToLast(1).get()
-        }
+    override suspend fun getProject(uid: String, ownerId: String, projectId: String): ProjectDto? {
+        val collection = db.collection("users").document(ownerId).collection("projects")
 
-        return if (!snapshot.isEmpty) snapshot.last().toObject<DataSyncDto>().timestamp else null
+        val result = if (ownerId != uid) {
+            collection
+                .where(
+                    Filter.and(
+                        Filter.equalTo("public", true),
+                        Filter.equalTo("id", projectId)
+                    )
+                )
+                .get().await()
+        } else {
+            collection
+                .where(
+                    Filter.and(
+                        Filter.equalTo("createdBy", uid),
+                        Filter.equalTo("id", projectId)
+                    )
+                )
+                .get().await()
+        }
+        return result.documents.firstOrNull()?.toObject<ProjectDto>()
     }
 
-    override suspend fun writeProject(uid: String, project: ProjectDto) {
-        callOnDb {
-            db.collection("users").document(uid).collection("projects").add(project)
+    override suspend fun updateProject(uid: String, id: String?, project: ProjectDto) {
+        val collection = db.collection("users").document(uid).collection("projects")
+        id?.let {
+            collection.document(id).set(project, SetOptions.merge()).await()
+        } ?: run {
+            collection.add(project).await()
         }
+    }
+
+    override suspend fun getLastSyncTimestampForSource(uid: String, source: Source): Long? {
+        val snapshot = db.collection("sync")
+            .where(Filter.and(Filter.equalTo("uid", uid), Filter.equalTo("source", source)))
+            .orderBy("timestamp").limitToLast(1).get().await()
+
+        return if (!snapshot.isEmpty) snapshot.last().toObject<DataSyncDto>().timestamp else null
     }
 }
 

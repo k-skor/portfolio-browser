@@ -7,8 +7,9 @@ import app.cash.paging.Pager
 import app.cash.paging.PagingConfig
 import app.cash.paging.cachedIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,14 +57,16 @@ class ProjectViewModel(
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow
 
-    val projectsState = stateFlow.filter { it is ProjectsListState.Ready }
+    val projectsState = stateFlow
         .map {
-            (it as ProjectsListState.Ready).projects.values.takeIf { projects -> projects.isNotEmpty() }
-                ?.reduce { acc, projects -> acc.toMutableList() + projects } ?: emptyList()
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+            (it as? ProjectsListState.Ready)?.projects?.values?.takeIf { projects -> projects.isNotEmpty() }
+                ?.reduce { acc, projects -> acc.toMutableList() + projects }
+        }
+        .filterNotNull()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val searchPhrase =
-        stateFlow.map { if (it is ProjectsListState.Ready) it.searchPhrase else null }
+        stateFlow.map { (it as? ProjectsListState.Ready)?.searchPhrase }.filterNotNull()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val pagingFlow = Pager(PagingConfig(5)) {
@@ -84,7 +87,7 @@ class ProjectViewModel(
         }
     }
 
-    fun importProjects(user: User.Authenticated) {
+    fun importProjects(user: StateFlow<User>) {
         store.projectsList {
             importProjects(sourceRepository, firestore, user)
         }

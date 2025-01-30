@@ -5,6 +5,7 @@ import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GithubAuthProvider
 import com.google.firebase.auth.OAuthCredential
@@ -12,6 +13,7 @@ import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import pl.krzyssko.portfoliobrowser.data.Account
+import pl.krzyssko.portfoliobrowser.data.Config
 import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.platform.getLogging
@@ -19,7 +21,12 @@ import pl.krzyssko.portfoliobrowser.platform.getLogging
 class AndroidAuth: Auth() {
     private lateinit var auth: FirebaseAuth
 
-    override fun initAuth() {
+    override fun initAuth(config: Config?) {
+        config?.let {
+            if (!it.lastSignInMethod.isNullOrEmpty()) {
+                requestedLoginMethod = LoginMethod.valueOf(it.lastSignInMethod)
+            }
+        }
         auth = Firebase.auth
     }
 
@@ -46,7 +53,15 @@ class AndroidAuth: Auth() {
             false
         } ?: false
 
-
+    override fun signInAnonymous(callback: LoginFlowCallback) {
+        auth.signInAnonymously()
+            .addOnSuccessListener {
+                callback.onSuccess(it.toUser())
+            }
+            .addOnFailureListener {
+                callback.onFailure(it)
+            }
+    }
 
     override fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean, callback: LoginFlowCallback) {
         token?.let {
@@ -63,7 +78,7 @@ class AndroidAuth: Auth() {
             return
         }
         val provider = OAuthProvider.newBuilder("github.com")
-        val activity = (uiHandler as? Activity) ?: throw Exception("UI handler is missing!")
+        val activity = (uiHandler as? Activity) ?: throw IllegalArgumentException("UI handler is missing!")
         if (refresh) {
             if (isUserSignedIn) {
                 val firebaseUser = auth.currentUser!!
@@ -114,8 +129,11 @@ class AndroidAuth: Auth() {
 
     override fun signInLinkWithGitHub(uiHandler: Any?, callback: LoginFlowCallback) {
         val provider = OAuthProvider.newBuilder("github.com")
-        val activity = (uiHandler as? Activity) ?: throw Exception("UI handler is missing!")
-        if (isUserSignedIn) {
+        val activity = (uiHandler as? Activity) ?: throw IllegalArgumentException("UI handler is missing!")
+        if (!isUserSignedIn) {
+            throw IllegalStateException("User should be signed in before linking with GitHub.")
+        }
+        try {
             val firebaseUser = auth.currentUser!!
             firebaseUser
                 .startActivityForLinkWithProvider(activity, provider.build())
@@ -133,28 +151,29 @@ class AndroidAuth: Auth() {
                     // Handle failure.
                     callback.onFailure(it)
                 }
-            return
+        } catch (exception: FirebaseAuthUserCollisionException) {
+            // cannot link the account with provider for some reason, notify user and sign in
+            throw AuthLinkFailedException("User already linked with GitHub.")
         }
-        callback.onFailure(Error("User should be signed in before linking with GitHub."))
     }
 
     override fun linkWithProvider(login: String, password: String, callback: LoginFlowCallback) {
-        if (requestedLoginMethod == LoginMethod.GitHub) {
+        if (isUserSignedIn) {
             val credential = EmailAuthProvider.getCredential(login, password)
             linkWithProvider(credential, callback)
-        } else callback.onFailure(Error("Wrong account type: $requestedLoginMethod to link."))
+        }
     }
 
     override fun linkWithProvider(token: String, callback: LoginFlowCallback) {
-        if (requestedLoginMethod == LoginMethod.Email) {
+        if (isUserSignedIn) {
             // TODO: custom way to get token is required
             val credential = GithubAuthProvider.getCredential(token)
             linkWithProvider(credential, callback)
-        } else callback.onFailure(Error("Wrong account type: $requestedLoginMethod to link."))
+        }
     }
 
     override fun createWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback) {
-        val activity = (uiHandler as? Activity) ?: throw Exception("UI handler is missing!")
+        val activity = (uiHandler as? Activity) ?: throw IllegalArgumentException("UI handler is missing!")
         auth.createUserWithEmailAndPassword(login, password)
             .addOnCompleteListener(activity) {
                 if (it.isSuccessful) {
@@ -166,7 +185,7 @@ class AndroidAuth: Auth() {
     }
 
     override fun signInWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback) {
-        val activity = (uiHandler as? Activity) ?: throw Exception("UI handler is missing!")
+        val activity = (uiHandler as? Activity) ?: throw IllegalArgumentException("UI handler is missing!")
         auth.signInWithEmailAndPassword(login, password)
             .addOnCompleteListener(activity) {
                 if (it.isSuccessful) {
@@ -196,19 +215,20 @@ class AndroidAuth: Auth() {
 
 fun FirebaseUser.toAccount(): Account = Account(
     this.uid,
-    this.displayName ?: "no name",
-    this.email ?: "no email",
+    this.displayName,
+    this.email,
     this.photoUrl.toString(),
-    this.isEmailVerified
+    this.isEmailVerified,
+    this.isAnonymous
 )
 
-fun FirebaseUser.toProviderData(): List<Provider>? =
-    if (this.providerData.isEmpty()) null else this.providerData.map {
+fun FirebaseUser.toProviderData(): List<Provider> =
+    this.providerData.map {
         Provider(
             it.providerId,
             it.uid,
-            it.displayName ?: "no name",
-            it.email ?: "no email",
+            it.displayName,
+            it.email,
             it.photoUrl.toString()
         )
     }

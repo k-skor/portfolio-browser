@@ -46,7 +46,7 @@ interface ProfileActions {
 fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile>, userState: StateFlow<User>, portfolio: List<Project>, actions: ProfileActions) {
     val profile by profileState.collectAsState()
     val rawUser by userState.collectAsState()
-    if (rawUser is User.Guest) {
+    if (rawUser !is User.Authenticated) {
         Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
             Text("Please log in to view your profile.")
             Button(onClick = {
@@ -66,7 +66,11 @@ fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column {
-                    AssistChip(onClick = { }, label = { Text(profile.role.toString()) })
+                    Row {
+                        for (role in profile.role) {
+                            AssistChip(onClick = { }, label = { Text(role) })
+                        }
+                    }
                     Text("${profile.firstName} ${profile.lastName}", fontSize = 24.sp)
                     Text("creates things", fontSize = 16.sp)
                 }
@@ -102,7 +106,7 @@ fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile
             Column {
                 Text("Contact:", fontSize = 16.sp)
                 profile.contact.forEach {
-                    Text(it)
+                    Text(it.value.toString())
                 }
             }
             Column {
@@ -132,11 +136,11 @@ private val fakeUser = User.Authenticated(
 )
 //private val fakeUser = User.Guest
 private val fakeProfile = Profile(
-    role = "Developer",
+    role = listOf("Developer"),
     firstName = "Krzysztof",
     lastName = "Skorcz",
     location = "Poznań, Poland",
-    contact = emptyList()
+    contact = emptyMap()
 )
 
 @Preview(widthDp = 320, heightDp = 640)

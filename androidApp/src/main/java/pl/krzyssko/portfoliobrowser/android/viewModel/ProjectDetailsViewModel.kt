@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -21,6 +23,8 @@ import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import pl.krzyssko.portfoliobrowser.store.loadFrom
 import pl.krzyssko.portfoliobrowser.store.project
+import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.util.exceptionAsResponse
 
 class ProjectDetailsViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -41,13 +45,75 @@ class ProjectDetailsViewModel(
     val stateFlow = store.stateFlow
     val sideEffectsFlow = store.sideEffectFlow
 
-    var projectState =
-        stateFlow.map { (it as? ProjectState.Ready)?.project }.filterNotNull()
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    //var projectState = stateFlow
+    //    .map {
+    //        when (it) {
+    //            is ProjectState.Loaded -> it.project
+    //            else -> null
+    //        }
+    //    }
+    //    .filterNotNull()
+    //    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun loadProjectDetails(project: Project) {
+    fun getProjectDetails(project: Project) {
         store.project {
             loadFrom(repository, colorPicker, project.createdBy, project.id)
         }
+    }
+
+    //fun getProjectDetailsFlow(project: Project): Flow<Response<Project>> {
+    //    Log.d(TAG, "getProjectDetailsFlow: replay cache=${stateFlow.replayCache}")
+    //    return stateFlow
+    //        .onSubscription {
+    //            Log.d(TAG, "getProjectDetailsFlow: on sub loading project=${project.name}")
+    //            store.project {
+    //                loadFrom(repository, colorPicker, project.createdBy, project.id)
+    //            }
+    //        }
+    //        .onEach {
+    //            Log.d(TAG, "getProjectDetailsFlow: on item=${it}")
+    //        }
+    //        .map {
+    //            when (it) {
+    //                is ProjectState.Loaded -> Response.Ok(it.project)
+    //                is ProjectState.Error -> throw Error(it.reason)
+    //                else -> null
+    //            }
+    //        }
+    //        .filterNotNull()
+    //        //.errorAsResponse()
+    //}
+
+    //val projectDetailsStateFlow: StateFlow<Response<Project>> = stateFlow
+    //    .map {
+    //        when (it) {
+    //            is ProjectState.Loaded -> Response.Ok(it.project)
+    //            is ProjectState.Error -> throw Exception(it.reason)
+    //            else -> null
+    //        } as? Response<Project>
+    //    }
+    //    .filterNotNull()
+    //    .exceptionAsResponse()
+    //    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Response.Ok(Project()))
+
+    val errorFlow: StateFlow<Throwable?> = stateFlow
+        .map {
+            when (it) {
+                is ProjectState.Error -> it.reason
+                else -> null
+            }
+        }
+        .distinctUntilChanged()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    //fun getProjectDetails(project: Project): StateFlow<Response<Project>> {
+    //    store.project {
+    //        loadFrom(repository, colorPicker, project.createdBy, project.id)
+    //    }
+    //    return projectDetailsStateFlow
+    //}
+
+    companion object {
+        const val TAG = "ProjectDetailsViewModel"
     }
 }

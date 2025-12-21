@@ -2,6 +2,7 @@ package pl.krzyssko.portfoliobrowser.android.ui
 
 import android.content.Context
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -14,6 +15,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -29,12 +31,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -46,9 +48,13 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
+import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ImportActions
@@ -64,6 +70,7 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.SettingsScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.WelcomeActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.WelcomeScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ErrorDialog
 import pl.krzyssko.portfoliobrowser.android.ui.navigation.topLevelRoutes
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
@@ -91,6 +98,7 @@ class MainActivity : ComponentActivity() {
     @ExperimentalMaterial3Api
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val snackbarHostState = SnackbarHostState()
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
@@ -100,7 +108,7 @@ class MainActivity : ComponentActivity() {
                     projectDetailsViewModel.stateFlow.collect { render(it) }
                 }
                 launch {
-                    profileViewModel.stateFlow.collect { render(it) }
+                    profileViewModel.stateFlow.collect { render(it, snackbarHostState) }
                 }
             }
         }
@@ -110,9 +118,12 @@ class MainActivity : ComponentActivity() {
                 PortfolioApp(
                     modifier = Modifier.fillMaxSize(),
                     context = this,
+                    lifecycle = lifecycle,
                     listViewModel = projectViewModel,
                     detailsViewModel = projectDetailsViewModel,
-                    profileViewModel = profileViewModel
+                    profileViewModel = profileViewModel,
+                    navController = rememberNavController(),
+                    snackbarHostState = snackbarHostState
                 )
             }
         }
@@ -126,8 +137,40 @@ class MainActivity : ComponentActivity() {
         logging.debug("new state")
     }
 
-    private fun render(state: ProfileState) {
+    private suspend fun render(state: ProfileState, snackbarHostState: SnackbarHostState) {
         logging.debug("new state")
+        when (state) {
+            is ProfileState.Error -> {
+                if (state.reason is AuthLinkFailedException) {
+                    val result = snackbarHostState.showSnackbar("Current state will be lost, continue?", actionLabel = "OK", withDismissAction = true, duration = SnackbarDuration.Indefinite)
+                    when (result) {
+                        SnackbarResult.ActionPerformed -> {
+                            profileViewModel.authenticateUser(activity = this@MainActivity, forceSignIn = true)
+                        }
+                        else -> {}
+                    }
+                }
+            }
+            is ProfileState.SourceAvailable -> {
+                val result = snackbarHostState.showSnackbar(
+                    "Import projects from source?",
+                    actionLabel = "OK",
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Indefinite
+                )
+                when (result) {
+                    SnackbarResult.ActionPerformed -> {
+                        profileViewModel.openImportPage()
+                    }
+                    else -> {}
+                }
+            }
+            else -> return
+        }
+    }
+
+    companion object {
+        const val TAG = "MainActivity"
     }
 }
 
@@ -135,15 +178,17 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun PortfolioApp(
     modifier: Modifier = Modifier,
-    navController: NavHostController = rememberNavController(),
     context: Context,
+    lifecycle: Lifecycle,
     listViewModel: ProjectViewModel,
     detailsViewModel: ProjectDetailsViewModel,
-    profileViewModel: ProfileViewModel
+    profileViewModel: ProfileViewModel,
+    navController: NavHostController,
+    snackbarHostState: SnackbarHostState
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
-    val snackbarHostState = remember { SnackbarHostState() }
     var showSearchBarState by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
@@ -155,34 +200,57 @@ fun PortfolioApp(
             //)
         },
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                topLevelRoutes.forEach { topLevelRoute ->
-                    NavigationBarItem(
-                        icon = {
-                            when (topLevelRoute.route) {
-                                Route.Profile -> Avatar(Modifier.size(30.dp), profileViewModel.profileState) { }
-                                else -> Icon(topLevelRoute.icon, topLevelRoute.name, tint = MaterialTheme.colorScheme.onSurface)
-                            } },
-                        label = { Text(topLevelRoute.name) },
-                        selected = currentDestination?.hierarchy?.any { it.route == topLevelRoute.route.toString() } == true,
-                        onClick = {
-                            navController.navigate(topLevelRoute.route) {
-                                popUpTo(navController.graph.startDestinationId) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    )
+            val userState by profileViewModel.userState.collectAsState()
+            if (userState !is User.None) {
+                NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentDestination = navBackStackEntry?.destination
+                    topLevelRoutes.forEachIndexed { index, topLevelRoute ->
+                        NavigationBarItem(
+                            icon = {
+                                when (topLevelRoute.route) {
+                                    Route.Profile -> Avatar(
+                                        Modifier.size(30.dp),
+                                        profileViewModel.profileState
+                                    ) { }
 
+                                    else -> Icon(
+                                        topLevelRoute.icon,
+                                        topLevelRoute.name,
+                                        tint = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            },
+                            label = { Text(topLevelRoute.name) },
+                            selected = currentDestination?.hierarchy?.any {
+                                it.route == topLevelRoute.route::class.qualifiedName
+                            } == true,
+                            onClick = {
+                                Log.d(TAG, "PortfolioApp: navigate to route=${topLevelRoute.route}")
+                                navController.navigate(topLevelRoute.route) {
+                                    //popUpTo(Route.Home) {
+                                    //    saveState = true
+                                    //}
+                                    launchSingleTop = true
+                                    //restoreState = true
+                                }
+                            }
+                        )
+                    }
                 }
             }
         },
         content = {
-            AppContent(modifier, context, navController, listViewModel, detailsViewModel, profileViewModel, snackbarHostState, it)
+            AppContent(
+                modifier,
+                context,
+                lifecycle,
+                navController,
+                listViewModel,
+                detailsViewModel,
+                profileViewModel,
+                it
+            )
         },
         snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
@@ -192,7 +260,21 @@ fun PortfolioApp(
 
 fun handleSideEffects(effect: UserSideEffects, navController: NavHostController, context: Context) {
     when (effect) {
-        is UserSideEffects.NavigateTo -> navController.navigate(effect.route)
+        is UserSideEffects.NavigateTo -> {
+            Log.d(TAG, "handleSideEffects: navigating to route=${effect.route}")
+
+            val isWelcomeDestination = navController.graph.startDestinationRoute == Route.Welcome::class.qualifiedName
+            navController.navigate(effect.route) {
+                if (isWelcomeDestination) {
+                    popUpTo(Route.Welcome) {
+                        inclusive = true
+                    }
+                    popUpTo(Route.Home) {
+                        //inclusive = true
+                    }
+                }
+            }
+        }
         is UserSideEffects.Toast -> Toast.makeText(context, effect.message, Toast.LENGTH_SHORT).show()
         is UserSideEffects.Trace -> logging.debug(effect.message)
         else -> {}
@@ -203,55 +285,67 @@ fun handleSideEffects(effect: UserSideEffects, navController: NavHostController,
 @Composable
 fun AppContent(modifier: Modifier = Modifier,
                context: Context,
+               lifecycle: Lifecycle,
                navController: NavHostController,
                listViewModel: ProjectViewModel,
                detailsViewModel: ProjectDetailsViewModel,
                profileViewModel: ProfileViewModel,
-               snackHostState: SnackbarHostState,
-               contentPaddingValues: PaddingValues
+               contentPaddingValues: PaddingValues,
+               toggleBottomBarVisibility: (visible: Boolean) -> Unit = {}
 ) {
-    val scope = rememberCoroutineScope()
-    val user by profileViewModel.userState.collectAsState()
-    val isSourceAvailable by profileViewModel.isSourceAvailable.collectAsState()
-    val userState by profileViewModel.stateFlow.collectAsState()
-    logging.debug("source state in UI=$isSourceAvailable")
-    logging.debug("user state in UI=$user")
-    LaunchedEffect(isSourceAvailable, user) {
-        if (isSourceAvailable && user is User.Authenticated) {
-            scope.launch {
-                val result = snackHostState.showSnackbar("Import projects from source?", actionLabel = "OK", withDismissAction = true, duration = SnackbarDuration.Indefinite)
-                when (result) {
-                    SnackbarResult.ActionPerformed -> {
-                        navController.navigate(Route.Login(ViewType.SourceSelection))
-                    }
-                    else -> {}
+    //val scope = rememberCoroutineScope()
+    //val isSignedIn by profileViewModel.isSignedIn.collectAsState()
+    val userState by profileViewModel.userState.collectAsState()
+    val loginState = userState == User.None
+    //val isSourceAvailable by profileViewModel.isSourceAvailable.collectAsState()
+    //val userState by profileViewModel.stateFlow.collectAsState()
+    //logging.debug("source state in UI=$isSourceAvailable")
+    //LaunchedEffect(isSourceAvailable, isSignedIn) {
+    //    if (isSourceAvailable && isSignedIn) {
+    //        scope.launch {
+    //            val result = snackHostState.showSnackbar(
+    //                "Import projects from source?",
+    //                actionLabel = "OK",
+    //                withDismissAction = true,
+    //                duration = SnackbarDuration.Indefinite
+    //            )
+    //            when (result) {
+    //                SnackbarResult.ActionPerformed -> {
+    //                    navController.navigate(Route.Login(ViewType.SourceSelection))
+    //                }
+    //                else -> {}
+    //            }
+    //        }
+    //    }
+    //}
+    //LaunchedEffect(userState) {
+    //    if (userState is ProfileState.Error && (userState as ProfileState.Error).reason is AuthLinkFailedException) {
+    //        scope.launch {
+    //            val result = snackHostState.showSnackbar("Current state will be lost, continue?", actionLabel = "OK", withDismissAction = true, duration = SnackbarDuration.Indefinite)
+    //            when (result) {
+    //                SnackbarResult.ActionPerformed -> {
+    //                    profileViewModel.authenticateUser(activity = context, forceSignIn = true)
+    //                }
+    //                else -> {}
+    //            }
+    //        }
+    //    }
+    //}
+    LaunchedEffect(Unit) {
+        lifecycle.coroutineScope.launch {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                merge(
+                    listViewModel.sideEffectsFlow,
+                    detailsViewModel.sideEffectsFlow,
+                    profileViewModel.sideEffectsFlow
+                ).collect {
+                    handleSideEffects(it, navController, context)
                 }
             }
         }
     }
-    LaunchedEffect(userState) {
-        if (userState is ProfileState.AuthenticationFailed && (userState as ProfileState.AuthenticationFailed).reason is AuthLinkFailedException) {
-            scope.launch {
-                val result = snackHostState.showSnackbar("Current state will be lost, continue?", actionLabel = "OK", withDismissAction = true, duration = SnackbarDuration.Indefinite)
-                when (result) {
-                    SnackbarResult.ActionPerformed -> {
-                        profileViewModel.authenticateUser(activity = context, forceSignIn = true)
-                    }
-                    else -> {}
-                }
-            }
-        }
-    }
-    LaunchedEffect("sideEffects") {
-        scope.launch {
-            listViewModel.sideEffectsFlow.collect { handleSideEffects(it, navController, context) }
-        }
-        scope.launch {
-            detailsViewModel.sideEffectsFlow.collect { handleSideEffects(it, navController, context) }
-        }
-        scope.launch {
-            profileViewModel.sideEffectsFlow.collect { handleSideEffects(it, navController, context) }
-        }
+    LaunchedEffect(loginState) {
+        listViewModel.refreshProjectsList()
     }
     Column(modifier.padding(top = contentPaddingValues.calculateTopPadding(), bottom = contentPaddingValues.calculateBottomPadding())) {
         NavHost(
@@ -276,7 +370,12 @@ fun AppContent(modifier: Modifier = Modifier,
             }
             composable<Route.Login> { backStackEntry ->
                 val route: Route.Login = backStackEntry.toRoute()
-                LoginScreen(modifier, contentPaddingValues, route.viewType, profileViewModel.userState, object : LoginActions {
+                LoginScreen(
+                    modifier,
+                    contentPaddingValues,
+                    route.viewType,
+                    profileViewModel.userState,
+                    object : LoginActions {
                     override fun onGitHubSignIn() {
                         profileViewModel.authenticateUser(context)
                     }
@@ -286,7 +385,11 @@ fun AppContent(modifier: Modifier = Modifier,
                     }
 
                     override fun onGitHubLink() {
-                        profileViewModel.linkUser(context)
+                        profileViewModel.linkUser(
+                            context,
+                            //(profileViewModel.authenticatedUserFlow.value as? Response.Ok)?.data ?: return
+                            profileViewModel.userState.value as? User.Authenticated ?: return
+                        )
                     }
 
                     override fun onEmailCreate(login: String, password: String) {
@@ -311,13 +414,37 @@ fun AppContent(modifier: Modifier = Modifier,
                 }, object : ImportActions {
                     override fun importFromSource(source: Source) {
                         profileViewModel.authenticateUser(context, true)
-                        scope.launch {
-                            profileViewModel.userState.collect {
-                                if (it is User.Authenticated) {
-                                    listViewModel.importProjects(profileViewModel.userState)
-                                }
-                            }
+                        (profileViewModel.userState.value as? User.Authenticated)?.let { user ->
+                            listViewModel.importProjectsFor(user)
                         }
+                        //scope.launch {
+                        //    profileViewModel.userState.collect {
+                        //        if (it is User.Authenticated) {
+                        //            listViewModel.importProjects(profileViewModel.userState)
+                        //        }
+                        //    }
+                        //}
+                        //scope.launch {
+                        //    profileViewModel.authenticateUserFlow(context, true).value.let {
+                        //        when (it) {
+                        //            is Response.Ok -> listViewModel.importProjectsFlow(profileViewModel.userState).collect()
+                        //            is Response.Error -> {
+                        //                Log.e(TAG, "importFromSource: login failed.", it.throwable)
+                        //                if (it.throwable is AuthLinkFailedException) {
+                        //                    scope.launch {
+                        //                        val result = snackHostState.showSnackbar("Current state will be lost, continue?", actionLabel = "OK", withDismissAction = true, duration = SnackbarDuration.Indefinite)
+                        //                        when (result) {
+                        //                            SnackbarResult.ActionPerformed -> {
+                        //                                profileViewModel.authenticateUser(activity = context, forceSignIn = true)
+                        //                            }
+                        //                            else -> {}
+                        //                        }
+                        //                    }
+                        //                }
+                        //            }
+                        //        }
+                        //    }
+                        //}
                     }
 
                     override fun cancelImport() {
@@ -325,19 +452,48 @@ fun AppContent(modifier: Modifier = Modifier,
                     }
                 })
             }
-            navigation<Route.Home>(startDestination = Route.Projects) {
-                composable<Route.Projects> {
+            navigation<Route.Home>(startDestination = Route.List) {
+                composable<Route.List> {
                     ListScreen(
                         modifier,
                         ListViewType.List,
                         listViewModel.pagingFlow,
-                        listViewModel.projectsState,
+                        listViewModel.projectsFlattenListStateFlow,
                         listViewModel.searchPhrase,
                         MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
                         object : ListScreenActions {
                             override fun onProjectDetails(project: Project) {
-                                detailsViewModel.loadProjectDetails(project)
-                                navController.navigate(Route.Details(project.createdBy, project.id))
+                                detailsViewModel.getProjectDetails(project)
+                                //navController.navigate(Route.Details(project.createdBy, project.id))
+                                //scope.launch {
+                                //    detailsViewModel.getProjectDetailsFlow(project).collect {
+                                //        when (it) {
+                                //            is Response.Ok -> {
+                                //                Log.d(TAG, "onProjectDetails: open details 1, name=${it.data.name}")
+                                //                navController.navigate(Route.Details(it.data.createdBy, it.data.id))
+                                //            }
+                                //            is Response.Error -> Log.e(
+                                //                TAG,
+                                //                "onProjectDetails: failed get project details",
+                                //                it.throwable
+                                //            )
+                                //        }
+                                //    }
+                                //}
+
+                                //detailsViewModel.getProjectDetails(project)
+                                //val details = detailsViewModel.projectDetailsStateFlow.value
+                                //when (details) {
+                                //    is Response.Ok -> {
+                                //        Log.d(TAG, "onProjectDetails: open details 1, name=${details.data.name}")
+                                //        navController.navigate(Route.Details(details.data.createdBy, details.data.id))
+                                //    }
+                                //    is Response.Error -> Log.e(
+                                //        TAG,
+                                //        "onProjectDetails: failed get project details",
+                                //        details.throwable
+                                //    )
+                                //}
                             }
 
                             override fun onSearch(phrase: String) {
@@ -375,8 +531,24 @@ fun AppContent(modifier: Modifier = Modifier,
                         }
 
                         override fun onProjectDetails(project: Project) {
-                            detailsViewModel.loadProjectDetails(project)
-                            navController.navigate(Route.Details(project.createdBy, project.id))
+                            detailsViewModel.getProjectDetails(project)
+                            //navController.navigate(Route.Details(project.createdBy, project.id))
+                            //Log.d(TAG, "onProjectDetails: click 2")
+                            //scope.launch {
+                            //    detailsViewModel.getProjectDetails(project).collect {
+                            //        when (it) {
+                            //            is Response.Ok -> {
+                            //                Log.d(TAG, "onProjectDetails: open details 2, name=${it.data.name}")
+                            //                navController.navigate(Route.Details(it.data.createdBy, it.data.id))
+                            //            }
+                            //            is Response.Error -> Log.e(
+                            //                TAG,
+                            //                "onProjectDetails: failed get project details",
+                            //                it.throwable
+                            //            )
+                            //        }
+                            //    }
+                            //}
                         }
 
                         override fun onSaveProfile(profile: Profile) {
@@ -396,6 +568,20 @@ fun AppContent(modifier: Modifier = Modifier,
                     })
                 }
             }
+        }
+    }
+    var dialogDismissed by remember { mutableStateOf(false) }
+    val error by merge(
+        listViewModel.errorFlow,
+        detailsViewModel.errorFlow,
+        profileViewModel.errorState
+    ).filter { it != null }.onEach { dialogDismissed = false }.collectAsState(null)
+    error?.let {
+        Log.d(TAG, "AppContent: showing dialog state=${!dialogDismissed}")
+        if (!dialogDismissed) {
+            ErrorDialog(it, onDismissRequest = {
+                dialogDismissed = true
+            })
         }
     }
 }

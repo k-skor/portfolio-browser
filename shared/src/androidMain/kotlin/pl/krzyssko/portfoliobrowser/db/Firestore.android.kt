@@ -23,7 +23,7 @@ import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
 class AndroidFirestore: Firestore {
     private val db = Firebase.firestore
 
-    override suspend fun isUserCreated(uid: String): Boolean {
+    override suspend fun hasUser(uid: String): Boolean {
         val result = db.collection("users").document(uid).get().await()
         return result.exists()
     }
@@ -131,7 +131,7 @@ class AndroidFirestore: Firestore {
     }
 
     override suspend fun getLastSyncTimestampForSource(uid: String, source: Source): Long? {
-        val snapshot = db.collection("sync")
+        val snapshot = db.collection("users").document(uid).collection("sync_data")
             .where(Filter.and(Filter.equalTo("uid", uid), Filter.equalTo("source", source)))
             .orderBy("timestamp").limitToLast(1).get().await()
 

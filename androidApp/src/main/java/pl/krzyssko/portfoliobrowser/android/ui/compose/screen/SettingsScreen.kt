@@ -33,8 +33,8 @@ interface SettingsActions {
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, userState: StateFlow<User>, actions: SettingsActions) {
     val user by userState.collectAsState()
-    val loginIconRes = if (user is User.Guest) R.drawable.baseline_login_24 else R.drawable.baseline_logout_24
-    val loginText = if (user is User.Guest) "Login" else "Logout"
+    val loginIconRes = if (user is User.Authenticated) R.drawable.baseline_logout_24 else R.drawable.baseline_login_24
+    val loginText = if (user is User.Authenticated) "Logout" else "Login"
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AppTitle()
         LazyColumn(modifier = Modifier.padding(top = 32.dp)) {

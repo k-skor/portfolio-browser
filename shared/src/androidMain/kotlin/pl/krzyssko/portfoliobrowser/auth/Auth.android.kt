@@ -33,7 +33,7 @@ class AndroidAuth: Auth() {
     override val isUserSignedIn
         get() = auth.currentUser != null
 
-    override val userProfile: Account?
+    override val userAccount: Account?
         get() = auth.currentUser?.toAccount()
 
     override val providerData: List<Provider>?

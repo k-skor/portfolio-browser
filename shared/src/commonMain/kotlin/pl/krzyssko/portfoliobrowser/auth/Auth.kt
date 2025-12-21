@@ -88,7 +88,7 @@ abstract class Auth {
     }
 
     abstract val isUserSignedIn: Boolean
-    abstract val userProfile: Account?
+    abstract val userAccount: Account?
     abstract val providerData: List<pl.krzyssko.portfoliobrowser.data.Provider>?
     abstract var accessToken: String?
     abstract val hasGitHubProvider: Boolean

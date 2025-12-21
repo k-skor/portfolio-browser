@@ -156,7 +156,8 @@ fun ListScreen(
             var loadingState by remember { mutableStateOf(false) }
 
             LaunchedEffect(phrase) {
-                lazyPagingItems.refresh()
+                //Log.d("MainActivity", "ListScreen: refreshing list phrase=$phrase, isSignedIn=$isSignedIn, hasValidProject=$hasValidProject")
+                //lazyPagingItems.refresh()
             }
 
             if (lazyPagingItems.loadState.refresh == LoadState.Loading) {

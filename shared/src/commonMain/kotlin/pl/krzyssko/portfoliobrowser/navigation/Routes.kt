@@ -9,6 +9,7 @@ enum class ViewType {
     SourceSelection
 }
 
+@Serializable
 sealed class Route {
     @Serializable
     data object Welcome: Route()
@@ -17,7 +18,7 @@ sealed class Route {
     @Serializable
     data object Home: Route()
     @Serializable
-    data object Projects: Route()
+    data object List: Route()
     @Serializable
     data class Details(val userId: String, val projectId: String): Route()
     @Serializable

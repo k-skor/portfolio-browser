@@ -172,7 +172,7 @@ fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingVa
     Box {
         when (state) {
             is ProjectState.Loading -> Loading()
-            is ProjectState.Ready -> DetailsReady(modifier = modifier, project = (state as ProjectState.Ready).project, actions)
+            is ProjectState.Loaded -> DetailsReady(modifier = modifier, project = (state as ProjectState.Loaded).project, actions)
             is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
             else -> LoadingError()
         }
@@ -194,7 +194,7 @@ private val fakeData = Project(
     createdByName = "Krzysztof Skórcz",
     createdOn = 11234567890
 )
-val fakeDetails = ProjectState.Ready(fakeData)
+val fakeDetails = ProjectState.Loaded(fakeData)
 val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 
 @Preview(widthDp = 320)

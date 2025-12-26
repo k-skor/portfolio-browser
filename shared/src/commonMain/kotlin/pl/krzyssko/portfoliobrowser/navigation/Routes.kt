@@ -1,6 +1,7 @@
 package pl.krzyssko.portfoliobrowser.navigation
 
 import kotlinx.serialization.Serializable
+import pl.krzyssko.portfoliobrowser.data.ErrorMessage
 
 
 enum class ViewType {
@@ -24,5 +25,7 @@ sealed class Route {
     data object Profile: Route()
     @Serializable
     data object Settings: Route()
+    @Serializable
+    data class Error(val errorMessage: ErrorMessage): Route()
 }
 

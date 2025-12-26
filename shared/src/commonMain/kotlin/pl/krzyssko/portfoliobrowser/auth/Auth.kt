@@ -7,8 +7,13 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 
-class AuthException(message: String) : Exception(message)
-class AuthLinkFailedException(message: String) : Exception(message)
+enum class Reason {
+    PasswordTooWeak,
+    InvalidUser
+}
+
+class AuthFailedException(reason: Reason) : Exception()
+class AuthAccountExistsException(message: String) : Exception(message)
 
 abstract class Auth {
 
@@ -21,9 +26,9 @@ abstract class Auth {
         Email
     }
 
-    fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerType != requestedLoginMethod
+    fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerData?.map { it.providerId.toLoginMethod() }?.contains(providerType) ?: true
 
-    suspend fun startSignInFlow(
+    open suspend fun startSignInFlow(
         uiHandler: Any?,
         providerType: LoginMethod,
         create: Boolean = false,
@@ -32,11 +37,7 @@ abstract class Auth {
         refresh: Boolean = false,
         token: String? = null,
         linkWithProvider: Boolean = false
-    ) = suspendCoroutine { continuation ->
-        val callback = createCallbackWithContinuation(
-            onSuccess = continuation::resume,
-            onFailure = continuation::resumeWithException
-        )
+    ): User.Authenticated? {
         //if (linkWithProvider) {
         //    if (isUserSignedIn) {
         //        if (providerType == AccountType.GitHub && login != null && password != null) {
@@ -47,44 +48,28 @@ abstract class Auth {
         //        return@suspendCoroutine
         //    }
         //}
-        if (providerType == LoginMethod.Anonymous) {
-            signInAnonymous(callback)
-            requestedLoginMethod = LoginMethod.Anonymous
+        return (if (providerType == LoginMethod.Anonymous) {
+            signInAnonymous()
+            //requestedLoginMethod = LoginMethod.Anonymous
         } else if (providerType == LoginMethod.Email && login != null && password != null) {
             if (linkWithProvider) {
-                linkWithProvider(login, password, callback)
+                linkWithProvider(login, password)
             } else if (create) {
-                createWithEmail(uiHandler, login, password, callback)
+                createWithEmail(uiHandler, login, password)
             } else {
-                signInWithEmail(uiHandler, login, password, callback)
+                signInWithEmail(uiHandler, login, password)
             }
-            requestedLoginMethod = LoginMethod.Email
+            //requestedLoginMethod = LoginMethod.Email
         } else if (providerType == LoginMethod.GitHub) {
             if (linkWithProvider) {
-                signInLinkWithGitHub(uiHandler, callback)
+                signInLinkWithGitHub(uiHandler)
             } else {
-                signInWithGitHub(uiHandler, token, refresh, callback)
+                signInWithGitHub(uiHandler, token, refresh)
             }
-            requestedLoginMethod = LoginMethod.GitHub
+            //requestedLoginMethod = LoginMethod.GitHub
         } else {
-            callback.onFailure(Error("Invalid arguments to sign in flow"))
-        }
-    }
-
-    interface LoginFlowCallback {
-        fun onSuccess(profile: User.Authenticated?)
-        fun onFailure(error: Throwable)
-    }
-
-    private fun createCallbackWithContinuation(
-        onSuccess: (User.Authenticated?) -> Unit,
-        onFailure: (Throwable) -> Unit
-    ) = object : LoginFlowCallback {
-        // Resume the coroutine with the result
-        override fun onSuccess(profile: User.Authenticated?) = onSuccess(profile)
-
-        // Resume the coroutine with an exception
-        override fun onFailure(error: Throwable) = onFailure(error)
+            null
+        }) as? User.Authenticated
     }
 
     abstract val isUserSignedIn: Boolean
@@ -94,14 +79,15 @@ abstract class Auth {
     abstract val hasGitHubProvider: Boolean
 
     abstract fun initAuth(config: Config? = null)
-    abstract fun signInAnonymous(callback: LoginFlowCallback)
-    abstract fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false, callback: LoginFlowCallback)
-    abstract fun signInLinkWithGitHub(uiHandler: Any?, callback: LoginFlowCallback)
-    abstract fun createWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback)
-    abstract fun signInWithEmail(uiHandler: Any?, login: String, password: String, callback: LoginFlowCallback)
-    abstract fun linkWithProvider(token: String, callback: LoginFlowCallback)
-    abstract fun linkWithProvider(login: String, password: String, callback: LoginFlowCallback)
+    protected abstract suspend fun signInAnonymous(): User?
+    protected abstract suspend fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false): User?
+    protected abstract suspend fun signInLinkWithGitHub(uiHandler: Any?): User?
+    protected abstract suspend fun createWithEmail(uiHandler: Any?, login: String, password: String): User?
+    protected abstract suspend fun signInWithEmail(uiHandler: Any?, login: String, password: String): User?
+    protected abstract suspend fun linkWithProvider(token: String): User?
+    protected abstract suspend fun linkWithProvider(login: String, password: String): User?
     abstract fun signOut()
+    abstract suspend fun delete()
 }
 
 expect fun String.toLoginMethod(): Auth.LoginMethod

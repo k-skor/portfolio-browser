@@ -1,7 +1,7 @@
 package pl.krzyssko.portfoliobrowser.db
 
 import kotlinx.coroutines.flow.Flow
-import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.data.Follower
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
@@ -16,6 +16,8 @@ interface Firestore {
     suspend fun getProjects(cursor: Any?, uid: String): QueryPagedResult<ProjectDto>
     suspend fun getProject(uid: String, ownerId: String, projectId: String): ProjectDto?
     suspend fun updateProject(uid: String, id: String?, project: ProjectDto)
+    suspend fun followProject(uid: String, id: String, follower: Follower)
+    suspend fun unfollowProject(uid: String, id: String, follower: Follower)
     suspend fun getLastSyncTimestampForSource(uid: String, source: Source): Long?
 }
 

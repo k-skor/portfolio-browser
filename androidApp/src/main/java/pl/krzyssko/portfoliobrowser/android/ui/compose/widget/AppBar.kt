@@ -41,7 +41,6 @@ fun AppBar(scrollBehavior: TopAppBarScrollBehavior, onBackPressed: (() -> Unit)?
                 //        contentDescription = "Back"
                 //    )
                 //}
-                AppBackButton { onBackPressed() }
             }
         },
         scrollBehavior = scrollBehavior

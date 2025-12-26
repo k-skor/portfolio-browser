@@ -47,6 +47,7 @@ interface LoginActions {
     fun onGitHubLink()
     fun onEmailCreate(login: String, password: String)
     fun onEmailSignIn(login: String, password: String)
+    fun onDeleteAccount()
 }
 
 interface ImportActions {
@@ -95,7 +96,7 @@ fun LoginScreen(
                         Text("Sign out")
                     }
                     Button(onClick = {
-
+                        actions.onDeleteAccount()
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text("Delete account")
                     }
@@ -365,6 +366,10 @@ fun LoginPreview() {
             }
 
             override fun onEmailSignIn(login: String, password: String) {
+                TODO("Not yet implemented")
+            }
+
+            override fun onDeleteAccount() {
                 TODO("Not yet implemented")
             }
         }, object: WelcomeActions {

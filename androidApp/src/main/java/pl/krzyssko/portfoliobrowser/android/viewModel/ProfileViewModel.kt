@@ -1,9 +1,15 @@
 package pl.krzyssko.portfoliobrowser.android.viewModel
 
 import android.content.Context
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -21,10 +27,13 @@ import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProfileState
+import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.store.authenticateAnonymous
 import pl.krzyssko.portfoliobrowser.store.authenticateWithEmail
 import pl.krzyssko.portfoliobrowser.store.authenticateWithGitHub
+import pl.krzyssko.portfoliobrowser.store.checkImport
 import pl.krzyssko.portfoliobrowser.store.createAccount
+import pl.krzyssko.portfoliobrowser.store.deleteAccount
 import pl.krzyssko.portfoliobrowser.store.initAuth
 import pl.krzyssko.portfoliobrowser.store.linkWithGitHub
 import pl.krzyssko.portfoliobrowser.store.profile
@@ -37,6 +46,9 @@ class ProfileViewModel(
     private val config: Configuration,
     private val logging: Logging
 ) : ViewModel(), KoinComponent {
+    companion object {
+        val Empty = Profile(firstName = "", lastName = "", experience = 0, location = "")
+    }
 
     private val store: OrbitStore<ProfileState> by inject(NAMED_PROFILE) {
         parametersOf(
@@ -46,7 +58,11 @@ class ProfileViewModel(
     }
 
     val stateFlow = store.stateFlow
-    val sideEffectsFlow = store.sideEffectFlow
+    val sideEffectsFlow = store.sideEffectFlow.onEach {
+        when {
+            it is UserSideEffects.Error -> error.value = true
+        }
+    }
 
     val userState = stateFlow.onEach { logging.debug("USER STATE=${it}") }.map {
         when(it) {
@@ -59,15 +75,30 @@ class ProfileViewModel(
     val profileState = stateFlow.map {
         when(it) {
             is ProfileState.ProfileCreated -> it.profile
+            is ProfileState.Initialized -> Empty
             else -> null
         }
-    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Profile())
+    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Empty)
 
     val isSourceAvailable = stateFlow.onEach {
-        logging.debug("source state=$it")
+        //logging.debug("source state=$it")
+        if (it is ProfileState.ProfileCreated) {
+            store.profile {
+                (userState.value as? User.Authenticated)?.let { user ->
+                    checkImport(user.account.id, firestore)
+                }
+            }
+        }
     }.map {
         it is ProfileState.SourceAvailable
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    }.filter { it }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
+    private val error = MutableStateFlow(false)
+    val errorState: StateFlow<Boolean> = error
+
+    fun dismissError() {
+        error.value = false
+    }
 
     init {
         // TODO: move to store initializer block
@@ -112,6 +143,12 @@ class ProfileViewModel(
     fun resetAuthentication() {
         store.profile {
             resetAuth(auth, config)
+        }
+    }
+
+    fun deleteAccount() {
+        store.profile {
+            deleteAccount(auth, config)
         }
     }
 }

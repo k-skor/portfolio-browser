@@ -37,6 +37,9 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.pullToRefresh
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -97,13 +100,22 @@ fun ListScreen(
     val textFieldState = rememberTextFieldState()
     var expanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    var isRefreshing by remember { mutableStateOf(false) }
+    val pullToRefreshState = rememberPullToRefreshState()
+    val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
     Surface(
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
-            Modifier
+        PullToRefreshBox(
+            modifier = Modifier
                 .fillMaxSize()
-                .semantics { isTraversalGroup = true }) {
+                .semantics { isTraversalGroup = true },
+            isRefreshing = isRefreshing,
+            state = pullToRefreshState,
+            onRefresh = {
+                isRefreshing = true
+                lazyPagingItems.refresh()
+            }) {
             SearchBar(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -151,7 +163,6 @@ fun ListScreen(
             }
 
             val phrase by phraseFlow.collectAsState()
-            val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
 
             var loadingState by remember { mutableStateOf(false) }
 
@@ -166,6 +177,8 @@ fun ListScreen(
                         .wrapContentWidth(Alignment.CenterHorizontally)
                         .wrapContentHeight(Alignment.CenterVertically)
                 )
+            } else {
+                isRefreshing = false
             }
             Column(
                 modifier

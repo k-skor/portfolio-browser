@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
@@ -34,6 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.R
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppImage
@@ -45,14 +49,14 @@ import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 
 interface DetailsEditActions {
-    fun onFavorite(favorite: Boolean)
-    fun onTogglePublic(public: Boolean)
 }
 
 interface DetailsActions {
+    fun onFavorite(favorite: Boolean)
     fun onShare(project: Project)
     fun onNavigate(url: String)
     fun onNavigateBack()
+    fun onTogglePublic(public: Boolean)
 }
 
 @Composable
@@ -68,9 +72,10 @@ fun LoadingError(throwable: Throwable? = null) {
 val loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor."
 
 @Composable
-fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: DetailsActions) {
+fun DetailsReady(modifier: Modifier = Modifier, item: Project, actions: DetailsActions) {
     //val item = state.project
-    val item = project
+    //val item by projectState.collectAsState()
+    var favoriteState by remember { mutableStateOf(item.followers.isNotEmpty()) }
 
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
         item.image?.let {
@@ -79,9 +84,10 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Row {
                 IconButton(onClick = {
-
+                    favoriteState = !favoriteState
+                    actions.onFavorite(favoriteState)
                 }) {
-                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Add to favorites")
+                    Icon(if (favoriteState) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Add to favorites")
                 }
                 IconButton(onClick = {
 
@@ -115,7 +121,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
         }
         //Text(
         //    text = description,
-        //    fontSize = 18.sp
+        //    fontSize = 18.s
         //)
         var descriptionState by remember { mutableStateOf(description) }
         TextField(
@@ -167,12 +173,13 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
 }
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, stateFlow: StateFlow<ProjectState>, actions: DetailsActions) {
+fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, stateFlow: StateFlow<ProjectState>, projectState: StateFlow<Project?>, actions: DetailsActions) {
     val state by stateFlow.collectAsState()
+    val project by projectState.collectAsState()
     Box {
         when (state) {
             is ProjectState.Loading -> Loading()
-            is ProjectState.Ready -> DetailsReady(modifier = modifier, project = (state as ProjectState.Ready).project, actions)
+            is ProjectState.Ready -> project?.let { DetailsReady(modifier = modifier, item = it, actions) } ?: LoadingError()
             is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
             else -> LoadingError()
         }
@@ -201,7 +208,16 @@ val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 @Composable
 fun DetailsPreview() {
     MyApplicationTheme {
-        DetailsScreen(modifier = Modifier.fillMaxSize(), PaddingValues(), fakeDetailsFlow, object : DetailsActions {
+        DetailsScreen(modifier = Modifier.fillMaxSize(), PaddingValues(), fakeDetailsFlow, MutableStateFlow(
+            fakeData), object : DetailsActions {
+            override fun onFavorite(favorite: Boolean) {
+                TODO("Not yet implemented")
+            }
+
+            override fun onTogglePublic(public: Boolean) {
+                TODO("Not yet implemented")
+            }
+
             override fun onShare(project: Project) {
                 TODO("Not yet implemented")
             }

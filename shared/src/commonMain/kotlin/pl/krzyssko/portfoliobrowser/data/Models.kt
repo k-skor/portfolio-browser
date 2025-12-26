@@ -1,7 +1,6 @@
 package pl.krzyssko.portfoliobrowser.data
 
-import pl.krzyssko.portfoliobrowser.db.transfer.DataSyncDto
-import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
+import kotlinx.serialization.Serializable
 
 sealed class Resource {
     data class LocalResource(val res: Int): Resource()
@@ -20,9 +19,15 @@ data class Stack(val name: String, val percent: Float = 0f, val color: Int = 0x0
 enum class Source {
     GitHub
 }
+enum class Role {
+    Owner,
+    Editor,
+    Reader
+}
 data class Widget(val origin: Source = Source.GitHub, val name: String, val description: String?, val externalUrl: String)
 data class Follower(val uid: String, val name: String)
-data class Project(val id: String, val name: String, val description: String? = null, val stack: List<Stack> = emptyList(), val image: Resource?, val followersCount: Int = 0, val followers: List<Follower> = emptyList(), val createdBy: String, val createdByName: String, val createdOn: Long, val coauthors: List<String> = emptyList(), val public: Boolean = true, val source: Source? = null)
+data class AccessRole(val uid: String, val role: Role)
+data class Project(val id: String, val name: String, val description: String? = null, val stack: List<Stack> = emptyList(), val image: Resource?, val followersCount: Int = 0, val followers: List<Follower> = emptyList(), val createdBy: String, val createdByName: String, val createdOn: Long, val coauthors: List<String> = emptyList(), val public: Boolean = true, val source: Source? = null, val roles: List<AccessRole> = emptyList())
 
 typealias AdditionalUserData = Map<String, Any>
 
@@ -40,10 +45,10 @@ sealed class Contact {
     data class SocialMedia(val type: SocialMediaType, val link: String): Contact()
     data class CustomLink(val title: String, val link: String): Contact()
 }
-enum class Role {
-    All,
+enum class ProfileRole {
     Developer,
-    Designer
+    Designer,
+    Other
 }
 
 data class Provider(val providerId: String, val uid: String, val name: String?, val email: String?, val photoUrl: String)
@@ -54,8 +59,10 @@ sealed class User {
 
 data class Config(val gitHubApiUser: String? = null, val gitHubApiToken: String? = null, val lastSignInMethod: String? = null)
 
-typealias DataSync = DataSyncDto
-typealias Profile = ProfileDto
+data class Profile(val firstName: String, val lastName: String, val alias: String? = null, val role: List<ProfileRole> = listOf(ProfileRole.Other), val avatarUrl: String? = null, val title: String? = null, val about: String? = null, val assets: List<String> = emptyList(), val experience: Int, val location: String, val contact: List<Contact> = emptyList())
+
+@Serializable
+data class ErrorMessage(val title: String, val message: String)
 
 fun Project.canEdit(uid: String): Boolean = createdBy == uid
 fun Int.toExperience(): String = when {
@@ -65,3 +72,4 @@ fun Int.toExperience(): String = when {
     this >= 20 -> "20+"
     else -> this.toString()
 }
+fun Profile.isEmpty(): Boolean = this.firstName.isEmpty() || this.lastName.isEmpty() || this.location.isEmpty()

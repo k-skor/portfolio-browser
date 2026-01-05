@@ -26,7 +26,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -40,9 +39,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.coroutineScope
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -56,8 +53,6 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.merge
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
@@ -67,7 +62,6 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ImportActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ListScreenActions
-import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DisplayFormat
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.LoginActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.LoginScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ProfileActions
@@ -355,9 +349,6 @@ fun AppContent(modifier: Modifier = Modifier,
             }
         }
     }
-    //LaunchedEffect(isSignedIn) {
-    //    listViewModel.refreshProjectsList()
-    //}
     Column(modifier.padding(top = contentPaddingValues.calculateTopPadding(), bottom = contentPaddingValues.calculateBottomPadding())) {
         NavHost(
             navController = navController,
@@ -365,7 +356,7 @@ fun AppContent(modifier: Modifier = Modifier,
             modifier = modifier
         ) {
             composable<Route.Welcome> {
-                WelcomeScreen(modifier, contentPaddingValues, object : WelcomeActions {
+                WelcomeScreen(modifier, object : WelcomeActions {
                     override fun onLogin() {
                         navController.navigate(Route.Login(ViewType.Login))
                     }

@@ -21,7 +21,6 @@ coil = "3.0.0-rc01"
 firebaseAuthKtx = "23.1.0"
 kvault = "1.12.0"
 konform = "0.10.0"
-algolia = "3.6.4"
 
 [libraries]
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebase" }
@@ -30,7 +29,6 @@ firebase-analytics = { module = "com.google.firebase:firebase-analytics" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 kotlinx-serialization = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
-kotlinx-serialization-compiler = { module = "org.jetbrains.kotlinx:kotlinx-serialization-compiler-plugin", version.ref = "kotlin" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activityCompose" }
 androidx-navigation = { module = "androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle"}
@@ -62,7 +60,6 @@ coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 kvault = { module = "com.liftric:kvault", version.ref = "kvault" }
 konform = { module = "io.konform:konform", version.ref = "konform" }
-algolia = { module = "com.algolia:algoliasearch-client-kotlin", version.ref = "algolia" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

@@ -1,6 +1,23 @@
 # portfolio-browser
 Mobile Multiplatform GitHub Project Browser
 
+## Project Description
+
+The goal of this project is to create a mobile multiplatform application that allows users to browse
+and interact with their projects. It should allow multiple ID providers to login and integrate import
+feature from GitHub, Figma, LinkedIn, etc. It should allow interactions between users on the
+content they share like in a social media app.
+
+## Development
+
+1. Firebase - add `google-services.json` to the `androidApp/src/debug`
+2. Secrets - create `secrets.local` in the root dir and fill it with values:
+```
+githubApiKey=
+githubApiUser=
+```
+   
+
 # Project Roadmap
 
 ## Milestone 1 (2025-2026)
@@ -21,7 +38,7 @@ Mobile Multiplatform GitHub Project Browser
 
 ## Milestone 2 (2026-)
 
-1. Refactor the codebase for easier new User Stories implementation (see refactor-plan.md)
+1. [Refactor](refactor-plan.md) the codebase for easier User Stories implementation
 2. Functional requirements:
    - extend external providers
    - role based resource access

@@ -26,11 +26,6 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
     private lateinit var auth: FirebaseAuth
 
     override fun initAuth() {
-        //config?.let {
-        //    if (!it.lastSignInMethod.isNullOrEmpty()) {
-        //        requestedLoginMethod = LoginMethod.valueOf(it.lastSignInMethod)
-        //    }
-        //}
         auth = Firebase.auth
     }
 
@@ -42,10 +37,6 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
 
     override val providerData: List<Provider>?
         get() = auth.currentUser?.toProviderData()
-
-    //override var accessToken: String?
-    //    get() = TODO("Not yet implemented")
-    //    set(value) {}
 
     override val hasGitHubProvider: Boolean
         get() = providerData?.let {
@@ -174,13 +165,6 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
 
     override suspend fun signInWithEmail(uiHandler: Any?, login: String, password: String) =
         auth.signInWithEmailAndPassword(login, password).await().toUser()
-            //.addOnCompleteListener(activity) {
-            //    if (it.isSuccessful) {
-            //        callback.onSuccess(it.result.toUser())
-            //    } else {
-            //        callback.onFailure(it.exception ?: Error("Unknown email sign in error."))
-            //    }
-            //}
 
     override fun signOut() {
         auth.signOut()
@@ -241,13 +225,6 @@ fun AuthResult.toUser(): User.Authenticated? {
         user
     }
 }
-
-//actual fun String.toLoginMethod(): Auth.LoginMethod? = when (this) {
-//    GithubAuthProvider.PROVIDER_ID -> Auth.LoginMethod.GitHub
-//    EmailAuthProvider.PROVIDER_ID -> Auth.LoginMethod.Email
-//    FirebaseAuthProvider.PROVIDER_ID -> Auth.LoginMethod.Anonymous
-//    else -> null
-//}
 
 actual fun Auth.LoginMethod.toProviderId(): String = when (this) {
     Auth.LoginMethod.GitHub -> GithubAuthProvider.PROVIDER_ID

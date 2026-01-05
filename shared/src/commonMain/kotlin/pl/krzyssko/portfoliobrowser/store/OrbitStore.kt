@@ -4,18 +4,13 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
@@ -36,7 +31,6 @@ import pl.krzyssko.portfoliobrowser.business.SyncHandler
 import pl.krzyssko.portfoliobrowser.business.UserOnboardingImportFromExternalSource
 import pl.krzyssko.portfoliobrowser.data.Follower
 import pl.krzyssko.portfoliobrowser.data.ProfileRole
-import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
 import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.Route
@@ -46,7 +40,7 @@ import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.Paging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
-import pl.krzyssko.portfoliobrowser.util.Response
+import kotlin.runCatching
 
 class OrbitStore<TState : Any>(
     coroutineScope: CoroutineScope,
@@ -233,7 +227,7 @@ fun OrbitStore<ProfileState>.createAccount(uiHandler: Any?, auth: Auth, login: S
     }
     when {
         result.isFailure -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
             resetAuthSub(auth, config)
         }
 
@@ -257,7 +251,7 @@ fun OrbitStore<ProfileState>.authenticateAnonymous(auth: Auth, firestore: Firest
     }
     when {
         result.isFailure -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
             resetAuthSub(auth, config)
         }
 
@@ -283,7 +277,7 @@ fun OrbitStore<ProfileState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, 
     }
     when {
         result.isFailure -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
             resetAuthSub(auth, config)
         }
 
@@ -325,7 +319,7 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
     }
     val user = when {
         result.isFailure -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
             resetAuthSub(auth, config)
             return@intent
         }
@@ -333,16 +327,16 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
         else -> result.getOrNull()!!
     }
 
-    config.update(Config(gitHubApiToken = user.oauthToken.orEmpty()))
     repository.fetchUser()
         .flowOn(dispatcherIO)
+        .onStart {
+            config.update(Config(gitHubApiToken = user.oauthToken.orEmpty()))
+        }
         .map {
             when {
                 it.isSuccess -> it.getOrNull()
                 else -> {
-                    reduce {
-                        ProfileState.Error(UserFetchException(it.exceptionOrNull()))
-                    }
+                    handleException(UserFetchException(it.exceptionOrNull()))
                     null
                 }
             }
@@ -350,7 +344,6 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
         .filterNotNull()
         .collect { name ->
             config.update(config.config.copy(gitHubApiUser = name))
-            val hasUser = db.hasUser(user.account.id)
             reduce {
                 ProfileState.Authenticated(
                     user = user.copy(
@@ -360,6 +353,7 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
                     )
                 )
             }
+            val hasUser = db.hasUser(user.account.id)
             if (!hasUser) {
                 createUserProfile(user, db)
             }
@@ -377,8 +371,7 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.handleFailure(result: Result<*>) = subIntent {
-    val exception = result.exceptionOrNull()
+suspend fun OrbitStore<ProfileState>.handleException(exception: Throwable?) = subIntent {
     reduce {
         ProfileState.Error(exception)
     }
@@ -428,7 +421,7 @@ suspend fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated,
                 }
             }
             else -> {
-                handleFailure(result)
+                handleException(result.exceptionOrNull())
             }
         }
     }
@@ -449,7 +442,7 @@ suspend fun OrbitStore<ProfileState>.getUserProfile(user: User.Authenticated, fi
         }
 
         else -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
         }
     }
 }
@@ -479,7 +472,7 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
     }
     val user = when {
         result.isFailure -> {
-            handleFailure(result)
+            handleException(result.exceptionOrNull())
             return@intent
         }
 
@@ -493,11 +486,7 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
                 it.isSuccess -> it.getOrNull()
 
                 else -> {
-                    val exception = it.exceptionOrNull()
-                    reduce {
-                        ProfileState.Error(exception)
-                    }
-                    postSideEffect(UserSideEffects.Error(exception))
+                    handleException(it.exceptionOrNull())
                     null
                 }
             }
@@ -583,36 +572,36 @@ fun OrbitStore<ProjectsListState>.loadPageFrom(
         }
         .map {
             when {
-                it.isSuccess -> {
-                    val page = it.getOrNull()!!.map { project ->
-                        project.copy(stack = project.stack.map { stack ->
-                            stack.copy(
-                                color = colorPicker.pick(
-                                    stack.name
-                                )
-                            )
-                        })
-                    }
-                    val newPageKey = repository.pagingState.paging.pageKey
-                    prevState?.let { state ->
-                        state.copy(
-                            projects = state.projects + (newPageKey to page)
-                        )
-                    } ?: ProjectsListState.Loaded(
-                        projects = mapOf(newPageKey to page)
-                    ) as ProjectsListState
-                }
+                it.isSuccess -> it.getOrNull()!!
 
                 else -> {
-                    val exception = it.exceptionOrNull()
-                    postSideEffect(UserSideEffects.Error(exception))
-                    ProjectsListState.Error(exception)
+                    handleListException(it.exceptionOrNull())
+                    null
                 }
             }
         }
-        .collect {
+        .filterNotNull()
+        .map {
+            it.map { project ->
+                project.copy(stack = project.stack.map { stack ->
+                    stack.copy(
+                        color = colorPicker.pick(
+                            stack.name
+                        )
+                    )
+                })
+            }
+        }
+        .collect { page ->
             reduce {
-                it
+                val newPageKey = repository.pagingState.paging.pageKey
+                prevState?.let { state ->
+                    state.copy(
+                        projects = state.projects + (newPageKey to page)
+                    )
+                } ?: ProjectsListState.Loaded(
+                    projects = mapOf(newPageKey to page)
+                )
             }
         }
 }
@@ -744,8 +733,7 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProjectsListState>.handleException(exception: Throwable) = subIntent {
-    //val exception = result.exceptionOrNull()
+suspend fun OrbitStore<ProjectsListState>.handleListException(exception: Throwable?) = subIntent {
     reduce {
         ProjectsListState.Error(exception)
     }

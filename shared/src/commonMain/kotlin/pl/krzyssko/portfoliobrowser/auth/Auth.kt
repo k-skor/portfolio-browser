@@ -2,7 +2,6 @@ package pl.krzyssko.portfoliobrowser.auth
 
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.User
-import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 
 class AuthInvalidUserException(throwable: Throwable?) : Exception("Invalid user.", throwable)
@@ -34,19 +33,8 @@ abstract class Auth(protected val config: Configuration) {
         password: String? = null,
         refresh: Boolean = false,
         token: String? = oauthToken,
-        //linkWithProvider: Boolean = shouldLinkAccounts(providerType)
         linkWithProvider: Boolean = false
     ): User.Authenticated? {
-        //if (linkWithProvider) {
-        //    if (isUserSignedIn) {
-        //        if (providerType == AccountType.GitHub && login != null && password != null) {
-        //            linkWithProvider(login, password, callback)
-        //            return@suspendCoroutine
-        //        }
-        //        callback.onSuccess(null)
-        //        return@suspendCoroutine
-        //    }
-        //}
 
         return if (linkWithProvider) {
             when {
@@ -64,29 +52,6 @@ abstract class Auth(protected val config: Configuration) {
                 else -> null
             }
         } as? User.Authenticated
-
-        //return (if (providerType == LoginMethod.Anonymous) {
-        //    signInAnonymous()
-        //    //requestedLoginMethod = LoginMethod.Anonymous
-        //} else if (providerType == LoginMethod.Email && login != null && password != null) {
-        //    if (linkWithProvider) {
-        //        linkWithProvider(login, password)
-        //    } else if (create) {
-        //        createWithEmail(uiHandler, login, password)
-        //    } else {
-        //        signInWithEmail(uiHandler, login, password)
-        //    }
-        //    //requestedLoginMethod = LoginMethod.Email
-        //} else if (providerType == LoginMethod.GitHub) {
-        //    if (linkWithProvider) {
-        //        signInLinkWithGitHub(uiHandler)
-        //    } else {
-        //        signInWithGitHub(uiHandler, token, refresh)
-        //    }
-        //    //requestedLoginMethod = LoginMethod.GitHub
-        //} else {
-        //    null
-        //}) as? User.Authenticated
     }
 
     abstract val isUserSignedIn: Boolean
@@ -108,7 +73,6 @@ abstract class Auth(protected val config: Configuration) {
     abstract suspend fun delete()
 }
 
-//expect fun String.toLoginMethod(): Auth.LoginMethod
 expect fun Auth.LoginMethod.toProviderId(): String
 
 expect fun getPlatformAuth(configuration: Configuration): Auth

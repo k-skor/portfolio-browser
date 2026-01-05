@@ -53,15 +53,10 @@ class AndroidFirestore: Firestore {
         val projectsCol = usersRef.collection("projects")
 
         db.runBatch { batch ->
-            //for (project in projectsList) {
-            //    val projectRef = projectCol.document()
-            //    batch.set(projectRef, project.copy(id = projectRef.id))
-            //}
             val dbProjects = projectsList.map {
                 val projectRef = projectsCol.document()
                 it.copy(id = projectRef.id).also { db ->
                     batch.set(projectRef, db)
-                    //batch.set(projectRef.collection("private_data").document("private"), it.toPrivateData())
                 }
             }
             batch.set(
@@ -74,28 +69,6 @@ class AndroidFirestore: Firestore {
                     projectIds = dbProjects.map { it.id!! })
             )
         }.await()
-
-        //val projectsCol = db.collection("projects")
-        //val syncRef = db.collection("users").document(uid).collection("data_sync").document()
-        //db.runBatch { batch ->
-        //    val dbProjects = projectsList.map {
-        //        val projectRef = projectsCol.document()
-        //        it.copy(id = projectRef.id).also { db ->
-        //            batch.set(projectRef, db)
-        //            batch.set(projectRef.collection("private_data").document("private"), it.toPrivateData())
-        //        }
-        //    }
-        //    batch.set(
-        //        syncRef,
-        //        DataSyncDto(
-        //            uid = uid,
-        //            timestamp = Timestamp.now()
-        //                .let { it.seconds * 1_000 + it.nanoseconds.toLong() / 1_000_000 },
-        //            source = source.toString(),
-        //            projectIds = dbProjects.map { it.id!! })
-        //    )
-        //    batch.commit()
-        //}.await()
     }
 
     suspend fun setProjectPrivateData(id: String, role: String, projectRef: DocumentReference): Task<Void> {
@@ -119,23 +92,6 @@ class AndroidFirestore: Firestore {
                 )
             ).orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
         }
-
-        //val projectsCol = db.collection("projects")
-        //var query = projectsCol.where(
-        //    Filter.or(
-        //        Filter.equalTo("public", true),
-        //        Filter.equalTo("createdBy", uid)
-        //    )
-        //).orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
-
-        //(cursor as? DocumentSnapshot)?.let {
-        //    query = projectsCol.where(
-        //        Filter.or(
-        //            Filter.equalTo("public", true),
-        //            Filter.equalTo("createdBy", uid)
-        //        )
-        //    ).orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
-        //}
 
         val snapshot = query.get().await()
         val cursor = if (snapshot.documents.size < 5) null else snapshot.documents.lastOrNull()
@@ -267,7 +223,6 @@ class AndroidFirestore: Firestore {
             } ?: throw Exception("Failed to calculate followers count")
             result
         }.await()
-        //return projectRef.collection("followers").document(uid).set(mapOf("timestamp" to Timestamp.now()))
     }
 
     val logging = getLogging()

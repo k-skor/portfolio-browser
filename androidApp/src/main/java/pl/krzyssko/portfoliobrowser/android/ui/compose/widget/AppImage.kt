@@ -13,7 +13,7 @@ import pl.krzyssko.portfoliobrowser.data.Resource
 fun AppImage(modifier: Modifier = Modifier, image: Resource, contentDescription: String = "App image") {
     when (image) {
         is Resource.NetworkResource -> AsyncImage(
-            model = image .url,
+            model = image.url,
             modifier = modifier
                 .fillMaxWidth(),
             contentDescription = contentDescription,

@@ -14,10 +14,10 @@ import pl.krzyssko.portfoliobrowser.platform.getConfiguration
 
 val androidAppModule = module {
     viewModel { (handle: SavedStateHandle) ->
-        ProjectViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(), get())
+        ProjectViewModel(handle, get(qualifier = NAMED_FIRESTORE), get())
     }
     viewModel { (handle: SavedStateHandle) ->
-        ProjectDetailsViewModel(handle, get(qualifier = NAMED_FIRESTORE), get())
+        ProjectDetailsViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(), get())
     }
     viewModel {
         ProfileViewModel(get(qualifier = NAMED_GITHUB), get(), get(), get(), get())

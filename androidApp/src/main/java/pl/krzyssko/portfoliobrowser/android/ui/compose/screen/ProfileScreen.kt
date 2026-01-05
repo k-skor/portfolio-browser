@@ -26,14 +26,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Categories
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ContactList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.FloatingBackButton
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ProjectOverview
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.ProfileRole
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.toExperience
+import pl.krzyssko.portfoliobrowser.store.ProfileState
 
 interface ProfileActions {
     fun onLogin()
@@ -43,20 +46,19 @@ interface ProfileActions {
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile>, userState: StateFlow<User>, portfolio: List<Project>, actions: ProfileActions) {
-    val profile by profileState.collectAsState()
-    val rawUser by userState.collectAsState()
-    if (rawUser is User.Guest) {
-        Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Text("Please log in to view your profile.")
-            Button(onClick = {
-                actions.onLogin()
-            }, modifier = Modifier.fillMaxWidth(0.5f)) {
-                Text("Login")
-            }
+fun ProfileEmpty(modifier: Modifier = Modifier, actions: ProfileActions) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Text("Please log in and complete your profile to view this page.")
+        Button(onClick = {
+            actions.onLogin()
+        }, modifier = Modifier.fillMaxWidth(0.5f)) {
+            Text("Login")
         }
-        return
     }
+}
+
+@Composable
+fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: List<Project>, actions: ProfileActions) {
     Box {
         Column(
             modifier = Modifier
@@ -66,7 +68,11 @@ fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile
         ) {
             Row(verticalAlignment = Alignment.Bottom) {
                 Column {
-                    AssistChip(onClick = { }, label = { Text(profile.role.toString()) })
+                    Row {
+                        profile.role.forEach {
+                            AssistChip(onClick = { }, label = { Text(it.toString()) })
+                        }
+                    }
                     Text("${profile.firstName} ${profile.lastName}", fontSize = 24.sp)
                     Text("creates things", fontSize = 16.sp)
                 }
@@ -89,21 +95,17 @@ fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile
                     )
                 )
             }
-            profile.experience?.let {
-                Column {
-                    Text("Years of experience:", fontSize = 16.sp)
-                    Text(it.toExperience(), fontSize = 24.sp)
-                }
+            Column {
+                Text("Years of experience:", fontSize = 16.sp)
+                Text(profile.experience.toExperience(), fontSize = 24.sp)
             }
             Column {
                 Text("Location", fontSize = 16.sp)
-                Text(profile.location.toString(), fontSize = 24.sp)
+                Text(profile.location, fontSize = 24.sp)
             }
             Column {
                 Text("Contact:", fontSize = 16.sp)
-                profile.contact.forEach {
-                    Text(it)
-                }
+                ContactList(contact = profile.contact)
             }
             Column {
                 Text("About:", fontSize = 16.sp)
@@ -127,16 +129,33 @@ fun ProfileScreen(modifier: Modifier = Modifier, profileState: StateFlow<Profile
     }
 }
 
+@Composable
+fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
+    //val profile by profileState.collectAsState()
+    //profile?.let {
+    //    ProfileContent(modifier, profile!!, portfolio, actions)
+    //} ?: ProfileEmpty(modifier, actions)
+    val state by stateFlow.collectAsState()
+    when {
+        state is ProfileState.Authenticated && (state as ProfileState.Authenticated).user is User.Guest -> ProfileEmpty(modifier, actions)
+        state is ProfileState.ProfileCreated -> ProfileContent(modifier, (state as ProfileState.ProfileCreated).profile, portfolio, actions)
+        state is ProfileState.Error -> LoadingError()
+        else -> Loading()
+    }
+}
+
 private val fakeUser = User.Authenticated(
     account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
 )
 //private val fakeUser = User.Guest
 private val fakeProfile = Profile(
-    role = "Developer",
     firstName = "Krzysztof",
     lastName = "Skorcz",
+    alias = "k-skor",
+    role = listOf(ProfileRole.Developer),
     location = "Poznań, Poland",
-    contact = emptyList()
+    contact = emptyList(),
+    experience = 10,
 )
 
 @Preview(widthDp = 320, heightDp = 640)
@@ -144,8 +163,8 @@ private val fakeProfile = Profile(
 fun ProfilePreview() {
     MyApplicationTheme {
         ProfileScreen(
-            userState = MutableStateFlow(fakeUser),
-            profileState = MutableStateFlow(fakeProfile),
+            stateFlow = MutableStateFlow(ProfileState.ProfileCreated(fakeProfile)),
+            //profileState = MutableStateFlow(fakeProfile),
             portfolio = emptyList(),
             actions = object : ProfileActions {
                 override fun onLogin() {

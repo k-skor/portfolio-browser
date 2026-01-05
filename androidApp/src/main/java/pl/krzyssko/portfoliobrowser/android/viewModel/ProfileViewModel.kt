@@ -1,17 +1,22 @@
 package pl.krzyssko.portfoliobrowser.android.viewModel
 
 import android.content.Context
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.business.UserOnboardingImportFromExternalSource
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
@@ -25,10 +30,12 @@ import pl.krzyssko.portfoliobrowser.store.authenticateAnonymous
 import pl.krzyssko.portfoliobrowser.store.authenticateWithEmail
 import pl.krzyssko.portfoliobrowser.store.authenticateWithGitHub
 import pl.krzyssko.portfoliobrowser.store.createAccount
+import pl.krzyssko.portfoliobrowser.store.deleteAccount
 import pl.krzyssko.portfoliobrowser.store.initAuth
 import pl.krzyssko.portfoliobrowser.store.linkWithGitHub
 import pl.krzyssko.portfoliobrowser.store.profile
 import pl.krzyssko.portfoliobrowser.store.resetAuth
+import pl.krzyssko.portfoliobrowser.util.Response
 
 class ProfileViewModel(
     private val repository: ProjectRepository,
@@ -38,43 +45,58 @@ class ProfileViewModel(
     private val logging: Logging
 ) : ViewModel(), KoinComponent {
 
-    private val store: OrbitStore<ProfileState> by inject(NAMED_PROFILE) {
+    val store: OrbitStore<ProfileState> by inject(NAMED_PROFILE) {
         parametersOf(
             viewModelScope,
-            ProfileState.Created
+            ProfileState.Initialized
         )
     }
 
     val stateFlow = store.stateFlow
-    val sideEffectsFlow = store.sideEffectFlow
+    val userOnboarding = UserOnboardingImportFromExternalSource(viewModelScope, stateFlow, auth, firestore)
+    val sideEffectsFlow = merge(store.sideEffectFlow, userOnboarding.sideEffectsFlow)
 
-    val userState = stateFlow.onEach { logging.debug("USER STATE=${it}") }.map {
-        when(it) {
-            is ProfileState.Authenticated -> it.user
-            is ProfileState.Initialized -> User.Guest
-            else -> null
+
+    val profileState: StateFlow<Response<Profile>> = stateFlow
+        .map {
+            when (it) {
+                is ProfileState.Initialized,
+                is ProfileState.Authenticated -> Response.Pending
+                is ProfileState.ProfileCreated -> Response.Ok(it.profile)
+                is ProfileState.Error -> Response.Error(it.reason)
+            }
         }
-    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), User.Guest)
+        .filterNotNull()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Response.Pending)
 
-    val profileState = stateFlow.map {
-        when(it) {
-            is ProfileState.ProfileCreated -> it.profile
-            else -> null
+    val userState: StateFlow<Response<User>> = stateFlow
+        .map {
+            when (it) {
+                is ProfileState.Initialized -> Response.Pending
+                is ProfileState.Authenticated -> Response.Ok(it.user)
+                is ProfileState.Error -> Response.Error(it.reason)
+                else -> null
+            }
         }
-    }.filterNotNull().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), Profile())
+        .filterNotNull()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Response.Pending)
 
-    val isSourceAvailable = stateFlow.onEach {
-        logging.debug("source state=$it")
-    }.map {
-        it is ProfileState.SourceAvailable
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+    val errorFlow: Flow<Throwable?> = stateFlow
+        .map {
+            when (it) {
+                is ProfileState.Error -> throw it.reason ?: Error("Unknown error.")
+                else -> null
+            }
+        }
 
     init {
         // TODO: move to store initializer block
-        //initAuthentication()
-        with(store) {
-            profile {
-                initAuth(auth, config, firestore)
+        store.profile {
+            initAuth(auth, config, firestore, userOnboarding)
+        }
+        viewModelScope.launch {
+            userOnboarding.stateFlow.collect {
+                Log.d(TAG, "collect: has state=$it")
             }
         }
     }
@@ -93,7 +115,7 @@ class ProfileViewModel(
 
     fun authenticateUser(activity: Context, refreshOnly: Boolean = false, forceSignIn: Boolean = false) {
         store.profile {
-            authenticateWithGitHub(activity, auth, config, repository, firestore, refreshOnly)
+            authenticateWithGitHub(activity, auth, config, repository, firestore, userOnboarding, refreshOnly, forceSignIn)
         }
     }
 
@@ -114,4 +136,34 @@ class ProfileViewModel(
             resetAuth(auth, config)
         }
     }
+
+    fun openImportPage() {
+        userOnboarding.openImport()
+    }
+
+    fun startImportFromSource(activity: Context) {
+        userOnboarding.startImportFromSource(activity)
+    }
+
+    fun deleteAccount() {
+        store.profile {
+            deleteAccount(auth, config)
+        }
+    }
+
+    companion object {
+        private const val TAG = "ProfileViewModel"
+    }
 }
+
+//fun <T: ProfileState> ProfileViewModel.doOnState(block: OrbitStore<T>.() -> Unit) {
+//    viewModelScope.launch {
+//        stateFlow.collect {
+//            when (it) {
+//                is T -> 1//store.apply(block)
+//                else -> return@collect
+//            }
+//        }
+//    }
+//    //store.apply(block)
+//}

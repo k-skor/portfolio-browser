@@ -11,8 +11,8 @@ import pl.krzyssko.portfoliobrowser.navigation.Route
 data class TopLevelRoute(val name: String, val route: Any, val icon: ImageVector)
 
 val topLevelRoutes = listOf(
-    TopLevelRoute("Home", Route.Home, Icons.Default.Home),
+    TopLevelRoute("Home", Route.List, Icons.Default.Home),
     TopLevelRoute("Profile", Route.Profile, Icons.Default.AccountCircle),
-    TopLevelRoute("Favorites", Route.Home, Icons.Default.Favorite),
+    TopLevelRoute("Favorites", Route.Favorites, Icons.Default.Favorite),
     TopLevelRoute("Settings", Route.Settings, Icons.Default.Settings),
 )

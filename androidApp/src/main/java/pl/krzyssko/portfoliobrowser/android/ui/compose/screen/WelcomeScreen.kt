@@ -25,8 +25,8 @@ interface WelcomeActions {
 }
 
 @Composable
-fun WelcomeScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, actions: WelcomeActions) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
+fun WelcomeScreen(modifier: Modifier = Modifier, actions: WelcomeActions) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.SpaceBetween) {
         AppTitle()
 
         Column(Modifier.fillMaxWidth(0.5f).wrapContentHeight()) {
@@ -56,7 +56,7 @@ fun WelcomeScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingVa
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun WelcomePreview() {
-    WelcomeScreen(contentPaddingValues = PaddingValues(), actions = object : WelcomeActions {
+    WelcomeScreen(actions = object : WelcomeActions {
         override fun onLogin() {}
 
         override fun onRegister() {}

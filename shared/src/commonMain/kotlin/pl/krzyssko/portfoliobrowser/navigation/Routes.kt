@@ -17,12 +17,16 @@ sealed class Route {
     @Serializable
     data object Home: Route()
     @Serializable
-    data object Projects: Route()
+    data object List: Route()
     @Serializable
     data class Details(val userId: String, val projectId: String): Route()
     @Serializable
     data object Profile: Route()
     @Serializable
+    data object Favorites: Route()
+    @Serializable
     data object Settings: Route()
+    @Serializable
+    data object Error: Route()
 }
 

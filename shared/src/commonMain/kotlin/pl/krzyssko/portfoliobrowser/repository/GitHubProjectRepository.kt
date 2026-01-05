@@ -2,6 +2,7 @@ package pl.krzyssko.portfoliobrowser.repository
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import pl.krzyssko.portfoliobrowser.api.Api
 import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
@@ -184,7 +185,9 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         })
     }
 
-    override fun nextSearchPage(query: String): Flow<Result<List<Project>>> {
-        TODO("Not yet implemented")
-    }
+    override fun nextSearchPage(query: String): Flow<Result<List<Project>>> =
+        flowOf(Result.failure(GitHubRepositoryException("Not implemented")))
+
+    override fun nextFavoritePage(): Flow<Result<List<Project>>> =
+        flowOf(Result.failure(GitHubRepositoryException("Not implemented")))
 }

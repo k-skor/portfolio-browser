@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
@@ -45,14 +46,14 @@ import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 
 interface DetailsEditActions {
-    fun onFavorite(favorite: Boolean)
-    fun onTogglePublic(public: Boolean)
 }
 
 interface DetailsActions {
+    fun onFavorite(project: Project, favorite: Boolean)
     fun onShare(project: Project)
     fun onNavigate(url: String)
     fun onNavigateBack()
+    fun onTogglePublic(public: Boolean)
 }
 
 @Composable
@@ -68,20 +69,23 @@ fun LoadingError(throwable: Throwable? = null) {
 val loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor."
 
 @Composable
-fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: DetailsActions) {
+fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Boolean, actions: DetailsActions) {
     //val item = state.project
-    val item = project
+    var favoriteState by remember { mutableStateOf(project.followers.isNotEmpty()) }
 
     Column(modifier = modifier.verticalScroll(rememberScrollState())) {
-        item.image?.let {
+        project.image?.let {
             AppImage(Modifier.fillMaxWidth(), it, "Project image")
         }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Row {
-                IconButton(onClick = {
-
-                }) {
-                    Icon(Icons.Default.FavoriteBorder, contentDescription = "Add to favorites")
+                if (isSignedIn) {
+                    IconButton(onClick = {
+                        favoriteState = !favoriteState
+                        actions.onFavorite(project, favoriteState)
+                    }) {
+                        Icon(if (favoriteState) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Add to favorites")
+                    }
                 }
                 IconButton(onClick = {
 
@@ -100,16 +104,16 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
             }
         }
         Text(
-            text = item.createdByName.uppercase(),
+            text = project.createdByName.uppercase(),
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = item.name,
+            text = project.name,
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold
         )
-        var description = item.description
+        var description = project.description
         if (description.isNullOrEmpty()) {
             description = loremIpsum
         }
@@ -128,7 +132,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
                 text = "Programming languages",
                 fontSize = 16.sp
             )
-            Categories(Modifier.padding(4.dp), item.stack)
+            Categories(Modifier.padding(4.dp), project.stack)
         }
         Column {
             Text(
@@ -136,7 +140,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
                 fontSize = 16.sp
             )
             val calendar = Calendar.getInstance().apply {
-                timeInMillis = item.createdOn
+                timeInMillis = project.createdOn
             }
             Text(
                 text = calendar.get(Calendar.YEAR).toString(),
@@ -149,7 +153,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
                 fontSize = 16.sp
             )
             Row {
-                item.coauthors.forEach {
+                project.coauthors.forEach {
                     Text(
                         text = it,
                         fontSize = 30.sp
@@ -159,7 +163,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
         }
         Row {
             Text(text = "Set project\nas public:", fontSize = 16.sp)
-            Switch(modifier = Modifier.padding(start = 4.dp), checked = item.public, onCheckedChange = {
+            Switch(modifier = Modifier.padding(start = 4.dp), checked = project.public, onCheckedChange = {
                 //actions.onTogglePublic(it)
             }, enabled = false)
         }
@@ -167,14 +171,14 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, actions: Detai
 }
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, contentPaddingValues: PaddingValues, stateFlow: StateFlow<ProjectState>, actions: DetailsActions) {
+fun DetailsScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProjectState>, isSignedIn: Boolean, actions: DetailsActions) {
     val state by stateFlow.collectAsState()
     Box {
         when (state) {
             is ProjectState.Loading -> Loading()
-            is ProjectState.Loaded -> DetailsReady(modifier = modifier, project = (state as ProjectState.Loaded).project, actions)
+            is ProjectState.Loaded -> DetailsReady(modifier = modifier, project = (state as ProjectState.Loaded).project, isSignedIn, actions)
             is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
-            else -> LoadingError()
+            //else -> {}
         }
         FloatingBackButton(Modifier.padding(top = 8.dp, start = 8.dp)) { actions.onNavigateBack() }
     }
@@ -201,7 +205,15 @@ val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 @Composable
 fun DetailsPreview() {
     MyApplicationTheme {
-        DetailsScreen(modifier = Modifier.fillMaxSize(), PaddingValues(), fakeDetailsFlow, object : DetailsActions {
+        DetailsScreen(modifier = Modifier.fillMaxSize(), fakeDetailsFlow, true, object : DetailsActions {
+            override fun onFavorite(project: Project, favorite: Boolean) {
+                TODO("Not yet implemented")
+            }
+
+            override fun onTogglePublic(public: Boolean) {
+                TODO("Not yet implemented")
+            }
+
             override fun onShare(project: Project) {
                 TODO("Not yet implemented")
             }

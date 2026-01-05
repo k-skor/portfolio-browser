@@ -1,12 +1,11 @@
 package pl.krzyssko.portfoliobrowser.db.transfer
 
-import pl.krzyssko.portfoliobrowser.data.Contact
-
 data class StackDto(val name: String? = null, val percent: Float? = null)
 data class FollowerDto(val uid: String? = null, val name: String? = null)
 data class ProjectDto(
     val id: String? = null,
     val name: String? = null,
+    val namePartial: List<String> = emptyList(),
     val description: String? = null,
     val stack: List<StackDto> = emptyList(),
     val image: String? = null,
@@ -19,6 +18,7 @@ data class ProjectDto(
     val public: Boolean = true,
     val source: String? = null
 )
+data class PrivateDataDto(val roles: Map<String, String>)
 
 data class ProfileDto(
     val firstName: String? = null,
@@ -31,7 +31,7 @@ data class ProfileDto(
     val assets: List<String> = emptyList(),
     val experience: Int? = null,
     val location: String? = null,
-    val contact: Map<String, Contact> = emptyMap()
+    val contact: Map<String, String> = emptyMap()
 )
 
 data class DataSyncDto(

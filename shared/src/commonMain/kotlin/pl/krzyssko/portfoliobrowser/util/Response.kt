@@ -6,11 +6,19 @@ import kotlinx.coroutines.flow.map
 import pl.krzyssko.portfoliobrowser.data.User
 
 sealed class Response<out T> {
-    //data object Pending: Response<Nothing>()
+    data object Pending: Response<Nothing>()
     data class Ok<T>(val data: T): Response<T>()
     data class Error(val throwable: Throwable?): Response<Nothing>()
 }
 
 fun <T> Flow<Response<T>>.exceptionAsResponse(): Flow<Response<T>> {
     return catch { emit(Response.Error(it)) }
+}
+
+fun <T> Response<T>.getOrNull(): T? = (this as? Response.Ok)?.data
+
+fun <T> Response<T>.getOrThrow(): T? = when (this) {
+    is Response.Pending -> null
+    is Response.Error -> throw throwable ?: Error("Unknown error.")
+    is Response.Ok -> data
 }

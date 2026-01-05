@@ -27,12 +27,14 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
+import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
 val NAMED_PROFILE = named("profile")
+val NAMED_ONBOARDING_IMPORT = named("onboarding_import")
 val NAMED_GITHUB = named("github")
 val NAMED_FIRESTORE = named("firestore")
 
@@ -57,7 +59,7 @@ fun sharedAppModule() = module {
         }
     }
     factory<Logging> { getLogging() }
-    single<Auth> { getPlatformAuth() }
+    single<Auth> { getPlatformAuth(get()) }
     single<Firestore> { getFirestore() }
     single<InfiniteColorPicker> { (colorMap: StackColorMap?) -> InfiniteColorPicker(colorMap ?: emptyMap()) }
     factory<OrbitStore<ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: ProjectsListState) ->
@@ -75,6 +77,13 @@ fun sharedAppModule() = module {
         )
     }
     factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
+        OrbitStore(
+            coroutineScope,
+            initialState,
+            Dispatchers.IO
+        )
+    }
+    factory<OrbitStore<ProjectsImportState>>(NAMED_ONBOARDING_IMPORT) { (coroutineScope: CoroutineScope, initialState: ProjectsImportState) ->
         OrbitStore(
             coroutineScope,
             initialState,

@@ -16,6 +16,7 @@ sealed class ProjectState {
     data object Loading: ProjectState()
     data class Error(val reason: Throwable?): ProjectState()
     data class Loaded(val project: Project): ProjectState()
+    //data object Updated: ProjectState()
 }
 
 sealed class ProjectsListState {
@@ -28,31 +29,39 @@ sealed class ProjectsListState {
         val stackFilter: List<String> = emptyList(),
         val searchPhrase: String? = null
     ): ProjectsListState()
-    data object ImportStarted: ProjectsListState()
-    data class ImportError(val error: Throwable): ProjectsListState()
-    data object ImportCompleted: ProjectsListState()
+    //data object ImportStarted: ProjectsListState()
+    //data class ImportError(val error: Throwable): ProjectsListState()
+    //data object ImportCompleted: ProjectsListState()
 }
 
 sealed class ProfileState {
-    data object Created : ProfileState()
+    //data object Created : ProfileState()
     data object Initialized : ProfileState()
     data class Authenticated(
         val user: User,
-        val linkedProviders: List<Provider>? = emptyList(),
-        val hasProfile: Boolean = false
+        val linkedProviders: List<Provider>? = emptyList()
     ) : ProfileState()
     data class Error(val reason: Throwable?): ProfileState()
     //data class UserFetchError(val reason: Throwable?): ProfileState()
     //data object UserError: ProfileState()
     data class ProfileCreated(val profile: Profile): ProfileState()
-    data object SourceAvailable: ProfileState()
-    data object SourceImportAttempted: ProfileState()
+    //data object SourceAvailable: ProfileState()
+    //data object SourceImportAttempted: ProfileState()
 }
 
-fun ProjectsListState.isStateReady() =
-    this is ProjectsListState.Initialized || this is ProjectsListState.Loaded || this is ProjectsListState.ImportCompleted
+sealed class ProjectsImportState {
+    data object Initialized: ProjectsImportState()
+    data object SourceAvailable: ProjectsImportState()
+    data object SourceImportAttempted: ProjectsImportState()
+    data object ImportStarted: ProjectsImportState()
+    data class ImportError(val reason: Throwable?): ProjectsImportState()
+    data object ImportCompleted: ProjectsImportState()
+}
 
-fun ProfileState.isLoggedIn() = this !is ProfileState.Created && this !is ProfileState.Initialized
-
-fun ProfileState.isNotLoggedIn() =
-    this is ProfileState.Initialized || (this is ProfileState.Authenticated && this.user !is User.Authenticated)
+//fun ProjectsListState.isStateReady() =
+//    this is ProjectsListState.Initialized || this is ProjectsListState.Loaded || this is ProjectsListState.ImportCompleted
+//
+//fun ProfileState.isLoggedIn() = this !is ProfileState.Created && this !is ProfileState.Initialized
+//
+//fun ProfileState.isNotLoggedIn() =
+//    this is ProfileState.Initialized || (this is ProfileState.Authenticated && this.user !is User.Authenticated)

@@ -4,43 +4,49 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.last
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
-import kotlinx.io.files.Path
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.ContainerHost
+import org.orbitmvi.orbit.annotation.OrbitExperimental
 import org.orbitmvi.orbit.container
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
-import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
-import pl.krzyssko.portfoliobrowser.auth.AuthLinkFailedException
-import pl.krzyssko.portfoliobrowser.data.Config
+import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
-import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.business.Destination
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.business.SyncHandler
-import pl.krzyssko.portfoliobrowser.data.Role
+import pl.krzyssko.portfoliobrowser.business.UserOnboardingImportFromExternalSource
+import pl.krzyssko.portfoliobrowser.data.Follower
+import pl.krzyssko.portfoliobrowser.data.ProfileRole
+import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
+import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
+import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.Paging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.util.Response
 
 class OrbitStore<TState : Any>(
     coroutineScope: CoroutineScope,
@@ -54,6 +60,18 @@ class OrbitStore<TState : Any>(
     val stateFlow = container.stateFlow
     val sideEffectFlow = container.sideEffectFlow
 }
+
+@OptIn(ExperimentalCoroutinesApi::class)
+fun Flow<Project>.mapProject(colorPicker: InfiniteColorPicker, ownerId: String): Flow<Project> =
+    map { project ->
+        project.copy(stack = project.stack.map { stack ->
+            stack.copy(
+                color = colorPicker.pick(
+                    stack.name
+                )
+            )
+        }, favorite = project.followers.any { it.uid == ownerId })
+    }
 
 @OptIn(ExperimentalCoroutinesApi::class)
 fun OrbitStore<ProjectState>.loadFrom(
@@ -77,39 +95,13 @@ fun OrbitStore<ProjectState>.loadFrom(
                     reduce {
                         ProjectState.Error(exception)
                     }
-                    exception?.printStackTrace()
-                    postSideEffect(UserSideEffects.Toast(exception?.message.toString()))
+                    postSideEffect(UserSideEffects.Error(exception))
                     null
                 }
             }
         }
         .filterNotNull()
-        .flatMapLatest {
-            //flow {
-            //    repository.fetchStack(it.name).collect { list ->
-            //        val project = it.copy(stack = list.map { stack ->
-            //            stack.copy(
-            //                color = colorPicker.pick(stack.name)
-            //            )
-            //        })
-            //        emit(project)
-            //    }
-            //}
-            repository.fetchStack(it.name)
-                .map { result ->
-                    when {
-                        result.isSuccess -> result.getOrNull()
-                        else -> emptyList()
-                    }?.let { list ->
-                        it.copy(stack = list.map { stack ->
-                            stack.copy(
-                                color = colorPicker.pick(stack.name)
-                            )
-                        })
-                    }
-                }
-        }
-        .filterNotNull()
+        .mapProject(colorPicker, ownerId)
         .collect {
             getLogging().debug("store project emit")
             reduce {
@@ -119,13 +111,41 @@ fun OrbitStore<ProjectState>.loadFrom(
         }
 }
 
-fun OrbitStore<ProjectState>.updateProject(
+fun OrbitStore<ProjectState>.followProject(db: Firestore, auth: Auth, follow: Boolean) = intent {
+    if (!auth.isUserSignedIn) {
+        postSideEffect(UserSideEffects.Error(IllegalStateException("User not signed in.")))
+        return@intent
+    }
+    val project = (state as ProjectState.Loaded).project
+    val userId = auth.userAccount!!.id
+    val ownerId = project.createdBy
+    val profile = db.getProfile(userId)
+    val follower = Follower(
+        uid = userId,
+        name = profile?.alias ?: "${profile?.firstName} ${profile?.lastName}"
+    )
+
+    withContext(dispatcherIO) {
+        db.toggleFollowProject(ownerId, project.id, follower, follow)
+    }
+
+    reduce {
+        ProjectState.Loaded(
+            if (follow) {
+                project.copy(followers = project.followers + follower)
+            } else {
+                project.copy(followers = project.followers - follower)
+            }
+        )
+    }
+}
+
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProjectState>.updateProject(
     project: Project,
-) = intent {
-    (state as? ProjectState.Loaded)?.let {
-        reduce {
-            ProjectState.Loaded(project)
-        }
+) = subIntent {
+    reduce {
+        ProjectState.Loaded(project)
     }
 }
 
@@ -146,8 +166,9 @@ fun OrbitStore<ProjectState>.saveProject(
     }
 }
 
-fun OrbitStore<ProfileState>.initAuth(auth: Auth, config: Configuration, db: Firestore) = intent {
-    auth.initAuth(config.config)
+@OptIn(OrbitExperimental::class)
+fun OrbitStore<ProfileState>.initAuth(auth: Auth, config: Configuration, db: Firestore, userOnboarding: UserOnboardingImportFromExternalSource) = intent {
+    auth.initAuth()
     if (auth.isUserSignedIn) {
         val account = auth.userAccount!!
         val user = if (account.anonymous) {
@@ -155,113 +176,80 @@ fun OrbitStore<ProfileState>.initAuth(auth: Auth, config: Configuration, db: Fir
         } else {
             User.Authenticated(account = account)
         }
-        //onAuth(user = user, db = db, auth = auth)
         reduce {
-            ProfileState.Authenticated(user = user, linkedProviders = auth.providerData)
+            ProfileState.Authenticated(user = user)
         }
-        //postAuth(user, db)
-        postSideEffect(UserSideEffects.NavigateTo(Route.Home))
         if (user is User.Authenticated) {
             if (!db.hasUser(account.id)) {
                 createUserProfile(user, db)
             }
             getUserProfile(user, db)
+            verifyProfileState(auth, config)
+            if (auth.hasGitHubProvider) {
+                userOnboarding.checkImport()
+            }
         }
     } else {
         reduce {
             ProfileState.Initialized
         }
+        postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
     }
 }
 
-fun OrbitStore<ProfileState>.getOrCreateProfile(user: User.Authenticated, db: Firestore) = intent {
-    // Check last sign in method and refresh token
-    //if (auth.hasGitHubProvider) {
-    //    try {
-    //        val token = config.config.gitHubApiToken
-    //        auth.startSignInFlow(uiHandler = null, providerType = Auth.LoginMethod.GitHub, token = token)?.let { user ->
-    //            config.config = Config(gitHubApiUser = config.config.gitHubApiUser, gitHubApiToken = user.token)
-    //            onAuth(
-    //                user = user.copy(
-    //                    account = user.account.copy(
-    //                        name = config.config.gitHubApiUser.orEmpty()
-    //                    )
-    //                ), auth = auth, config = config
-    //            )
-    //        }
-    //        db?.let {
-    //            checkImport(user as User.Authenticated, auth, it)
-    //        }
-    //    } catch (exception: Exception) {
-    //        postSideEffect(UserSideEffects.Toast(exception.toString()))
-    //        resetAuth(auth, config)
-    //    }
-    //} else {
-    //}
-    if (!db.hasUser(user.account.id)) {
-        createUserProfile(user, db)
+fun OrbitStore<ProjectsImportState>.checkImport(auth: Auth, db: Firestore) = intent {
+    if (!auth.isUserSignedIn) {
+        return@intent
     }
-    getUserProfile(user, db)
-    //checkImport(user.account.id, db)
-}
-
-fun OrbitStore<ProfileState>.checkImport(user: User.Authenticated, db: Firestore) = intent {
-    if (db.getLastSyncTimestampForSource(user.account.id, Source.GitHub) == null) {
+    val hasTimestamp = withContext(dispatcherIO) {
+        db.getLastSyncTimestampForSource(auth.userAccount!!.id, Source.GitHub) != null
+    }
+    if (!hasTimestamp) {
         reduce {
-            ProfileState.SourceAvailable
+            ProjectsImportState.SourceAvailable
         }
         postSideEffect(UserSideEffects.Toast("New source is available."))
-        //postSideEffect(UserSideEffects.SyncSnack(Source.GitHub))
     }
 }
 
-fun OrbitStore<ProfileState>.openImport() = intent {
+fun OrbitStore<ProjectsImportState>.openImport() = intent {
     reduce {
-        ProfileState.SourceImportAttempted
+        ProjectsImportState.SourceImportAttempted
     }
     postSideEffect(UserSideEffects.NavigateTo(Route.Login(ViewType.SourceSelection)))
 }
 
 fun OrbitStore<ProfileState>.createAccount(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
-    if (auth.isUserSignedIn) {
-        return@intent
-    }
     val result = runCatching {
         withContext(dispatcherIO) {
-            //val shouldLinkAccounts = (state as? ProfileState.Authenticated)?.user is User.Guest
-            auth.startSignInFlow(uiHandler, providerType = Auth.LoginMethod.Email, login = login, password = password, create = true, linkWithProvider = auth.shouldLinkAccounts(Auth.LoginMethod.Email))
+            auth.startSignInFlow(
+                uiHandler,
+                providerType = Auth.LoginMethod.Email,
+                login = login,
+                password = password,
+                create = true
+            )
         }
     }
     when {
         result.isFailure -> {
-            reduce {
-                ProfileState.Error(result.exceptionOrNull())
-            }
-            resetAuth(auth, config)
+            handleFailure(result)
+            resetAuthSub(auth, config)
         }
 
         else -> {
-            val user = result.getOrNull() ?: run {
-                reduce {
-                    ProfileState.Error(UserMissingException())
-                }
-                return@intent
-            }
-            //config.config = config.config.copy(lastSignInMethod = auth.requestedLoginMethod.toString())
-            //onAuth(user, auth, db, config)
+            val user = result.getOrNull()!!
             reduce {
-                ProfileState.Authenticated(user = user, linkedProviders = auth.providerData)
+                ProfileState.Authenticated(user = user)
             }
+            postSideEffect(UserSideEffects.NavigateTo(Route.Home))
             createUserProfile(user, db)
-            //postAuth(user, db)
+            verifyProfileState(auth, config)
         }
     }
 }
 
 fun OrbitStore<ProfileState>.authenticateAnonymous(auth: Auth, firestore: Firestore, config: Configuration) = intent {
-    if (auth.isUserSignedIn) {
-        return@intent
-    }
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(uiHandler = null, providerType = Auth.LoginMethod.Anonymous)
@@ -269,95 +257,62 @@ fun OrbitStore<ProfileState>.authenticateAnonymous(auth: Auth, firestore: Firest
     }
     when {
         result.isFailure -> {
-            reduce {
-                ProfileState.Error(result.exceptionOrNull())
-            }
-            resetAuth(auth, config)
+            handleFailure(result)
+            resetAuthSub(auth, config)
         }
 
         else -> {
-            result.getOrNull() ?: run {
-                reduce {
-                    ProfileState.Error(UserMissingException())
-                }
-                return@intent
-            }
-            //config.config = config.config.copy(lastSignInMethod = auth.requestedLoginMethod.toString())
-            //onAuth(User.Guest, auth, firestore, config)
             reduce {
-                ProfileState.Authenticated(user = User.Guest, linkedProviders = auth.providerData)
+                ProfileState.Authenticated(user = User.Guest)
             }
-            //postAuth(User.Guest, null)
             postSideEffect(UserSideEffects.NavigateTo(Route.Home))
         }
     }
 }
 
 fun OrbitStore<ProfileState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
-    if (auth.isUserSignedIn) {
-        return@intent
-    }
     val result = runCatching {
         withContext(dispatcherIO) {
-            //val shouldLinkAccounts = (state as? ProfileState.Authenticated)?.user is User.Guest
-            auth.startSignInFlow(uiHandler = uiHandler, providerType = Auth.LoginMethod.Email, login = login, password = password, linkWithProvider = auth.shouldLinkAccounts(Auth.LoginMethod.Email))
+            auth.startSignInFlow(
+                uiHandler = uiHandler,
+                providerType = Auth.LoginMethod.Email,
+                login = login,
+                password = password
+            )
         }
     }
     when {
         result.isFailure -> {
-            reduce {
-                ProfileState.Error(result.exceptionOrNull())
-            }
-            resetAuth(auth, config)
+            handleFailure(result)
+            resetAuthSub(auth, config)
         }
 
         else -> {
-            val user = result.getOrNull() ?: run {
-                reduce {
-                    ProfileState.Error(UserMissingException())
-                }
-                return@intent
-            }
-            //config.config = config.config.copy(lastSignInMethod = user.signInMethod?.toLoginMethod()?.toString().orEmpty())
-            //config.config = config.config.copy(lastSignInMethod = auth.requestedLoginMethod.toString())
-            //onAuth(user, auth, firestore, config)
+            val user = result.getOrNull()!!
             val hasUser = db.hasUser(user.account.id)
             reduce {
-                ProfileState.Authenticated(user = user, linkedProviders = auth.providerData, hasProfile = hasUser)
+                ProfileState.Authenticated(user = user)
             }
-            //postAuth(user, firestore)
             postSideEffect(UserSideEffects.NavigateTo(Route.Home))
             if (!hasUser) {
                 createUserProfile(user, db)
             }
             getUserProfile(user, db)
+            verifyProfileState(auth, config)
         }
     }
 }
 
-fun OrbitStore<ProfileState>.authenticateWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository, db: Firestore, reauthenticate: Boolean = false, forceSignIn: Boolean = false) = intent {
-    //val user = try {
-    //    auth.startSignInFlow(
-    //        uiHandler = uiHandler,
-    //        providerType = Auth.LoginMethod.GitHub,
-    //        refresh = reauthenticate,
-    //        linkWithProvider = !forceSignIn && auth.shouldLinkAccounts(Auth.LoginMethod.GitHub)
-    //    )
-    //} catch (exception: Exception) {
-    //    reduce {
-    //        ProfileState.Error(exception)
-    //    }
-    //    if (exception is AuthLinkFailedException) {
-    //        postSideEffect(UserSideEffects.LinkSnack())
-    //    }
-    //    return@intent
-    //}
-    //if (user == null) {
-    //    reduce {
-    //        ProfileState.UserError
-    //    }
-    //    return@intent
-    //}
+fun OrbitStore<ProfileState>.authenticateWithGitHub(
+    uiHandler: Any?,
+    auth: Auth,
+    config: Configuration,
+    repository: ProjectRepository,
+    db: Firestore,
+    userOnboarding: UserOnboardingImportFromExternalSource,
+    reauthenticate: Boolean = false,
+    forceSignIn: Boolean = false
+) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(
@@ -370,27 +325,15 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(uiHandler: Any?, auth: Auth,
     }
     val user = when {
         result.isFailure -> {
-            val exception = result.exceptionOrNull()
-            reduce {
-                ProfileState.Error(exception)
-            }
-            if (exception is AuthLinkFailedException) {
-                postSideEffect(UserSideEffects.LinkSnack())
-            } else {
-                resetAuth(auth, config)
-            }
+            handleFailure(result)
+            resetAuthSub(auth, config)
             return@intent
         }
 
-        else -> result.getOrNull() ?: run {
-            reduce {
-                ProfileState.Error(UserMissingException())
-            }
-            return@intent
-        }
+        else -> result.getOrNull()!!
     }
 
-    config.config = Config(gitHubApiToken = user.token.orEmpty())
+    config.update(Config(gitHubApiToken = user.oauthToken.orEmpty()))
     repository.fetchUser()
         .flowOn(dispatcherIO)
         .map {
@@ -406,7 +349,7 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(uiHandler: Any?, auth: Auth,
         }
         .filterNotNull()
         .collect { name ->
-            config.config = config.config.copy(gitHubApiUser = name)
+            config.update(config.config.copy(gitHubApiUser = name))
             val hasUser = db.hasUser(user.account.id)
             reduce {
                 ProfileState.Authenticated(
@@ -414,63 +357,103 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(uiHandler: Any?, auth: Auth,
                         account = user.account.copy(
                             name = name
                         )
-                    ),
-                    linkedProviders = auth.providerData,
-                    hasProfile = hasUser
+                    )
                 )
             }
-            postSideEffect(UserSideEffects.NavigateTo(Route.Home))
             if (!hasUser) {
                 createUserProfile(user, db)
             }
             getUserProfile(user, db)
+            verifyProfileState(auth, config)
+            var profileStatusCreated = true
+            if (auth.hasGitHubProvider) {
+                userOnboarding.checkImport()
+                profileStatusCreated = userOnboarding.stateFlow.value !is ProjectsImportState.SourceAvailable
+            }
+            if (profileStatusCreated) {
+                postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+            }
         }
 }
 
-fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated, db: Firestore) = intent {
-    if (!db.hasUser(user.account.id)) {
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProfileState>.handleFailure(result: Result<*>) = subIntent {
+    val exception = result.exceptionOrNull()
+    reduce {
+        ProfileState.Error(exception)
+    }
+    if (exception is AuthAccountExistsException) {
+        postSideEffect(UserSideEffects.ErrorAccountExists(exception))
+    } else {
+        postSideEffect(UserSideEffects.Error(exception))
+        postSideEffect(UserSideEffects.NavigateTo(Route.Error))
+    }
+}
+
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProfileState>.verifyProfileState(auth: Auth, config: Configuration) = subIntent {
+    val profileErrorStatus = state is ProfileState.Error
+    if (profileErrorStatus) {
+        resetAuthSub(auth, config)
+    }
+}
+
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated, db: Firestore) = subIntent {
+    val hasUser = withContext(dispatcherIO) {
+        db.hasUser(user.account.id)
+    }
+    if (!hasUser) {
         postSideEffect(UserSideEffects.Toast("Preparing user account."))
         val profile = Profile(
+            firstName = "Krzysztof",
+            lastName = "Skorcz",
             alias = user.account.name,
             title = "apps for Android",
-            role = listOf(Role.Developer.toString()),
+            role = listOf(ProfileRole.Developer),
             avatarUrl = user.account.avatarUrl,
             about = "I'm a developer...",
+            experience = 10,
+            location = "Poznań, Poland",
         )
-        db.createProfile(user.account.id, profile)
-        reduce {
-            ProfileState.ProfileCreated(profile)
+        val result = runCatching {
+            withContext(dispatcherIO) {
+                db.createProfile(user.account.id, profile.toDto())
+            }
         }
-        if (user.signInMethod == Auth.LoginMethod.GitHub.toString()) {
-            checkImport(user, db)
-        } else {
-            postSideEffect(UserSideEffects.Toast("Done."))
-        }
-    } else {
-        reduce {
-            ProfileState.Error(Exception("User account already exists."))
-        }
-    }
-}
-
-fun OrbitStore<ProfileState>.getUserProfile(user: User.Authenticated, firestore: Firestore) = intent {
-    (firestore.getProfile(user.account.id))?.let {
-        reduce {
-            ProfileState.ProfileCreated(it)
+        when {
+            result.isSuccess -> {
+                reduce {
+                    ProfileState.ProfileCreated(profile)
+                }
+            }
+            else -> {
+                handleFailure(result)
+            }
         }
     }
 }
 
-/**
- *
- * val profile = Profile(
- *   firstName = "Krzysztof",
- *   lastName = "Skórcz",
- *   title = "apps for Android",
- *   role = Role.Developer
- * )
- *
- */
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProfileState>.getUserProfile(user: User.Authenticated, firestore: Firestore) = subIntent {
+    val result = runCatching {
+        withContext(dispatcherIO) {
+            firestore.getProfile(user.account.id)?.toProfile() ?: throw Exception("Profile not found.")
+        }
+    }
+    when {
+        result.isSuccess -> {
+            reduce {
+                ProfileState.ProfileCreated(result.getOrNull()!!)
+            }
+        }
+
+        else -> {
+            handleFailure(result)
+        }
+    }
+}
+
 fun OrbitStore<ProfileState>.updateUserProfile(firestore: Firestore, profile: Profile) = intent {
     (state as? ProfileState.Authenticated)?.let {
         (it.user as? User.Authenticated)?.let { user ->
@@ -479,12 +462,12 @@ fun OrbitStore<ProfileState>.updateUserProfile(firestore: Firestore, profile: Pr
                     profile = profile
                 )
             }
-            firestore.createProfile(user.account.id, profile)
+            firestore.createProfile(user.account.id, profile.toDto())
         }
     }
 }
 
-fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository, user: User.Authenticated) = intent {
+fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(
@@ -496,21 +479,13 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
     }
     val user = when {
         result.isFailure -> {
-            reduce {
-                ProfileState.Error(result.exceptionOrNull())
-            }
+            handleFailure(result)
             return@intent
         }
 
-        else -> result.getOrNull() ?: run {
-            reduce {
-                ProfileState.Error(UserMissingException())
-            }
-            return@intent
-        }
+        else -> result.getOrNull()!!
     }
     postSideEffect(UserSideEffects.Toast("Linking user account..."))
-    config.config = Config(gitHubApiToken = user.token.orEmpty())
     repository.fetchUser()
         .flowOn(dispatcherIO)
         .map {
@@ -522,19 +497,18 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
                     reduce {
                         ProfileState.Error(exception)
                     }
-                    exception?.printStackTrace()
-                    postSideEffect(UserSideEffects.Toast(exception?.message.toString()))
+                    postSideEffect(UserSideEffects.Error(exception))
                     null
                 }
             }
         }
         .filterNotNull()
         .collect { name ->
-            config.config = Config(
+            config.update(Config(
                 gitHubApiUser = name,
-                gitHubApiToken = user.token.orEmpty(),
+                gitHubApiToken = user.oauthToken.orEmpty(),
                 lastSignInMethod = user.signInMethod.orEmpty()
-            )
+            ))
             val account = user.account.copy(
                 name = name
             )
@@ -543,16 +517,19 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
                     user = user.copy(
                         account = account,
                         additionalData = user.additionalData,
-                        token = user.token
-                    ),
-                    linkedProviders = (state as? ProfileState.Authenticated)?.linkedProviders,
-                    hasProfile = (state as? ProfileState.Authenticated)?.hasProfile == true
+                        oauthToken = user.oauthToken
+                    )
                 )
             }
     }
 }
 
 fun OrbitStore<ProfileState>.resetAuth(auth: Auth, config: Configuration) = intent {
+    resetAuthSub(auth, config)
+}
+
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProfileState>.resetAuthSub(auth: Auth, config: Configuration) = subIntent {
     auth.signOut()
     config.clear()
     reduce {
@@ -561,61 +538,23 @@ fun OrbitStore<ProfileState>.resetAuth(auth: Auth, config: Configuration) = inte
     postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
 }
 
-//fun loadPage(
-//    projectFlow: () -> Flow<PagedResponse<Project>>,
-//    stackFlow: (projectName: String) -> Flow<List<Stack>>,
-//    colorPicker: InfiniteColorPicker
-//): Flow<PagedResponse<Project>> = flow {
-//    projectFlow().collect {
-//        emit(it)
-//
-//        val data = it.page.toMutableList()
-//        for (index in it.page.indices) {
-//            val project = it.page[index]
-//            stackFlow(project.name).collect { list ->
-//                data[index] = project.copy(stack = list.map { stack ->
-//                    stack.copy(
-//                        color = colorPicker.pick(stack.name)
-//                    )
-//                })
-//                getLogging().debug("store stack emit size=${list.size}")
-//                emit(it.copy(page = data))
-//            }
-//        }
-//    }
-//}
-//
-//fun loadPage2(
-//    projectFlow: () -> Flow<List<Project>>,
-//    stackFlow: ((projectName: String) -> Flow<List<Stack>>)?
-//): Flow<List<Project>> = flow {
-//    projectFlow().collect {
-//        emit(it)
-//
-//        if (stackFlow == null) {
-//            return@collect
-//        }
-//        val data = it.toMutableList()
-//        for (index in it.indices) {
-//            val project = it[index]
-//            stackFlow(project.name).collect { list ->
-//                data[index] = project.copy(stack = list)
-//                getLogging().debug("store stack emit size=${list.size}")
-//                emit(data)
-//            }
-//        }
-//    }
-//}
+fun OrbitStore<ProfileState>.deleteAccount(auth: Auth, config: Configuration) = intent {
+    withContext(dispatcherIO) {
+        auth.delete()
+    }
+    config.clear()
+    reduce {
+        ProfileState.Initialized
+    }
+    postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+}
 
-//@OptIn(ExperimentalCoroutinesApi::class)
-//fun Flow<List<Project>>.getStack(stackFlow: ((projectName: String) -> Flow<List<Stack>>)): Flow<List<Project>> {
-//    return flatMapLatest {
-//        combine(it.map { project ->
-//            stackFlow(project.name)
-//                .map { stack -> project.copy(stack = stack) }
-//        }) { projectFlow -> projectFlow.asList() }
-//    }
-//}
+
+enum class UserIntent {
+    Default,
+    Search,
+    Favorites
+}
 
 /**
  * 1. Called from PagingSource
@@ -624,60 +563,56 @@ fun OrbitStore<ProfileState>.resetAuth(auth: Auth, config: Configuration) = inte
  * 4. Return State, Flow, etc.
  */
 fun OrbitStore<ProjectsListState>.loadPageFrom(
-    repository: ProjectRepository
+    repository: ProjectRepository,
+    intent: UserIntent
 ) = intent {
-    postSideEffect(UserSideEffects.Toast("Loading projects list ${repository.pagingState.paging.pageKey ?: "initial"} page"))
+    postSideEffect(UserSideEffects.Toast("Loading $intent list ${repository.pagingState.paging.nextPageKey} page"))
 
     val colorPicker = InfiniteColorPicker()
-    //loadPage2(
-    //    { repository.nextPage() },
-    //    null
-    //)
 
-    repository.nextPage()
+    val projectsPageFlow = when (intent) {
+        UserIntent.Default -> repository.nextPage()
+        UserIntent.Favorites -> repository.nextFavoritePage()
+        UserIntent.Search -> flowOf(Result.failure(NotImplementedError()))
+    }
+    val prevState = (state as? ProjectsListState.Loaded)
+    projectsPageFlow
         .flowOn(dispatcherIO)
+        .onStart {
+            resetProjectsList()
+        }
         .map {
             when {
                 it.isSuccess -> {
-                    it.getOrNull()
+                    val page = it.getOrNull()!!.map { project ->
+                        project.copy(stack = project.stack.map { stack ->
+                            stack.copy(
+                                color = colorPicker.pick(
+                                    stack.name
+                                )
+                            )
+                        })
+                    }
+                    val newPageKey = repository.pagingState.paging.pageKey
+                    prevState?.let { state ->
+                        state.copy(
+                            projects = state.projects + (newPageKey to page)
+                        )
+                    } ?: ProjectsListState.Loaded(
+                        projects = mapOf(newPageKey to page)
+                    ) as ProjectsListState
                 }
 
                 else -> {
                     val exception = it.exceptionOrNull()
-                    reduce {
-                        ProjectsListState.Error(exception)
-                    }
-                    exception?.printStackTrace()
-                    postSideEffect(UserSideEffects.Toast(exception?.message.toString()))
-                    resetProjectsList()
-                    null
+                    postSideEffect(UserSideEffects.Error(exception))
+                    ProjectsListState.Error(exception)
                 }
             }
         }
-        .filterNotNull()
-        .map {
-            it.map { project ->
-                project.copy(stack = project.stack.map { stack ->
-                    stack.copy(
-                        color = colorPicker.pick(
-                            stack.name
-                        )
-                    )
-                })
-            }
-        }
-        .collect { page ->
-            val newPageKey = repository.pagingState.paging.pageKey
-            (state as? ProjectsListState.Loaded)?.let {
-                reduce {
-                    it.copy(
-                        projects = it.projects + (newPageKey to page)
-                    )
-                }
-            } ?: reduce {
-                ProjectsListState.Loaded(
-                    projects = mapOf(newPageKey to page)
-                )
+        .collect {
+            reduce {
+                it
             }
         }
 }
@@ -699,15 +634,11 @@ fun OrbitStore<ProjectsListState>.searchProjects(
 ) = intent {
     (state as? ProjectsListState.Loaded)?.let { state ->
 
-        // TODO: move to API layer
-        val query = "q=${state.searchPhrase} in:name in:description user:k-skor"
+        if (pageKey == null) {
+            return@intent
+        }
 
-        //loadPage(
-        //    { repository.searchProjects(query, pageKey) },
-        //    { projectName -> repository.fetchStack(projectName) },
-        //    colorPicker
-        //)
-        repository.searchProjects(query, pageKey)
+        repository.searchProjects(pageKey, pageKey)
             .flowOn(dispatcherIO)
             .takeIf { !state.searchPhrase.isNullOrEmpty() }
             ?.map {
@@ -721,8 +652,7 @@ fun OrbitStore<ProjectsListState>.searchProjects(
                         reduce {
                             ProjectsListState.Error(exception)
                         }
-                        exception?.printStackTrace()
-                        postSideEffect(UserSideEffects.Toast(exception?.message.toString()))
+                        postSideEffect(UserSideEffects.Error(exception))
                         null
                     }
                 }
@@ -745,66 +675,92 @@ fun OrbitStore<ProjectsListState>.searchProjects(
     }
 }
 
-//fun OrbitStore<ProjectsListState>.clearProjects() = intent {
-//    (state as? ProjectsListState.Loaded)?.let {
-//        reduce {
-//            ProjectsListState.Loaded(searchPhrase = it.searchPhrase)
-//        }
-//    }
-//}
+fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository, firestore: Firestore, auth: Auth, uiHandler: Any?) = intent {
 
-fun OrbitStore<ProjectsListState>.importProjects(repository: ProjectRepository, firestore: Firestore, user: User.Authenticated) = intent {
-
-    repository.resetPagingState()
-
-    val source = pl.krzyssko.portfoliobrowser.business.Source(
-        flow {
-            var isLastPage = false
-            while (!isLastPage && currentCoroutineContext().isActive) {
-                //val projects = loadPage2(
-                //    { repository.nextPage() },
-                //    { projectName -> repository.fetchStack(projectName) }
-                //)
-                val result = repository.nextPage()
-                    .onStart {
-                        reduce {
-                            ProjectsListState.ImportStarted
-                        }
-                    }.last()
-
-                when {
-                    result.isSuccess -> {
-                        val projects = result.getOrNull()
-                        projects?.forEach { emit(it) }
-                        isLastPage = repository.pagingState.paging.isLastPage == true || projects?.isEmpty() == true
-                    }
-                    else -> break
-                }
-            }
-        },
-        Source.GitHub
-    )
-
-    val destination = Destination(firestore, user)
-    SyncHandler(source, destination).sync().catch { e ->
-        reduce {
-            ProjectsListState.ImportError(e)
-        }
-        emit(false)
-    }.collect {
-        if (it) {
-            reduce {
-                ProjectsListState.ImportCompleted
-            }
-            postSideEffect(UserSideEffects.Toast("Done."))
+    val result = runCatching {
+        withContext(dispatcherIO) {
+            auth.startSignInFlow(
+                uiHandler = uiHandler,
+                providerType = Auth.LoginMethod.GitHub,
+                refresh = true
+            )
         }
     }
+    when {
+        result.isFailure -> {
+            reduce {
+                ProjectsImportState.ImportError(result.exceptionOrNull())
+            }
+            return@intent
+        }
+    }
+    val projectsSourceFlow: Flow<Project> = flow {
+        var isLastPage = false
+        while (!isLastPage && currentCoroutineContext().isActive) {
+            repository.nextPage().collect {
+                val projects = it.getOrThrow()
+                projects.forEach { project ->
+                    repository.fetchStack(project.name).collect { stack ->
+                        emit(project.copy(stack = stack.getOrThrow()))
+                    }
+                }
+                isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
+            }
+        }
+    }
+    val source = pl.krzyssko.portfoliobrowser.business.Source(
+        projectsSourceFlow,
+        Source.GitHub
+    )
+    val destination = Destination(firestore, auth)
+
+    SyncHandler(source, destination)
+        .sync()
+        .flowOn(dispatcherIO)
+        .onStart {
+            repository.resetPagingState()
+            reduce {
+                ProjectsImportState.ImportStarted
+            }
+        }
+        .onCompletion { throwable ->
+            if (throwable != null) {
+                reduce {
+                    ProjectsImportState.ImportError(throwable)
+                }
+                postSideEffect(UserSideEffects.Error(throwable))
+            } else {
+                reduce {
+                    ProjectsImportState.ImportCompleted
+                }
+                postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+            }
+        }
+        .collect {
+            if (it) {
+                postSideEffect(UserSideEffects.Toast("Done."))
+            }
+        }
 }
 
-fun OrbitStore<ProjectsListState>.resetProjectsList() = intent {
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProjectsListState>.handleException(exception: Throwable) = subIntent {
+    //val exception = result.exceptionOrNull()
+    reduce {
+        ProjectsListState.Error(exception)
+    }
+    postSideEffect(UserSideEffects.Error(exception))
+}
+
+@OptIn(OrbitExperimental::class)
+suspend fun OrbitStore<ProjectsListState>.resetProjectsList() = subIntent {
     reduce {
         ProjectsListState.Initialized
     }
+}
+
+fun OrbitStore<ProjectsListState>.clearProjectsList() = intent {
+    resetProjectsList()
 }
 
 fun OrbitStore<ProjectState>.project(block: OrbitStore<ProjectState>.() -> Unit) {

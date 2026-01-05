@@ -1,8 +1,8 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,6 +37,8 @@ import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -57,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.paging.LoadState
 import androidx.paging.PagingData
+import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.Flow
@@ -67,6 +70,8 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ProjectOverview
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
+import pl.krzyssko.portfoliobrowser.store.ProjectState
+import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 
 interface ListScreenActions {
     fun onProjectDetails(project: Project)
@@ -75,35 +80,171 @@ interface ListScreenActions {
     fun onAvatarClicked()
 }
 
-enum class ListViewType {
+enum class DisplayFormat {
     List,
     Grid
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ListContent(
+    modifier: Modifier = Modifier,
+    displayFormat: DisplayFormat,
+    lazyPagingItems: LazyPagingItems<Project>,
+    scrollState: ScrollState,
+    projectsFlow: StateFlow<List<Project>>,
+    stackFlow: StateFlow<List<String>> = MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
+    actions: ListScreenActions
+) {
+
+    val projects by projectsFlow.collectAsState()
+    val categories by stackFlow.collectAsState()
+    var loadingState by remember { mutableStateOf(false) }
+
+    Column(
+        modifier
+            .verticalScroll(scrollState)
+            .padding(top = SearchBarDefaults.InputFieldHeight + 16.dp)
+            .semantics { traversalIndex = 1f }) {
+        Column {
+            Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            LazyRow {
+                items(
+                    count = categories.size
+                ) { index ->
+                    var selected by remember { mutableStateOf(false) }
+                    FilterChip(
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        label = { Text(categories[index]) },
+                        onClick = {
+                            selected = !selected
+                            //actions.onSearch(categories[index])
+                        },
+                        leadingIcon = if (selected) {
+                            {
+                                Icon(
+                                    imageVector = Icons.Default.Done,
+                                    contentDescription = "Checked",
+                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        selected = selected)
+                }
+            }
+        }
+        if (lazyPagingItems.loadState.refresh.endOfPaginationReached && lazyPagingItems.itemCount == 0) {
+            OutlinedButton(onClick = {
+
+            }, modifier = Modifier.fillMaxWidth(0.5f)) {
+                Text("Create first project")
+            }
+        }
+        Text("Most popular projects", fontSize = 24.sp)
+        when(displayFormat) {
+            DisplayFormat.Grid -> {
+                LazyVerticalStaggeredGrid(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .weight(1.0f),
+                    columns = StaggeredGridCells.Fixed(2),
+                    verticalItemSpacing = 8.dp,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(
+                        count = lazyPagingItems.itemCount,
+                        key = lazyPagingItems.itemKey { it.id }) { index ->
+                        val item = lazyPagingItems[index] ?: return@items
+                        ProjectOverview(
+                            modifier = modifier,
+                            item = item,
+                            stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            onItemClick = {
+                                loadingState = true
+                                actions.onProjectDetails(item)
+                            }
+                        )
+                    }
+                }
+            }
+            DisplayFormat.List -> {
+                LazyColumn(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .weight(1.0f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(
+                        count = lazyPagingItems.itemCount,
+                        key = lazyPagingItems.itemKey { it.id }) { index ->
+                        val item = lazyPagingItems[index] ?: return@items
+                        ProjectOverview(
+                            modifier = modifier,
+                            item = item,
+                            stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            onItemClick = {
+                                loadingState = true
+                                actions.onProjectDetails(item)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+        // TODO: LazyPagingItems interface doesn't allow to specifically fetch a page
+        //if (!isLastPage.value) {
+        //    OutlinedButton(
+        //        onClick = { },
+        //        modifier = Modifier
+        //            .fillMaxWidth()
+        //            .wrapContentWidth(Alignment.CenterHorizontally)
+        //    ) {
+        //        Text("Load more")
+        //    }
+        //}
+        if (lazyPagingItems.loadState.append == LoadState.Loading || loadingState) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
 }
 
 @ExperimentalMaterial3Api
 @Composable
 fun ListScreen(
     modifier: Modifier = Modifier,
-    viewType: ListViewType,
     pagingFlow: Flow<PagingData<Project>>,
     projectsFlow: StateFlow<List<Project>>,
     phraseFlow: StateFlow<String?>,
     stackFlow: StateFlow<List<String>> = MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
     actions: ListScreenActions
 ) {
-    val projects by projectsFlow.collectAsState()
-    val categories by stackFlow.collectAsState()
+    //val projects by projectsFlow.collectAsState()
+    //val categories by stackFlow.collectAsState()
 
     val textFieldState = rememberTextFieldState()
     var expanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
+    var isRefreshing by remember { mutableStateOf(false) } //replace with stateFlow
+    val pullToRefreshState = rememberPullToRefreshState()
+    val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
     Surface(
         color = MaterialTheme.colorScheme.background
     ) {
-        Box(
-            Modifier
+        PullToRefreshBox(
+            modifier = Modifier
                 .fillMaxSize()
-                .semantics { isTraversalGroup = true }) {
+                .semantics { isTraversalGroup = true },
+            isRefreshing = isRefreshing,
+            state = pullToRefreshState,
+            onRefresh = {
+                isRefreshing = true
+                //actions.onClear()
+                lazyPagingItems.refresh()
+            }) {
             SearchBar(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
@@ -137,23 +278,18 @@ fun ListScreen(
                             supportingContent = { Text("Additional info") },
                             leadingContent = { Icon(Icons.Filled.Star, contentDescription = null) },
                             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier =
-                            Modifier
+                            modifier = Modifier
                                 .clickable {
                                     textFieldState.setTextAndPlaceCursorAtEnd(resultText)
                                     expanded = false
                                 }
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
-                        )
+                                .padding(horizontal = 16.dp, vertical = 4.dp))
                     }
                 }
             }
 
             val phrase by phraseFlow.collectAsState()
-            val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
-
-            var loadingState by remember { mutableStateOf(false) }
 
             LaunchedEffect(phrase) {
                 //Log.d("MainActivity", "ListScreen: refreshing list phrase=$phrase, isSignedIn=$isSignedIn, hasValidProject=$hasValidProject")
@@ -167,122 +303,18 @@ fun ListScreen(
                         .wrapContentWidth(Alignment.CenterHorizontally)
                         .wrapContentHeight(Alignment.CenterVertically)
                 )
-            }
-            Column(
-                modifier
-                    .verticalScroll(scrollState)
-                    .padding(top = SearchBarDefaults.InputFieldHeight + 16.dp)
-                    .semantics { traversalIndex = 1f }) {
-                Column {
-                    Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    LazyRow {
-                        items(
-                            count = categories.size) { index ->
-                            var selected by remember { mutableStateOf(false) }
-                            FilterChip(
-                                modifier = Modifier.padding(horizontal = 4.dp),
-                                label = { Text(categories[index]) },
-                                onClick = {
-                                    selected = !selected
-                                    //actions.onSearch(categories[index])
-                                },
-                                leadingIcon = if (selected) {
-                                    {
-                                        Icon(
-                                            imageVector = Icons.Default.Done,
-                                            contentDescription = "Checked",
-                                            modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                        )
-                                    }
-                                } else {
-                                    null
-                                },
-                                selected = selected
-                            )
-                        }
-                    }
-                }
-                if (lazyPagingItems.loadState.refresh.endOfPaginationReached && lazyPagingItems.itemCount == 0) {
-                    OutlinedButton(onClick = {
-
-                    }, modifier = Modifier.fillMaxWidth(0.5f)) {
-                        Text("Create first project")
-                    }
-                }
-                when(viewType) {
-                    ListViewType.Grid -> {
-                        LazyVerticalStaggeredGrid(
-                            modifier = modifier
-                                .fillMaxSize()
-                                .weight(1.0f),
-                            columns = StaggeredGridCells.Fixed(2),
-                            verticalItemSpacing = 8.dp,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            items(
-                                count = lazyPagingItems.itemCount,
-                                key = lazyPagingItems.itemKey { it.id }) { index ->
-                                if (index == 0) {
-                                    Text("Most popular projects", fontSize = 24.sp)
-                                } else {
-                                    val item = lazyPagingItems[index - 1] ?: return@items
-                                    ProjectOverview(
-                                        modifier = modifier,
-                                        item = item,
-                                        stack = if (index - 1 < projects.size) projects[index - 1].stack else emptyList(),
-                                        onItemClick = {
-                                            loadingState = true
-                                            actions.onProjectDetails(item)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    ListViewType.List -> {
-                        LazyColumn(
-                            modifier = modifier
-                                .fillMaxSize()
-                                .weight(1.0f),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            items(
-                                count = lazyPagingItems.itemCount,
-                                key = lazyPagingItems.itemKey { it.id }) { index ->
-                                if (index == 0) {
-                                    Text("Most popular projects", fontSize = 24.sp)
-                                } else {
-                                    val item = lazyPagingItems[index] ?: return@items
-                                    ProjectOverview(
-                                        modifier = modifier,
-                                        item = item,
-                                        stack = if (index < projects.size) projects[index].stack else emptyList(),
-                                        onItemClick = {
-                                            loadingState = true
-                                            actions.onProjectDetails(item)
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                // TODO: LazyPagingItems interface doesn't allow to specifically fetch a page
-                //if (!isLastPage.value) {
-                //    OutlinedButton(
-                //        onClick = { },
-                //        modifier = Modifier
-                //            .fillMaxWidth()
-                //            .wrapContentWidth(Alignment.CenterHorizontally)
-                //    ) {
-                //        Text("Load more")
-                //    }
-                //}
-                if (lazyPagingItems.loadState.append == LoadState.Loading || loadingState) {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
+                //isRefreshing = true
+            } else {
+                isRefreshing = false
+                ListContent(
+                    modifier,
+                    DisplayFormat.List,
+                    lazyPagingItems,
+                    scrollState,
+                    projectsFlow,
+                    stackFlow,
+                    actions
+                )
             }
         }
     }
@@ -331,7 +363,6 @@ fun DefaultPreview() {
         darkColorScheme()
         ListScreen(
             modifier = Modifier.fillMaxSize(),
-            viewType = ListViewType.Grid,
             pagingFlow = fakeDataFlow,
             projectsFlow = MutableStateFlow(fakeData),
             phraseFlow = MutableStateFlow(""),

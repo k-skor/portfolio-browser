@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ErrorDialog(throwable: Throwable, onDismissRequest: () -> Unit) {
+fun ErrorDialog(throwable: Throwable, onDismissRequest: () -> Unit = {}) {
     AlertDialog(
         icon = {
             Icon(Icons.Default.Warning, contentDescription = "Error")

@@ -27,4 +27,5 @@ interface ProjectRepository {
     fun fetchProjectDetails(uid: String, id: String): Flow<Result<Project>>
     fun searchProjects(query: String, queryParams: String?): Flow<Result<PagedResponse<Project>>>
     fun nextSearchPage(query: String): Flow<Result<List<Project>>>
+    fun nextFavoritePage(): Flow<Result<List<Project>>>
 }

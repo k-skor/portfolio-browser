@@ -40,6 +40,9 @@ import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
+import pl.krzyssko.portfoliobrowser.store.ProfileState
+import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 interface LoginActions {
     fun onGitHubSignIn()
@@ -47,6 +50,7 @@ interface LoginActions {
     fun onGitHubLink()
     fun onEmailCreate(login: String, password: String)
     fun onEmailSignIn(login: String, password: String)
+    fun onDeleteAccount()
 }
 
 interface ImportActions {
@@ -70,15 +74,15 @@ fun Divider() {
 @Composable
 fun LoginScreen(
     modifier: Modifier = Modifier,
-    contentPaddingValues: PaddingValues,
     viewType: ViewType,
-    userFlow: StateFlow<User>,
+    userFlow: StateFlow<Response<User>>,
     actions: LoginActions,
     welcomeActions: WelcomeActions,
     importActions: ImportActions
 ) {
     val user by userFlow.collectAsState()
-    val isSignedIn = user is User.Authenticated
+    //val isSignedIn = user is User.Authenticated
+    val isSignedIn = user.getOrNull() is User.Authenticated
     //Box(
     //    modifier = modifier
     //) {
@@ -95,7 +99,7 @@ fun LoginScreen(
                         Text("Sign out")
                     }
                     Button(onClick = {
-
+                        actions.onDeleteAccount()
                     }, modifier = Modifier.fillMaxWidth()) {
                         Text("Delete account")
                     }
@@ -347,8 +351,8 @@ private val fakeUser = User.Authenticated(
 @Composable
 fun LoginPreview() {
     MyApplicationTheme {
-        val stateFlow = MutableStateFlow(fakeUser)
-        LoginScreen(Modifier.fillMaxSize(), PaddingValues(), ViewType.Login, stateFlow, object : LoginActions {
+        val stateFlow = MutableStateFlow(Response.Ok(fakeUser))
+        LoginScreen(Modifier.fillMaxSize(), ViewType.Login, stateFlow, object : LoginActions {
             override fun onGitHubSignIn() {
                 TODO("Not yet implemented")
             }
@@ -365,6 +369,10 @@ fun LoginPreview() {
             }
 
             override fun onEmailSignIn(login: String, password: String) {
+                TODO("Not yet implemented")
+            }
+
+            override fun onDeleteAccount() {
                 TODO("Not yet implemented")
             }
         }, object: WelcomeActions {

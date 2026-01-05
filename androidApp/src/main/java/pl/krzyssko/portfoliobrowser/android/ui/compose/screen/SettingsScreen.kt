@@ -25,16 +25,18 @@ import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.R
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppTitle
 import pl.krzyssko.portfoliobrowser.data.User
+import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 interface SettingsActions {
     fun onLogin()
 }
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, userState: StateFlow<User>, actions: SettingsActions) {
+fun SettingsScreen(modifier: Modifier = Modifier, userState: StateFlow<Response<User>>, actions: SettingsActions) {
     val user by userState.collectAsState()
-    val loginIconRes = if (user is User.Authenticated) R.drawable.baseline_logout_24 else R.drawable.baseline_login_24
-    val loginText = if (user is User.Authenticated) "Logout" else "Login"
+    val loginIconRes = if (user.getOrNull() is User.Authenticated) R.drawable.baseline_logout_24 else R.drawable.baseline_login_24
+    val loginText = if (user.getOrNull() is User.Authenticated) "Logout" else "Login"
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         AppTitle()
         LazyColumn(modifier = Modifier.padding(top = 32.dp)) {
@@ -53,7 +55,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, userState: StateFlow<User>, ac
     }
 }
 
-private val fakeUser = User.Guest
+private val fakeUser = Response.Ok(User.Guest)
 
 @Preview(widthDp = 320, heightDp = 640)
 @Composable

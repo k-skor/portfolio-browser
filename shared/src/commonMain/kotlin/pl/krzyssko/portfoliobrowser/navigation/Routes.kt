@@ -9,7 +9,6 @@ enum class ViewType {
     SourceSelection
 }
 
-@Serializable
 sealed class Route {
     @Serializable
     data object Welcome: Route()
@@ -24,6 +23,10 @@ sealed class Route {
     @Serializable
     data object Profile: Route()
     @Serializable
+    data object Favorites: Route()
+    @Serializable
     data object Settings: Route()
+    @Serializable
+    data object Error: Route()
 }
 

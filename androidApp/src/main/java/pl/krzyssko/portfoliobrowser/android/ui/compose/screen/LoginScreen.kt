@@ -1,8 +1,8 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,13 +35,12 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppTitle
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
-import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
 
@@ -72,22 +72,8 @@ fun Divider() {
 }
 
 @Composable
-fun LoginScreen(
-    modifier: Modifier = Modifier,
-    viewType: ViewType,
-    userFlow: StateFlow<Response<User>>,
-    actions: LoginActions,
-    welcomeActions: WelcomeActions,
-    importActions: ImportActions
-) {
-    val user by userFlow.collectAsState()
-    //val isSignedIn = user is User.Authenticated
-    val isSignedIn = user.getOrNull() is User.Authenticated
-    //Box(
-    //    modifier = modifier
-    //) {
-    //}
-    Column(verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) {
+fun LoginContent(modifier: Modifier = Modifier, viewType: ViewType, isSignedIn: Boolean, actions: LoginActions, welcomeActions: WelcomeActions, importActions: ImportActions) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.SpaceBetween, horizontalAlignment = Alignment.CenterHorizontally) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             AppTitle()
             if (isSignedIn && viewType != ViewType.SourceSelection) {
@@ -155,11 +141,11 @@ fun LoginScreen(
             when (viewType) {
                 ViewType.Login -> {
                     Row {
-                        Text("Don't have an account? ", modifier = Modifier.alignBy { it.measuredHeight })
+                        Text("Don't have an account? ", modifier = Modifier.alignByBaseline())
                         TextButton({
                             welcomeActions.onRegister()
-                        }) {
-                            Text("Sign up now")
+                        }, modifier = Modifier.alignByBaseline()) {
+                            Text("Sign up now", Modifier.alignByBaseline())
                         }
                     }
                 }
@@ -170,7 +156,7 @@ fun LoginScreen(
                         }, modifier = Modifier.alignByBaseline()) {
                             Text("Continue as a guest")
                         }
-                        Text(" or ")
+                        Text(" or ", Modifier.alignByBaseline())
                         TextButton({
                             welcomeActions.onLogin()
                         }, modifier = Modifier.alignByBaseline()) {
@@ -183,7 +169,7 @@ fun LoginScreen(
                         Text("Or ", modifier = Modifier.alignByBaseline())
                         TextButton({
                             importActions.cancelImport()
-                        }, modifier = Modifier.alignBy({ it.measuredHeight / 2 })) {
+                        }, modifier = Modifier.alignByBaseline()) {
                             Text("skip", Modifier.padding(0.dp))
                         }
                         Text(" this step.", modifier = Modifier.alignByBaseline())
@@ -191,6 +177,29 @@ fun LoginScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+fun LoginScreen(
+    modifier: Modifier = Modifier,
+    viewType: ViewType,
+    userFlow: StateFlow<Response<User>>,
+    actions: LoginActions,
+    welcomeActions: WelcomeActions,
+    importActions: ImportActions
+) {
+    val user by userFlow.collectAsState()
+    //val isSignedIn = user is User.Authenticated
+    val isSignedIn = user.getOrNull() is User.Authenticated
+    //Box(
+    //    modifier = modifier
+    //) {
+    //}
+    Column(modifier
+        .fillMaxSize()
+        .background(MaterialTheme.colorScheme.surface)) {
+        LoginContent(modifier.padding(horizontal = 8.dp), viewType, isSignedIn, actions, welcomeActions, importActions)
     }
 }
 
@@ -350,9 +359,9 @@ private val fakeUser = User.Authenticated(
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun LoginPreview() {
-    MyApplicationTheme {
-        val stateFlow = MutableStateFlow(Response.Ok(fakeUser))
-        LoginScreen(Modifier.fillMaxSize(), ViewType.Login, stateFlow, object : LoginActions {
+    AppTheme {
+        val stateFlow = MutableStateFlow(Response.Ok(User.Guest))
+        LoginScreen(Modifier.fillMaxSize(), ViewType.SourceSelection, stateFlow, object : LoginActions {
             override fun onGitHubSignIn() {
                 TODO("Not yet implemented")
             }

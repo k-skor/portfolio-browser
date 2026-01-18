@@ -3,16 +3,13 @@ package pl.krzyssko.portfoliobrowser.store
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.ContainerHost
@@ -21,16 +18,16 @@ import org.orbitmvi.orbit.container
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
-import pl.krzyssko.portfoliobrowser.data.Profile
-import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.data.Source
-import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.business.Destination
-import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.business.SyncHandler
 import pl.krzyssko.portfoliobrowser.business.UserOnboardingImportFromExternalSource
 import pl.krzyssko.portfoliobrowser.data.Follower
+import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.ProfileRole
+import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.data.Source
+import pl.krzyssko.portfoliobrowser.data.User
+import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
 import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.Route
@@ -38,9 +35,7 @@ import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.repository.Paging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
-import kotlin.runCatching
 
 class OrbitStore<TState : Any>(
     coroutineScope: CoroutineScope,
@@ -538,129 +533,33 @@ fun OrbitStore<ProfileState>.deleteAccount(auth: Auth, config: Configuration) = 
     postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
 }
 
-
-enum class UserIntent {
-    Default,
-    Search,
-    Favorites
-}
-
-/**
- * 1. Called from PagingSource
- * 2. Take repository
- * 3. Reduce to state
- * 4. Return State, Flow, etc.
- */
-fun OrbitStore<ProjectsListState>.loadPageFrom(
-    repository: ProjectRepository,
-    intent: UserIntent
-) = intent {
-    postSideEffect(UserSideEffects.Toast("Loading $intent list ${repository.pagingState.paging.nextPageKey} page"))
-
-    val colorPicker = InfiniteColorPicker()
-
-    val projectsPageFlow = when (intent) {
-        UserIntent.Default -> repository.nextPage()
-        UserIntent.Favorites -> repository.nextFavoritePage()
-        UserIntent.Search -> flowOf(Result.failure(NotImplementedError()))
-    }
-    val prevState = (state as? ProjectsListState.Loaded)
-    projectsPageFlow
-        .flowOn(dispatcherIO)
-        .onStart {
-            resetProjectsList()
-        }
-        .map {
-            when {
-                it.isSuccess -> it.getOrNull()!!
-
-                else -> {
-                    handleListException(it.exceptionOrNull())
-                    null
-                }
-            }
-        }
-        .filterNotNull()
-        .map {
-            it.map { project ->
-                project.copy(stack = project.stack.map { stack ->
-                    stack.copy(
-                        color = colorPicker.pick(
-                            stack.name
-                        )
-                    )
-                })
-            }
-        }
-        .collect { page ->
-            reduce {
-                val newPageKey = repository.pagingState.paging.pageKey
-                prevState?.let { state ->
-                    state.copy(
-                        projects = state.projects + (newPageKey to page)
-                    )
-                } ?: ProjectsListState.Loaded(
-                    projects = mapOf(newPageKey to page)
-                )
-            }
-        }
-}
-
 fun OrbitStore<ProjectsListState>.updateSearchPhrase(
-    phrase: String?,
+    phrase: String
 ) = intent {
-    (state as? ProjectsListState.Loaded)?.let {
-        if (phrase != it.searchPhrase) {
-            reduce { it.copy(searchPhrase = phrase, projects = emptyMap()) }
-        }
+    reduce {
+        ProjectsListState.FilterRequested(searchPhrase = phrase)
     }
 }
 
-fun OrbitStore<ProjectsListState>.searchProjects(
-    repository: ProjectRepository,
-    colorPicker: InfiniteColorPicker,
-    pageKey: String?
+fun OrbitStore<ProjectsListState>.updateSelectedCategories(
+    categories: List<String>
 ) = intent {
-    (state as? ProjectsListState.Loaded)?.let { state ->
+    reduce {
+        ProjectsListState.FilterRequested(selectedCategories = categories)
+    }
+}
 
-        if (pageKey == null) {
-            return@intent
-        }
+fun OrbitStore<ProjectsListState>.updateOnlyFeatured(
+    featured: Boolean
+) = intent {
+    reduce {
+        ProjectsListState.FilterRequested(onlyFeatured = featured)
+    }
+}
 
-        repository.searchProjects(pageKey, pageKey)
-            .flowOn(dispatcherIO)
-            .takeIf { !state.searchPhrase.isNullOrEmpty() }
-            ?.map {
-                when {
-                    it.isSuccess -> {
-                        it.getOrNull()
-                    }
-
-                    else -> {
-                        val exception = it.exceptionOrNull()
-                        reduce {
-                            ProjectsListState.Error(exception)
-                        }
-                        postSideEffect(UserSideEffects.Error(exception))
-                        null
-                    }
-                }
-            }
-            ?.filterNotNull()
-            ?.collect { page ->
-                val current = (this.state as ProjectsListState.Loaded)
-                reduce {
-                    current.copy(
-                        projects = current.projects + (pageKey to page.page),
-                        paging = Paging(
-                            pageKey = pageKey,
-                            nextPageKey = page.next,
-                            prevPageKey = page.prev,
-                            isLastPage = page.next == null
-                        )
-                    )
-                }
-            }
+fun OrbitStore<ProjectsListState>.clearFilters() = intent {
+    reduce {
+        ProjectsListState.FilterRequested()
     }
 }
 
@@ -683,20 +582,21 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
             return@intent
         }
     }
-    val projectsSourceFlow: Flow<Project> = flow {
-        var isLastPage = false
-        while (!isLastPage && currentCoroutineContext().isActive) {
-            repository.nextPage().collect {
-                val projects = it.getOrThrow()
-                projects.forEach { project ->
-                    repository.fetchStack(project.name).collect { stack ->
-                        emit(project.copy(stack = stack.getOrThrow()))
-                    }
-                }
-                isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
-            }
-        }
-    }
+    //val projectsSourceFlow: Flow<Project> = flow {
+    //    var isLastPage = false
+    //    while (!isLastPage && currentCoroutineContext().isActive) {
+    //        repository.nextPage().collect {
+    //            val projects = it.getOrThrow()
+    //            projects.forEach { project ->
+    //                repository.fetchStack(project.name).collect { stack ->
+    //                    emit(project.copy(stack = stack.getOrThrow()))
+    //                }
+    //            }
+    //            isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
+    //        }
+    //    }
+    //}
+    val projectsSourceFlow: Flow<Project> = flow {}
     val source = pl.krzyssko.portfoliobrowser.business.Source(
         projectsSourceFlow,
         Source.GitHub
@@ -707,7 +607,7 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
         .sync()
         .flowOn(dispatcherIO)
         .onStart {
-            repository.resetPagingState()
+            //repository.resetPagingState()
             reduce {
                 ProjectsImportState.ImportStarted
             }
@@ -732,32 +632,32 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
         }
 }
 
-@OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProjectsListState>.handleListException(exception: Throwable?) = subIntent {
-    reduce {
-        ProjectsListState.Error(exception)
-    }
-    postSideEffect(UserSideEffects.Error(exception))
-}
+//@OptIn(OrbitExperimental::class)
+//suspend fun OrbitStore<ProjectsListState>.handleListException(exception: Throwable?) = subIntent {
+//    reduce {
+//        ProjectsListState.Error(exception)
+//    }
+//    postSideEffect(UserSideEffects.Error(exception))
+//}
 
-@OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProjectsListState>.resetProjectsList() = subIntent {
-    reduce {
-        ProjectsListState.Initialized
-    }
-}
+//@OptIn(OrbitExperimental::class)
+//suspend fun OrbitStore<ProjectsListState>.resetProjectsList() = subIntent {
+//    reduce {
+//        ProjectsListState.Initialized
+//    }
+//}
 
-fun OrbitStore<ProjectsListState>.clearProjectsList() = intent {
-    resetProjectsList()
-}
+//fun OrbitStore<ProjectsListState>.clearProjectsList() = intent {
+//    resetProjectsList()
+//}
 
 fun OrbitStore<ProjectState>.project(block: OrbitStore<ProjectState>.() -> Unit) {
     apply(block)
 }
 
-fun OrbitStore<ProjectsListState>.projectsList(block: OrbitStore<ProjectsListState>.() -> Unit) {
-    apply(block)
-}
+//fun OrbitStore<ProjectsListState>.projectsList(block: OrbitStore<ProjectsListState>.() -> Unit) {
+//    apply(block)
+//}
 
 fun OrbitStore<ProfileState>.profile(block: OrbitStore<ProfileState>.() -> Unit) {
     apply(block)

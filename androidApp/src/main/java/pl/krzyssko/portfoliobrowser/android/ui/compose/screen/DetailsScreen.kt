@@ -1,9 +1,10 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
 import android.icu.util.Calendar
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,9 +18,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -31,15 +32,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.tooling.preview.datasource.LoremIpsum
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.R
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppImage
-import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Categories
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.CategoryList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.FloatingBackButton
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
@@ -66,14 +68,12 @@ fun LoadingError(throwable: Throwable? = null) {
 
 }
 
-val loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor."
-
 @Composable
 fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Boolean, actions: DetailsActions) {
     //val item = state.project
     var favoriteState by remember { mutableStateOf(project.followers.isNotEmpty()) }
 
-    Column(modifier = modifier.verticalScroll(rememberScrollState())) {
+    Column(modifier = modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         project.image?.let {
             AppImage(Modifier.fillMaxWidth(), it, "Project image")
         }
@@ -113,44 +113,37 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Bo
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold
         )
-        var description = project.description
-        if (description.isNullOrEmpty()) {
-            description = loremIpsum
-        }
+        //var description = project.description
+        //if (description.isNullOrEmpty()) {
+        //    description = loremIpsum
+        //}
         //Text(
         //    text = description,
         //    fontSize = 18.sp
         //)
-        var descriptionState by remember { mutableStateOf(description) }
-        TextField(
-            value = description,
-            onValueChange = { description = it },
-            enabled = true
-        )
+        //var descriptionState by remember { mutableStateOf(description) }
+        Text(project.description.orEmpty())
         Column {
             Text(
                 text = "Programming languages",
-                fontSize = 16.sp
+                style = MaterialTheme.typography.titleSmall
             )
-            Categories(Modifier.padding(4.dp), project.stack)
+            CategoryList(Modifier.padding(4.dp), project.stack)
         }
         Column {
             Text(
                 text = "Year of creation",
-                fontSize = 16.sp
+                style = MaterialTheme.typography.titleSmall
             )
             val calendar = Calendar.getInstance().apply {
                 timeInMillis = project.createdOn
             }
-            Text(
-                text = calendar.get(Calendar.YEAR).toString(),
-                fontSize = 30.sp
-            )
+            Text(calendar.get(Calendar.YEAR).toString())
         }
         Column {
             Text(
                 text = "Co-authors",
-                fontSize = 16.sp
+                style = MaterialTheme.typography.titleSmall
             )
             Row {
                 project.coauthors.forEach {
@@ -162,7 +155,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Bo
             }
         }
         Row {
-            Text(text = "Set project\nas public:", fontSize = 16.sp)
+            Text("Set project\nas public:")
             Switch(modifier = Modifier.padding(start = 4.dp), checked = project.public, onCheckedChange = {
                 //actions.onTogglePublic(it)
             }, enabled = false)
@@ -173,22 +166,29 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Bo
 @Composable
 fun DetailsScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProjectState>, isSignedIn: Boolean, actions: DetailsActions) {
     val state by stateFlow.collectAsState()
-    Box {
-        when (state) {
-            is ProjectState.Loading -> Loading()
-            is ProjectState.Loaded -> DetailsReady(modifier = modifier, project = (state as ProjectState.Loaded).project, isSignedIn, actions)
-            is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
-            //else -> {}
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Box {
+            when (state) {
+                is ProjectState.Loading -> Loading()
+                is ProjectState.Loaded -> DetailsReady(modifier = Modifier.padding(horizontal = 8.dp), project = (state as ProjectState.Loaded).project, isSignedIn = isSignedIn, actions = actions)
+                is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
+            }
+            FloatingBackButton(Modifier.padding(top = 8.dp, start = 8.dp)) { actions.onNavigateBack() }
         }
-        FloatingBackButton(Modifier.padding(top = 8.dp, start = 8.dp)) { actions.onNavigateBack() }
     }
 }
 
+val loremIpsum = LoremIpsum(50).values.joinToString()
 
-private val fakeData = Project(
+val fakeProject = Project(
     id = 1.toString(),
     name = "Title 1",
-    description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
+    description = loremIpsum,
     stack = listOf(
         Stack(name = "Kotlin", percent = 67f, color = 0x00DA02B8 or (0xFF shl 24)),
         Stack(name = "Java", percent = 33f, color = 0x3F0AB7C3 or (0xFF shl 24))
@@ -198,14 +198,15 @@ private val fakeData = Project(
     createdByName = "Krzysztof Skórcz",
     createdOn = 11234567890
 )
-val fakeDetails = ProjectState.Loaded(fakeData)
+
+val fakeDetails = ProjectState.Loaded(fakeProject)
 val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 
 @Preview(widthDp = 320)
 @Composable
 fun DetailsPreview() {
-    MyApplicationTheme {
-        DetailsScreen(modifier = Modifier.fillMaxSize(), fakeDetailsFlow, true, object : DetailsActions {
+    AppTheme {
+        DetailsScreen(stateFlow = fakeDetailsFlow, isSignedIn = true, actions = object : DetailsActions {
             override fun onFavorite(project: Project, favorite: Boolean) {
                 TODO("Not yet implemented")
             }

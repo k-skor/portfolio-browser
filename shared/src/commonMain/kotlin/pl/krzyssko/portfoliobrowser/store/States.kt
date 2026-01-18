@@ -4,7 +4,6 @@ import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
-import pl.krzyssko.portfoliobrowser.repository.Paging
 
 typealias StackColorMap = Map<String, Int>
 typealias PagedProjectsList = Map<String?, List<Project>>
@@ -19,19 +18,29 @@ sealed class ProjectState {
     //data object Updated: ProjectState()
 }
 
+//sealed class ProjectsListState {
+//    data object Initialized: ProjectsListState()
+//    data class Error(val reason: Throwable?): ProjectsListState()
+//    data class Loaded(
+//        val loading: Boolean = false,
+//        val projects: PagedProjectsList = emptyMap(),
+//        val paging: Paging = Paging(),
+//        val stackFilter: List<String> = emptyList(),
+//        val searchPhrase: String? = null
+//    ): ProjectsListState()
+//
+//    //data object ImportStarted: ProjectsListState()
+//    //data class ImportError(val error: Throwable): ProjectsListState()
+//    //data object ImportCompleted: ProjectsListState()
+//}
+
 sealed class ProjectsListState {
-    data object Initialized: ProjectsListState()
-    data class Error(val reason: Throwable?): ProjectsListState()
-    data class Loaded(
-        val loading: Boolean = false,
-        val projects: PagedProjectsList = emptyMap(),
-        val paging: Paging = Paging(),
-        val stackFilter: List<String> = emptyList(),
-        val searchPhrase: String? = null
-    ): ProjectsListState()
-    //data object ImportStarted: ProjectsListState()
-    //data class ImportError(val error: Throwable): ProjectsListState()
-    //data object ImportCompleted: ProjectsListState()
+    data object Initialized : ProjectsListState()
+    data class FilterRequested(
+        val searchPhrase: String = "",
+        val selectedCategories: List<String> = emptyList(),
+        val onlyFeatured: Boolean = false
+    ) : ProjectsListState()
 }
 
 sealed class ProfileState {

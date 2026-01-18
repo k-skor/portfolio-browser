@@ -13,16 +13,16 @@ import pl.krzyssko.portfoliobrowser.data.Stack
 
 class GitHubRepositoryException(message: String? = null, throwable: Throwable? = null): Exception(message, throwable)
 
-class GitHubPagingState(override val paging: Paging): PagingState
+class GitHubPagingState(override val pageSize: Int = 10, override val paging: Paging): PagingState
 
 class GitHubProjectRepository(private val api: Api, private val auth: Auth) : ProjectRepository {
 
-    private var gitHubPagingState = GitHubPagingState(Paging())
-    override val pagingState: PagingState
+    private var gitHubPagingState = GitHubPagingState(paging = Paging())
+    override val pagingState: GitHubPagingState
         get() = gitHubPagingState
 
     override fun resetPagingState() {
-        gitHubPagingState = GitHubPagingState(Paging())
+        gitHubPagingState = GitHubPagingState(paging = Paging())
     }
 
     /**
@@ -131,9 +131,9 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         })
     }
 
-    override fun nextPage(): Flow<Result<List<Project>>> = flow {
-        emit(runCatching {
-            val pageKey = gitHubPagingState.paging.nextPageKey.toString()
+    override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
+        return runCatching {
+            //val pageKey = gitHubPagingState.paging.nextPageKey.toString()
             //when (val response = api.getRepos(pageKey)) {
             //    is ApiResponse.Success -> response.data.also {
             //        gitHubPagingState = GitHubPagingState(
@@ -159,11 +159,11 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
             //    }
             //    is ApiResponse.Failure -> throw response.throwable ?: GitHubRepositoryException()
             //}
-            val response = api.getRepos(pageKey)
+            val response = api.getRepos(nextPageKey.toString())
             response.also {
                 gitHubPagingState = GitHubPagingState(
                     paging = Paging(
-                        pageKey = pageKey,
+                        pageKey = nextPageKey,
                         nextPageKey = it.next,
                         prevPageKey = it.prev,
                         isLastPage = it.next == null
@@ -182,12 +182,12 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     source = Source.GitHub
                 )
             }
-        })
+        }
     }
 
-    override fun nextSearchPage(query: String): Flow<Result<List<Project>>> =
-        flowOf(Result.failure(GitHubRepositoryException("Not implemented")))
+    override suspend fun nextSearchPage(query: String, nextPageKey: Any?): Result<List<Project>> =
+        Result.failure(GitHubRepositoryException("Not implemented"))
 
-    override fun nextFavoritePage(): Flow<Result<List<Project>>> =
-        flowOf(Result.failure(GitHubRepositoryException("Not implemented")))
+    override suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>> =
+        Result.failure(GitHubRepositoryException("Not implemented"))
 }

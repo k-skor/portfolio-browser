@@ -7,6 +7,7 @@ import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.db.Firestore
+import pl.krzyssko.portfoliobrowser.db.QueryPagedResult
 import pl.krzyssko.portfoliobrowser.db.transfer.toProject
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
@@ -14,7 +15,7 @@ import pl.krzyssko.portfoliobrowser.util.Response
 
 class FirestoreException(message: String? = null, throwable: Throwable? = null): Exception(message)
 
-class FirestorePagingState(val nextPageCursor: Any? = null, override val paging: Paging): PagingState
+class FirestorePagingState(val nextPageCursor: Any? = null, override val pageSize: Int = 5, override val paging: Paging = Paging()): PagingState
 
 class FirestoreProjectRepository(private val firestore: Firestore, private val auth: Auth) : ProjectRepository {
     private val logging: Logging = getLogging()
@@ -27,13 +28,13 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
     //}
 
     //override fun getLast(): Any? = lastDocId
-    private var firestorePagingState = FirestorePagingState(null, Paging())
+    private var firestorePagingState = FirestorePagingState(null, paging = Paging())
 
-    override val pagingState: PagingState
+    override val pagingState: FirestorePagingState
         get() = firestorePagingState
 
     override fun resetPagingState() {
-        firestorePagingState = FirestorePagingState(null, Paging())
+        firestorePagingState = FirestorePagingState(null, paging = Paging())
     }
 
     //override suspend fun uploadProject(docId: String, project: Project) {
@@ -80,21 +81,21 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         TODO("Not yet implemented")
     }
 
-    override fun nextPage(): Flow<Result<List<Project>>> = flow {
+    override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
         if (!auth.isUserSignedIn) {
-            emit(Result.failure(FirestoreException("User not logged in.")))
-            return@flow
+            return Result.failure(FirestoreException("User not logged in."))
         }
-        emit(runCatching {
+        return runCatching {
             //throw FirestoreException(message = "User not logged in.")
-            val pageKey = firestorePagingState.nextPageCursor?.toString()
+            //val pageKey = firestorePagingState.nextPageCursor?.toString()
+            val pageKey = nextPageKey
             firestore.getProjects(
                 firestorePagingState.nextPageCursor,
                 auth.userAccount?.id!!
             ).also {
-                val nextKey = it.cursor?.toString()
+                val nextKey = it.cursor
                 firestorePagingState = FirestorePagingState(
-                    it.cursor, Paging(
+                    it.cursor, firestorePagingState.pageSize, Paging(
                         pageKey = pageKey,
                         prevPageKey = firestorePagingState.paging.pageKey,
                         nextPageKey = nextKey,
@@ -104,7 +105,10 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
             }.value.map {
                 it.toProject()
             }
-        })
+            //PagedData(query.value.map {
+            //    it.toProject()
+            //}, pagingState.getNextPage(pageKey, query).paging)
+        }
     }
 
     //override fun fetchList(pageKey: Any?): Flow<PagedResponse<Project>> = flow {
@@ -123,26 +127,27 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
     //    })
     //}
 
-    override fun nextSearchPage(
-        query: String
-    ): Flow<Result<List<Project>>> {
-        TODO("Not yet implemented")
+    override suspend fun nextSearchPage(
+        query: String,
+        nextPageKey: Any?
+    ): Result<List<Project>> {
+        return Result.failure(FirestoreException("Not implemented"))
     }
 
-    override fun nextFavoritePage(): Flow<Result<List<Project>>> = flow {
+    override suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>> {
         if (!auth.isUserSignedIn) {
-            emit(Result.failure(FirestoreException("User not logged in.")))
-            return@flow
+            return Result.failure(FirestoreException("User not logged in."))
         }
-        emit(runCatching {
-            val pageKey = firestorePagingState.nextPageCursor?.toString()
+        return runCatching {
+            //val pageKey = firestorePagingState.nextPageCursor?.toString()
+            val pageKey = nextPageKey
             firestore.getFavoriteProjects(
                 firestorePagingState.nextPageCursor,
                 auth.userAccount?.id!!
             ).also {
-                val nextKey = it.cursor?.toString()
+                val nextKey = it.cursor
                 firestorePagingState = FirestorePagingState(
-                    it.cursor, Paging(
+                    it.cursor, firestorePagingState.pageSize, Paging(
                         pageKey = pageKey,
                         prevPageKey = firestorePagingState.paging.pageKey,
                         nextPageKey = nextKey,
@@ -152,6 +157,16 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
             }.value.map {
                 it.toProject()
             }
-        })
+        }
     }
+}
+fun FirestorePagingState.getNextPage(pageKey: Any?, query: QueryPagedResult<*>): FirestorePagingState {
+    return FirestorePagingState(
+        query.cursor, pageSize, Paging(
+            pageKey = pageKey,
+            prevPageKey = paging.pageKey,
+            nextPageKey = query.cursor,
+            isLastPage = query.cursor == null
+        )
+    )
 }

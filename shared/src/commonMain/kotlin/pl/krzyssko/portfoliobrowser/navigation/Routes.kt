@@ -27,6 +27,13 @@ sealed class Route {
     @Serializable
     data object Settings: Route()
     @Serializable
-    data object Error: Route()
+    data class Error(val title: String, val message: String): Route()
+    @Serializable
+    data object AccountsMerge: Route()
+    @Serializable
+    data object ProviderImport: Route()
 }
+
+fun Throwable?.toRoute(): Route.Error =
+    Route.Error(this?.message ?: "Unknown", this?.stackTraceToString().orEmpty())
 

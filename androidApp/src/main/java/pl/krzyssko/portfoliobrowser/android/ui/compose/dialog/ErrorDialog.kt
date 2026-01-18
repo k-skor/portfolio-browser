@@ -1,9 +1,5 @@
-package pl.krzyssko.portfoliobrowser.android.ui.compose.widget
+package pl.krzyssko.portfoliobrowser.android.ui.compose.dialog
 
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.ScrollableState
-import androidx.compose.foundation.gestures.rememberScrollableState
-import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.rememberScrollState
@@ -16,17 +12,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ErrorDialog(throwable: Throwable, onDismissRequest: () -> Unit = {}) {
+fun ErrorDialog(message: String, description: String, onDismiss: () -> Unit) {
     AlertDialog(
         icon = {
             Icon(Icons.Default.Warning, contentDescription = "Error")
         },
         title = {
-            Text(throwable.message ?: "Error")
+            Text(message)
         },
         text = {
             Box(
@@ -34,17 +29,17 @@ fun ErrorDialog(throwable: Throwable, onDismissRequest: () -> Unit = {}) {
                     .verticalScroll(rememberScrollState())
                     .horizontalScroll(rememberScrollState())
             ) {
-                Text(text = throwable.stackTraceToString(), fontSize = 12.sp, lineHeight = 14.sp)
+                Text(text = description, fontSize = 12.sp, lineHeight = 14.sp)
             }
         },
         onDismissRequest = {
-            onDismissRequest()
+            onDismiss()
         },
         confirmButton = {},
         dismissButton = {
             TextButton(
                 onClick = {
-                    onDismissRequest()
+                    onDismiss()
                 }
             ) {
                 Text("Dismiss")

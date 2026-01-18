@@ -18,10 +18,6 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberTopAppBarState
@@ -49,13 +45,14 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
+import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.AccountsMergeDialog
+import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ErrorDialog
+import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ProviderImportDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.ImportActions
@@ -70,13 +67,11 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.SettingsScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.WelcomeActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.WelcomeScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
-import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ErrorDialog
 import pl.krzyssko.portfoliobrowser.android.ui.navigation.topLevelRoutes
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
-import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
@@ -84,7 +79,6 @@ import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
@@ -98,8 +92,6 @@ class MainActivity : ComponentActivity() {
     private val projectViewModel: ProjectViewModel by viewModel()
     private val projectDetailsViewModel: ProjectDetailsViewModel by viewModel()
     private val profileViewModel: ProfileViewModel by viewModel()
-
-    private val snackbarHostState = SnackbarHostState()
 
     @ExperimentalMaterial3Api
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -115,9 +107,9 @@ class MainActivity : ComponentActivity() {
                 launch {
                     profileViewModel.userOnboarding.stateFlow.collect { render(it) }
                 }
-                launch {
-                    profileViewModel.stateFlow.collect { render(it) }
-                }
+                //launch {
+                //    profileViewModel.stateFlow.collect { render(it) }
+                //}
             }
         }
         getLogging().debug("HELLLOOOOOO!!!!")
@@ -130,8 +122,7 @@ class MainActivity : ComponentActivity() {
                     listViewModel = projectViewModel,
                     detailsViewModel = projectDetailsViewModel,
                     profileViewModel = profileViewModel,
-                    navController = rememberNavController(),
-                    snackbarHostState = snackbarHostState
+                    navController = rememberNavController()
                 )
             }
         }
@@ -145,47 +136,10 @@ class MainActivity : ComponentActivity() {
         logging.debug("new state")
     }
 
-    private suspend fun render(state: ProfileState) {
-        logging.debug("new state")
-        when (state) {
-            is ProfileState.Error -> {
-                if (state.reason is AuthAccountExistsException) {
-                    val result = snackbarHostState.showSnackbar(
-                        "Current state will be lost, continue?",
-                        actionLabel = "OK",
-                        withDismissAction = true,
-                        duration = SnackbarDuration.Indefinite
-                    )
-                    when (result) {
-                        SnackbarResult.ActionPerformed -> {
-                            profileViewModel.authenticateUser(activity = this@MainActivity, forceSignIn = true)
-                        }
-                        else -> {}
-                    }
-                }
-            }
-            else -> {}
-        }
-    }
-
-    private suspend fun render(state: ProjectsImportState) {
+    private fun render(state: ProjectsImportState) {
         logging.debug("new state ${state::class}")
         logging.debug("lifecycle=${lifecycle.currentState}")
         when (state) {
-            is ProjectsImportState.SourceAvailable -> {
-                val result = snackbarHostState.showSnackbar(
-                    "Import projects from source?",
-                    actionLabel = "OK",
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Indefinite
-                )
-                when (result) {
-                    SnackbarResult.ActionPerformed -> {
-                        profileViewModel.openImportPage()
-                    }
-                    else -> {}
-                }
-            }
             is ProjectsImportState.ImportCompleted -> projectViewModel.refreshProjectsList()
             else -> {}
         }
@@ -205,8 +159,7 @@ fun PortfolioApp(
     listViewModel: ProjectViewModel,
     detailsViewModel: ProjectDetailsViewModel,
     profileViewModel: ProfileViewModel,
-    navController: NavHostController,
-    snackbarHostState: SnackbarHostState
+    navController: NavHostController
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showSearchBarState by remember { mutableStateOf(false) }
@@ -284,9 +237,6 @@ fun PortfolioApp(
                 profileViewModel,
                 it
             )
-        },
-        snackbarHost = {
-            SnackbarHost(hostState = snackbarHostState)
         }
     )
 }
@@ -327,14 +277,13 @@ fun AppContent(modifier: Modifier = Modifier,
 ) {
     val userState by profileViewModel.userState.collectAsState()
     val isSignedIn = userState.getOrNull() is User.Authenticated
-    val error by merge(
-        //listViewModel.errorFlow,
-        detailsViewModel.errorFlow,
-        profileViewModel.errorFlow
-    )
-        .filterNotNull()
-        .catch { emit(it) }
-        .collectAsState(null)
+    //val error by merge(
+    //    //listViewModel.errorFlow,
+    //    detailsViewModel.errorFlow,
+    //    profileViewModel.errorFlow
+    //)
+    //    .catch { emit(it) }
+    //    .collectAsState(null)
     LaunchedEffect(Unit) {
         lifecycle.coroutineScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -530,9 +479,36 @@ fun AppContent(modifier: Modifier = Modifier,
                         }
                     })
                 }
-                dialog<Route.Error> {
-                    error?.cause?.let {
-                        ErrorDialog(it)
+                dialog<Route.AccountsMerge> {
+                    AccountsMergeDialog(
+                        title = "Accounts Merge",
+                        description = "New account will be override existing state. Continue?",
+                        onConfirm = {
+                            profileViewModel.linkUser(context)
+                            navController.popBackStack()
+                        },
+                        onDismiss = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+                dialog<Route.ProviderImport> {
+                    ProviderImportDialog(
+                        title = "Import Projects",
+                        description = "Import projects from a provider?",
+                        onConfirm = {
+                            profileViewModel.openImportPage()
+                            navController.popBackStack()
+                        },
+                        onDismiss = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+                dialog<Route.Error> { backStackEntry ->
+                    val route: Route.Error = backStackEntry.toRoute()
+                    ErrorDialog(route.title, route.message) {
+                        navController.popBackStack()
                     }
                 }
             }

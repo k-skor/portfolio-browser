@@ -4,7 +4,6 @@ import android.content.Context
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -60,10 +59,9 @@ class ProfileViewModel(
     val profileState: StateFlow<Response<Profile>> = stateFlow
         .map {
             when (it) {
-                is ProfileState.Initialized,
-                is ProfileState.Authenticated -> Response.Pending
                 is ProfileState.ProfileCreated -> Response.Ok(it.profile)
                 is ProfileState.Error -> Response.Error(it.reason)
+                else -> null
             }
         }
         .filterNotNull()
@@ -72,7 +70,6 @@ class ProfileViewModel(
     val userState: StateFlow<Response<User>> = stateFlow
         .map {
             when (it) {
-                is ProfileState.Initialized -> Response.Pending
                 is ProfileState.Authenticated -> Response.Ok(it.user)
                 is ProfileState.Error -> Response.Error(it.reason)
                 else -> null
@@ -81,13 +78,13 @@ class ProfileViewModel(
         .filterNotNull()
         .stateIn(viewModelScope, SharingStarted.Eagerly, Response.Pending)
 
-    val errorFlow: Flow<Throwable?> = stateFlow
-        .map {
-            when (it) {
-                is ProfileState.Error -> throw it.reason ?: Error("Unknown error.")
-                else -> null
-            }
-        }
+    //val errorFlow: Flow<Throwable?> = stateFlow
+    //    .map {
+    //        when (it) {
+    //            is ProfileState.Error -> it.reason?.let { reason -> throw reason }
+    //            else -> null
+    //        }
+    //    }
 
     init {
         // TODO: move to store initializer block
@@ -155,15 +152,3 @@ class ProfileViewModel(
         private const val TAG = "ProfileViewModel"
     }
 }
-
-//fun <T: ProfileState> ProfileViewModel.doOnState(block: OrbitStore<T>.() -> Unit) {
-//    viewModelScope.launch {
-//        stateFlow.collect {
-//            when (it) {
-//                is T -> 1//store.apply(block)
-//                else -> return@collect
-//            }
-//        }
-//    }
-//    //store.apply(block)
-//}

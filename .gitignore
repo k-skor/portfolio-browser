@@ -12,3 +12,5 @@ xcuserdata
 .kotlin/errors
 .kotlin/sessions
 secrets.local
+
+androidApp/src/**/google-services.json

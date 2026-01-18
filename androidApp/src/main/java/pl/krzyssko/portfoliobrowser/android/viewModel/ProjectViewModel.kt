@@ -1,51 +1,34 @@
 package pl.krzyssko.portfoliobrowser.android.viewModel
 
-import android.util.Log
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.flowWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.cash.paging.Pager
 import app.cash.paging.PagingConfig
 import app.cash.paging.cachedIn
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.onSubscription
-import kotlinx.coroutines.flow.shareIn
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.paging.MyPagingSource
-import pl.krzyssko.portfoliobrowser.api.paging.PagedContentLoader
 import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.di.NAMED_LIST
 import pl.krzyssko.portfoliobrowser.platform.Logging
-import pl.krzyssko.portfoliobrowser.repository.PagingState
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
-import pl.krzyssko.portfoliobrowser.store.PagedProjectsList
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
-import pl.krzyssko.portfoliobrowser.store.UserIntent
-import pl.krzyssko.portfoliobrowser.store.clearProjectsList
-import pl.krzyssko.portfoliobrowser.store.loadPageFrom
-import pl.krzyssko.portfoliobrowser.store.projectsList
+import pl.krzyssko.portfoliobrowser.store.clearFilters
+import pl.krzyssko.portfoliobrowser.store.updateOnlyFeatured
 import pl.krzyssko.portfoliobrowser.store.updateSearchPhrase
-import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.store.updateSelectedCategories
 
 class ProjectViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -72,35 +55,30 @@ class ProjectViewModel(
     val sideEffectsFlow = store.sideEffectFlow
 
     val searchPhrase = stateFlow
-        .map { (it as? ProjectsListState.Loaded)?.searchPhrase }
+        .map { (it as? ProjectsListState.FilterRequested)?.searchPhrase }
         .filterNotNull()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     private var pagingSource: MyPagingSource<Project>? = null
-    val pagingFlow = Pager(PagingConfig(5)) {
-        MyPagingSource(object : PagedContentLoader<Project> {
-            override val pagingState: PagingState
-                get() = repository.pagingState
-            override suspend fun getContent(readFromStart: Boolean): Flow<Response<PagedProjectsList>> = flow {
-                if (readFromStart) {
-                    repository.resetPagingState()
-                }
-                getProjectsList(userIntent)
-                emitAll(projectsPagedListStateFlow)
-            }
-        }).also {
-            pagingSource = it
-        }
-    }.flow.cachedIn(viewModelScope)
 
-    var userIntent = UserIntent.Default
-        set(value) {
-            if (field != value) {
-                field = value
-                //resetProjects()
-                refreshProjectsList()
-            }
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val pagingFlow = store.stateFlow
+        .map { it as? ProjectsListState.FilterRequested }
+        .filterNotNull()
+        .distinctUntilChanged()
+        .flatMapLatest { params ->
+            Pager(
+                config = PagingConfig(pageSize = 5),
+                pagingSourceFactory = {
+                    MyPagingSource<Project>(
+                        repository = repository,
+                        query = params.searchPhrase,
+                        categories = params.selectedCategories,
+                        featured = params.onlyFeatured
+                    )
+                }
+            ).flow
         }
+        .cachedIn(viewModelScope)
 
     init {
         viewModelScope.launch {
@@ -110,51 +88,20 @@ class ProjectViewModel(
         }
     }
 
-    private val projectsPagedListStateFlow: Flow<Response<PagedProjectsList>> = stateFlow
-        .shareIn(viewModelScope, SharingStarted.Eagerly)
-        .map {
-            when (it) {
-                is ProjectsListState.Initialized -> Response.Pending
-                is ProjectsListState.Loaded -> Response.Ok(it.projects)
-                is ProjectsListState.Error -> Response.Error(it.reason)
-            }
-        }
-
-    val projectsFlattenListStateFlow: StateFlow<List<Project>> = projectsPagedListStateFlow
-        .map {
-            when (it) {
-                is Response.Ok -> it.data.values.flatten()
-                is Response.Pending,
-                is Response.Error -> emptyList()
-            }
-        }
-        .filterNotNull()
-        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-
-    val errorFlow: Flow<Throwable?> = stateFlow
-        .map {
-            when (it) {
-                is ProjectsListState.Error -> throw it.reason ?: Error("Unknown error.")
-                else -> null
-            }
-        }
-
-    fun getProjectsList(userIntent: UserIntent) {
-        store.projectsList {
-            loadPageFrom(repository, userIntent)
-        }
+    fun clearFilters() {
+        store.clearFilters()
     }
 
     fun updateSearchPhrase(searchFieldText: String) {
-        store.projectsList {
-            updateSearchPhrase(searchFieldText)
-        }
+        store.updateSearchPhrase(searchFieldText)
     }
 
-    fun clearProjects() {
-        store.projectsList {
-            clearProjectsList()
-        }
+    fun updateSelectedCategories(selectedCategories: List<String>) {
+        store.updateSelectedCategories(selectedCategories)
+    }
+
+    fun updateOnlyFeatured(favoritesSelected: Boolean) {
+        store.updateOnlyFeatured(favoritesSelected)
     }
 
     fun refreshProjectsList() {

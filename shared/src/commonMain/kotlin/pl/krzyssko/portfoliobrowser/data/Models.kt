@@ -44,6 +44,12 @@ data class Project(
     val roles: List<AccessRole> = emptyList()
 )
 
+data class FilterParams(
+    val query: String,
+    val stack: String?,
+    val featured: Boolean
+)
+
 typealias AdditionalUserData = Map<String, Any>
 
 data class Account(

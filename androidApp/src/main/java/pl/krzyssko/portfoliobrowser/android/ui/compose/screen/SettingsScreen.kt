@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -9,6 +10,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -21,9 +23,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.R
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppTitle
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
@@ -37,9 +39,9 @@ fun SettingsScreen(modifier: Modifier = Modifier, userState: StateFlow<Response<
     val user by userState.collectAsState()
     val loginIconRes = if (user.getOrNull() is User.Authenticated) R.drawable.baseline_logout_24 else R.drawable.baseline_login_24
     val loginText = if (user.getOrNull() is User.Authenticated) "Logout" else "Login"
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(modifier.background(MaterialTheme.colorScheme.surface), horizontalAlignment = Alignment.CenterHorizontally) {
         AppTitle()
-        LazyColumn(modifier = Modifier.padding(top = 32.dp)) {
+        LazyColumn(modifier = Modifier.padding(top = 32.dp, start = 8.dp, end = 8.dp)) {
             item {
                 FilledTonalButton(onClick = {
                     actions.onLogin()
@@ -60,7 +62,7 @@ private val fakeUser = Response.Ok(User.Guest)
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun SettingsScreenPreview() {
-    MyApplicationTheme {
+    AppTheme {
         SettingsScreen(Modifier.fillMaxSize(), MutableStateFlow(fakeUser), object : SettingsActions {
             override fun onLogin() {
                 TODO("Not yet implemented")

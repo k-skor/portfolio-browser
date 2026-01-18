@@ -55,7 +55,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
@@ -73,6 +72,7 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.WelcomeScreen
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Avatar
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ErrorDialog
 import pl.krzyssko.portfoliobrowser.android.ui.navigation.topLevelRoutes
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
@@ -88,7 +88,6 @@ import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
-import pl.krzyssko.portfoliobrowser.store.UserIntent
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
@@ -123,7 +122,7 @@ class MainActivity : ComponentActivity() {
         }
         getLogging().debug("HELLLOOOOOO!!!!")
         setContent {
-            MyApplicationTheme {
+            AppTheme {
                 PortfolioApp(
                     modifier = Modifier.fillMaxSize(),
                     context = this,
@@ -213,7 +212,7 @@ fun PortfolioApp(
     var showSearchBarState by remember { mutableStateOf(false) }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             //AppBar(
             //    onBackPressed = {
@@ -329,7 +328,7 @@ fun AppContent(modifier: Modifier = Modifier,
     val userState by profileViewModel.userState.collectAsState()
     val isSignedIn = userState.getOrNull() is User.Authenticated
     val error by merge(
-        listViewModel.errorFlow,
+        //listViewModel.errorFlow,
         detailsViewModel.errorFlow,
         profileViewModel.errorFlow
     )
@@ -349,7 +348,12 @@ fun AppContent(modifier: Modifier = Modifier,
             }
         }
     }
-    Column(modifier.padding(top = contentPaddingValues.calculateTopPadding(), bottom = contentPaddingValues.calculateBottomPadding())) {
+    Column(
+        modifier.padding(
+            top = contentPaddingValues.calculateTopPadding(),
+            bottom = contentPaddingValues.calculateBottomPadding()
+        )
+    ) {
         NavHost(
             navController = navController,
             startDestination = Route.Home,
@@ -425,15 +429,11 @@ fun AppContent(modifier: Modifier = Modifier,
             navigation<Route.Home>(startDestination = Route.List) {
                 composable<Route.List> {
                     LaunchedEffect(Unit) {
-                        listViewModel.userIntent = UserIntent.Default
-                    }
-                    LaunchedEffect(isSignedIn) {
-                        listViewModel.refreshProjectsList()
+                        listViewModel.clearFilters()
                     }
                     ListScreen(
                         modifier,
                         listViewModel.pagingFlow,
-                        listViewModel.projectsFlattenListStateFlow,
                         listViewModel.searchPhrase,
                         MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
                         object : ListScreenActions {
@@ -446,7 +446,7 @@ fun AppContent(modifier: Modifier = Modifier,
                             }
 
                             override fun onClear() {
-                                listViewModel.clearProjects()
+                                //listViewModel.clearProjects()
                             }
 
                             override fun onAvatarClicked() {
@@ -498,12 +498,11 @@ fun AppContent(modifier: Modifier = Modifier,
                 }
                 composable<Route.Favorites> {
                     LaunchedEffect(Unit) {
-                        listViewModel.userIntent = UserIntent.Favorites
+                        listViewModel.updateOnlyFeatured(true)
                     }
                     ListScreen(
                         modifier,
                         listViewModel.pagingFlow,
-                        listViewModel.projectsFlattenListStateFlow,
                         listViewModel.searchPhrase,
                         MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
                         object : ListScreenActions {
@@ -516,7 +515,7 @@ fun AppContent(modifier: Modifier = Modifier,
                             }
 
                             override fun onClear() {
-                                listViewModel.clearProjects()
+                                //listViewModel.clearProjects()
                             }
 
                             override fun onAvatarClicked() {

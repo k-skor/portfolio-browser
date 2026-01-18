@@ -1,16 +1,19 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -24,12 +27,11 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
-import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.Categories
+import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.CategoryList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ContactList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.FloatingBackButton
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ProjectOverview
-import pl.krzyssko.portfoliobrowser.data.Account
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.ProfileRole
 import pl.krzyssko.portfoliobrowser.data.Project
@@ -61,12 +63,12 @@ fun ProfileEmpty(modifier: Modifier = Modifier, actions: ProfileActions) {
 fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: List<Project>, actions: ProfileActions) {
     Box {
         Column(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Row(verticalAlignment = Alignment.Bottom) {
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column {
                     Row {
                         profile.role.forEach {
@@ -87,7 +89,7 @@ fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: L
             }
             Column {
                 Text("Assets:", fontSize = 16.sp)
-                Categories(
+                CategoryList(
                     stack = listOf(
                         Stack("Kotlin", 0.5f),
                         Stack("Java", 0.3f),
@@ -136,18 +138,20 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
     //    ProfileContent(modifier, profile!!, portfolio, actions)
     //} ?: ProfileEmpty(modifier, actions)
     val state by stateFlow.collectAsState()
-    when {
-        state is ProfileState.Authenticated && (state as ProfileState.Authenticated).user is User.Guest -> ProfileEmpty(modifier, actions)
-        state is ProfileState.ProfileCreated -> ProfileContent(modifier, (state as ProfileState.ProfileCreated).profile, portfolio, actions)
-        state is ProfileState.Error -> LoadingError()
-        else -> Loading()
+    Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
+        when {
+            state is ProfileState.Authenticated && (state as ProfileState.Authenticated).user is User.Guest -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
+            state is ProfileState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.ProfileCreated).profile, portfolio, actions)
+            state is ProfileState.Error -> LoadingError()
+            else -> Loading()
+        }
     }
 }
 
-private val fakeUser = User.Authenticated(
-    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
-)
-//private val fakeUser = User.Guest
+//private val fakeUser = User.Authenticated(
+//    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
+//)
+private val fakeUser = User.Guest
 private val fakeProfile = Profile(
     firstName = "Krzysztof",
     lastName = "Skorcz",
@@ -161,7 +165,7 @@ private val fakeProfile = Profile(
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun ProfilePreview() {
-    MyApplicationTheme {
+    AppTheme {
         ProfileScreen(
             stateFlow = MutableStateFlow(ProfileState.ProfileCreated(fakeProfile)),
             //profileState = MutableStateFlow(fakeProfile),

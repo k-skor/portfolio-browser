@@ -1,30 +1,29 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.widget
 
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Surface
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil3.compose.AsyncImage
+import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.fakeProject
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
+import pl.krzyssko.portfoliobrowser.android.ui.theme.overlineSmallStyle
 import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
 
 
@@ -35,89 +34,62 @@ fun ProjectOverview(modifier: Modifier = Modifier, item: Project, stack: List<St
         onClick = {
             onItemClick(item)
         }) {
-        Box(contentAlignment = Alignment.Center) {
-            Column(modifier) {
-                val textModifier = modifier
-                    .padding(horizontal = 4.dp, vertical = 8.dp)
-                    .padding(bottom = 12.dp)
-                AsyncImage(
-                    model = when (item.image) {
-                        is Resource.NetworkResource -> (item.image as Resource.NetworkResource).url
-                        is Resource.LocalResource -> (item.image as Resource.LocalResource).res.toString()
-                        else -> null
-                    },
-                    modifier = modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    contentDescription = "Project image",
-                    contentScale = ContentScale.FillWidth
-                )
-                Text(
-                    text = item.name,
-                    modifier = textModifier,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (!item.description.isNullOrEmpty()) {
-                    Text(
-                        text = "${item.description}",
-                        modifier = textModifier,
-                        fontSize = 18.sp
-                    )
+        Column(
+            modifier = modifier,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.height(240.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                item.image?.let {
+                    AppImage(Modifier
+                        .width(120.dp)
+                        .fillMaxHeight(), it, "Project image",
+                        ContentScale.FillHeight)
                 }
-                if (stack.isNotEmpty()) {
-                    Column {
-                        Row(
-                            modifier = modifier
-                                .fillMaxWidth()
-                                .padding(4.dp)
-                        ) {
-                            for (stackIt in stack) {
-                                val weight = stackIt.percent / 100.0f
-                                if (weight > 0) {
-                                    Surface(
-                                        modifier = Modifier
-                                            .height(4.dp)
-                                            .weight(weight),
-                                        color = Color(stackIt.color),
-                                        shape = RectangleShape
-                                    ) { }
-                                }
-                            }
-                        }
-                        Column(
-                            modifier = modifier.padding(
-                                horizontal = 4.dp,
-                                vertical = 4.dp
-                            )
-                        ) {
-                            for (stackIt in stack) {
-                                Row {
-                                    Surface(
-                                        modifier = Modifier
-                                            .size(6.dp)
-                                            .align(Alignment.CenterVertically),
-                                        color = Color(stackIt.color),
-                                        shape = CircleShape
-                                    ) { }
-                                    Text(
-                                        modifier = modifier.padding(start = 4.dp),
-                                        text = stackIt.name
-                                    )
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    CircularProgressIndicator(
-                        modifier = Modifier
-                            .size(12.dp)
-                            .padding(bottom = 4.dp)
-                            .align(Alignment.CenterHorizontally),
-                        strokeWidth = 2.dp
+                Column(
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        modifier = Modifier,
+                        text = "Overline",
+                        style = overlineSmallStyle
                     )
+                    Text(
+                        text = item.name,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (!item.description.isNullOrEmpty()) {
+                        Text(
+                            text = "${item.description}",
+                            fontSize = 18.sp
+                        )
+                    }
                 }
             }
+            if (stack.isNotEmpty()) {
+                CategoryList(stack = stack)
+            } else {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .wrapContentHeight()
+                        .fillMaxWidth()
+                )
+            }
         }
+    }
+}
+
+@Preview(widthDp = 480, heightDp = 360)
+@Composable
+fun ProjectOverviewPreview() {
+    AppTheme {
+        ProjectOverview(
+            item = fakeProject,
+            stack = fakeProject.stack
+        ) { }
     }
 }

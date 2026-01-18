@@ -2,9 +2,6 @@ package pl.krzyssko.portfoliobrowser.business
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
@@ -19,7 +16,6 @@ import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
 import pl.krzyssko.portfoliobrowser.store.checkImport
 import pl.krzyssko.portfoliobrowser.store.importProjects
 import pl.krzyssko.portfoliobrowser.store.openImport
-import kotlin.getValue
 
 class UserOnboardingImportFromExternalSource(
     coroutineScope: CoroutineScope,

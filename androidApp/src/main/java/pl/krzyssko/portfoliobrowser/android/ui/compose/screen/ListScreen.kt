@@ -1,6 +1,7 @@
 package pl.krzyssko.portfoliobrowser.android.ui.compose.screen
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -34,9 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
@@ -65,13 +64,11 @@ import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ProjectOverview
+import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
 import pl.krzyssko.portfoliobrowser.data.Stack
-import pl.krzyssko.portfoliobrowser.store.ProjectState
-import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 
 interface ListScreenActions {
     fun onProjectDetails(project: Project)
@@ -85,6 +82,39 @@ enum class DisplayFormat {
     Grid
 }
 
+@Composable
+fun CategorySelectionBar(modifier: Modifier = Modifier, categories: List<String>) {
+    Column(modifier) {
+        Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        LazyRow(Modifier.padding(top = if (categories.isEmpty()) 0.dp else 8.dp)) {
+            items(
+                count = categories.size
+            ) { index ->
+                var selected by remember { mutableStateOf(false) }
+                FilterChip(
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                    label = { Text(categories[index]) },
+                    onClick = {
+                        selected = !selected
+                        //actions.onSearch(categories[index])
+                    },
+                    leadingIcon = if (selected) {
+                        {
+                            Icon(
+                                imageVector = Icons.Default.Done,
+                                contentDescription = "Checked",
+                                modifier = Modifier.size(FilterChipDefaults.IconSize)
+                            )
+                        }
+                    } else {
+                        null
+                    },
+                    selected = selected)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListContent(
@@ -92,49 +122,20 @@ fun ListContent(
     displayFormat: DisplayFormat,
     lazyPagingItems: LazyPagingItems<Project>,
     scrollState: ScrollState,
-    projectsFlow: StateFlow<List<Project>>,
-    stackFlow: StateFlow<List<String>> = MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
+    //projectsFlow: StateFlow<List<Project>>,
     actions: ListScreenActions
 ) {
 
-    val projects by projectsFlow.collectAsState()
-    val categories by stackFlow.collectAsState()
-    var loadingState by remember { mutableStateOf(false) }
+    //val categories by stackFlow.collectAsState()
+    //var loadingState by remember { mutableStateOf(false) }
 
     Column(
         modifier
+            .fillMaxSize()
             .verticalScroll(scrollState)
-            .padding(top = SearchBarDefaults.InputFieldHeight + 16.dp)
-            .semantics { traversalIndex = 1f }) {
-        Column {
-            Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            LazyRow {
-                items(
-                    count = categories.size
-                ) { index ->
-                    var selected by remember { mutableStateOf(false) }
-                    FilterChip(
-                        modifier = Modifier.padding(horizontal = 4.dp),
-                        label = { Text(categories[index]) },
-                        onClick = {
-                            selected = !selected
-                            //actions.onSearch(categories[index])
-                        },
-                        leadingIcon = if (selected) {
-                            {
-                                Icon(
-                                    imageVector = Icons.Default.Done,
-                                    contentDescription = "Checked",
-                                    modifier = Modifier.size(FilterChipDefaults.IconSize)
-                                )
-                            }
-                        } else {
-                            null
-                        },
-                        selected = selected)
-                }
-            }
-        }
+            //.padding(top = SearchBarDefaults.InputFieldHeight + 16.dp)
+            .semantics { traversalIndex = 1f },
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (lazyPagingItems.loadState.refresh.endOfPaginationReached && lazyPagingItems.itemCount == 0) {
             OutlinedButton(onClick = {
 
@@ -142,7 +143,7 @@ fun ListContent(
                 Text("Create first project")
             }
         }
-        Text("Most popular projects", fontSize = 24.sp)
+        Text(text = "Featured projects", style = MaterialTheme.typography.titleLarge)
         when(displayFormat) {
             DisplayFormat.Grid -> {
                 LazyVerticalStaggeredGrid(
@@ -160,9 +161,9 @@ fun ListContent(
                         ProjectOverview(
                             modifier = modifier,
                             item = item,
-                            stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            //stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            stack = item.stack,
                             onItemClick = {
-                                loadingState = true
                                 actions.onProjectDetails(item)
                             }
                         )
@@ -171,7 +172,7 @@ fun ListContent(
             }
             DisplayFormat.List -> {
                 LazyColumn(
-                    modifier = modifier
+                    modifier = Modifier
                         .fillMaxSize()
                         .weight(1.0f),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -181,11 +182,11 @@ fun ListContent(
                         key = lazyPagingItems.itemKey { it.id }) { index ->
                         val item = lazyPagingItems[index] ?: return@items
                         ProjectOverview(
-                            modifier = modifier,
+                            modifier = Modifier.padding(8.dp),
                             item = item,
-                            stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            //stack = if (index < projects.size) projects[index].stack else emptyList(),
+                            stack = item.stack,
                             onItemClick = {
-                                loadingState = true
                                 actions.onProjectDetails(item)
                             }
                         )
@@ -204,9 +205,11 @@ fun ListContent(
         //        Text("Load more")
         //    }
         //}
-        if (lazyPagingItems.loadState.append == LoadState.Loading || loadingState) {
+        if (lazyPagingItems.loadState.append == LoadState.Loading) {
             LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .wrapContentHeight()
+                    .fillMaxWidth()
             )
         }
     }
@@ -217,26 +220,107 @@ fun ListContent(
 fun ListScreen(
     modifier: Modifier = Modifier,
     pagingFlow: Flow<PagingData<Project>>,
-    projectsFlow: StateFlow<List<Project>>,
-    phraseFlow: StateFlow<String?>,
+    phraseFlow: Flow<String?>,
     stackFlow: StateFlow<List<String>> = MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
     actions: ListScreenActions
 ) {
-    //val projects by projectsFlow.collectAsState()
-    //val categories by stackFlow.collectAsState()
-
     val textFieldState = rememberTextFieldState()
     var expanded by rememberSaveable { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     var isRefreshing by remember { mutableStateOf(false) } //replace with stateFlow
     val pullToRefreshState = rememberPullToRefreshState()
     val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
-    Surface(
-        color = MaterialTheme.colorScheme.background
+
+    val phrase by phraseFlow.collectAsState("")
+
+    LaunchedEffect(phrase) {
+        //Log.d("MainActivity", "ListScreen: refreshing list phrase=$phrase, isSignedIn=$isSignedIn, hasValidProject=$hasValidProject")
+        //lazyPagingItems.refresh()
+    }
+
+    Column(
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        PullToRefreshBox(
+        SearchBar(
             modifier = Modifier
-                .fillMaxSize()
+                //.align(Alignment.TopCenter)
+                .semantics { traversalIndex = 0f },
+            inputField = {
+                SearchBarDefaults.InputField(
+                    query = textFieldState.text.toString(),
+                    onQueryChange = {
+                        textFieldState.setTextAndPlaceCursorAtEnd(it)
+                    },
+                    onSearch = {
+                        expanded = false
+                        actions.onSearch(it)
+                    },
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it },
+                    placeholder = { Text("Search projects") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    //trailingIcon = { Avatar(Modifier.size(30.dp), userFlow) { actions.onAvatarClicked() } },
+                )
+            },
+            expanded = expanded,
+            onExpandedChange = { expanded = it },
+            tonalElevation = if (scrollState.value > 0) 3.dp else 0.dp
+        ) {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                repeat(4) { idx ->
+                    val resultText = "Suggestion $idx"
+                    ListItem(
+                        headlineContent = { Text(resultText) },
+                        supportingContent = { Text("Additional info") },
+                        leadingContent = { Icon(Icons.Filled.Star, contentDescription = null) },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier
+                            .clickable {
+                                textFieldState.setTextAndPlaceCursorAtEnd(resultText)
+                                expanded = false
+                            }
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 4.dp))
+                }
+            }
+        }
+        val categories by stackFlow.collectAsState()
+        //var loadingState by remember { mutableStateOf(false) }
+        CategorySelectionBar(Modifier.padding(horizontal = 8.dp), categories)
+        //Column {
+        //    Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        //    LazyRow(Modifier.padding(top = if (categories.isEmpty()) 0.dp else 8.dp)) {
+        //        items(
+        //            count = categories.size
+        //        ) { index ->
+        //            var selected by remember { mutableStateOf(false) }
+        //            FilterChip(
+        //                modifier = Modifier.padding(horizontal = 4.dp),
+        //                label = { Text(categories[index]) },
+        //                onClick = {
+        //                    selected = !selected
+        //                    //actions.onSearch(categories[index])
+        //                },
+        //                leadingIcon = if (selected) {
+        //                    {
+        //                        Icon(
+        //                            imageVector = Icons.Default.Done,
+        //                            contentDescription = "Checked",
+        //                            modifier = Modifier.size(FilterChipDefaults.IconSize)
+        //                        )
+        //                    }
+        //                } else {
+        //                    null
+        //                },
+        //                selected = selected)
+        //        }
+        //    }
+        //}
+        PullToRefreshBox(
+            modifier = modifier
                 .semantics { isTraversalGroup = true },
             isRefreshing = isRefreshing,
             state = pullToRefreshState,
@@ -245,56 +329,6 @@ fun ListScreen(
                 //actions.onClear()
                 lazyPagingItems.refresh()
             }) {
-            SearchBar(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .semantics { traversalIndex = 0f },
-                inputField = {
-                    SearchBarDefaults.InputField(
-                        query = textFieldState.text.toString(),
-                        onQueryChange = {
-                            textFieldState.setTextAndPlaceCursorAtEnd(it)
-                        },
-                        onSearch = {
-                            expanded = false
-                            actions.onSearch(it)
-                        },
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it },
-                        placeholder = { Text("Search projects") },
-                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-                        //trailingIcon = { Avatar(Modifier.size(30.dp), userFlow) { actions.onAvatarClicked() } },
-                    )
-                },
-                expanded = expanded,
-                onExpandedChange = { expanded = it },
-                tonalElevation = if (scrollState.value > 0) 3.dp else 0.dp
-            ) {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    repeat(4) { idx ->
-                        val resultText = "Suggestion $idx"
-                        ListItem(
-                            headlineContent = { Text(resultText) },
-                            supportingContent = { Text("Additional info") },
-                            leadingContent = { Icon(Icons.Filled.Star, contentDescription = null) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier
-                                .clickable {
-                                    textFieldState.setTextAndPlaceCursorAtEnd(resultText)
-                                    expanded = false
-                                }
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp))
-                    }
-                }
-            }
-
-            val phrase by phraseFlow.collectAsState()
-
-            LaunchedEffect(phrase) {
-                //Log.d("MainActivity", "ListScreen: refreshing list phrase=$phrase, isSignedIn=$isSignedIn, hasValidProject=$hasValidProject")
-                //lazyPagingItems.refresh()
-            }
 
             if (lazyPagingItems.loadState.refresh == LoadState.Loading) {
                 CircularProgressIndicator(
@@ -307,12 +341,10 @@ fun ListScreen(
             } else {
                 isRefreshing = false
                 ListContent(
-                    modifier,
+                    Modifier.padding(horizontal = 8.dp),
                     DisplayFormat.List,
                     lazyPagingItems,
                     scrollState,
-                    projectsFlow,
-                    stackFlow,
                     actions
                 )
             }
@@ -320,11 +352,11 @@ fun ListScreen(
     }
 }
 
-private val fakeData: List<Project> = listOf(
+private val fakeProjects: List<Project> = listOf(
     Project(
         id = 1.toString(),
         name = "Title 1",
-        description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Proin tristique nibh nec augue cursus, in consectetur augue ultricies. Morbi finibus viverra mi, eu condimentum elit egestas condimentum. Aenean leo magna, semper nec arcu eget, facilisis molestie arcu. Quisque cursus fringilla luctus. Maecenas ut auctor leo, nec consectetur dolor.",
+        description = loremIpsum,
         stack = listOf(Stack(name = "Kotlin", percent =  67f, color = 0x00DA02B8 or (0xFF shl 24)), Stack(name = "Java", percent =  33f, color = 0x3F0AB7C3 or (0xFF shl 24))),
         image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
         createdBy = "ABCD1234",
@@ -344,7 +376,7 @@ private val fakeData: List<Project> = listOf(
     Project(
         id = 3.toString(),
         name = "Title 3",
-        description = "Lorem ipsum dolor sit amet, consectetur adipiscing elit.",
+        description = loremIpsum,
         stack = emptyList(),
         image = Resource.NetworkResource("https://github.githubassets.com/favicons/favicon.svg"),
         createdBy = "ABCD1234",
@@ -352,19 +384,16 @@ private val fakeData: List<Project> = listOf(
         createdOn = 11234567890
     )
 )
-val pagingData = PagingData.from(fakeData)
+val pagingData = PagingData.from(fakeProjects)
 val fakeDataFlow = MutableStateFlow(pagingData)
 
 @ExperimentalMaterial3Api
 @Preview(widthDp = 320)
 @Composable
 fun DefaultPreview() {
-    MyApplicationTheme {
-        darkColorScheme()
+    AppTheme {
         ListScreen(
-            modifier = Modifier.fillMaxSize(),
             pagingFlow = fakeDataFlow,
-            projectsFlow = MutableStateFlow(fakeData),
             phraseFlow = MutableStateFlow(""),
             actions = object : ListScreenActions {
                 override fun onProjectDetails(project: Project) {

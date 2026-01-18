@@ -3,6 +3,7 @@ package pl.krzyssko.portfoliobrowser.store
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
@@ -10,6 +11,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.ContainerHost
@@ -71,7 +73,9 @@ fun OrbitStore<ProjectState>.loadFrom(
 ) = intent {
     postSideEffect(UserSideEffects.Toast("Loading project $ownerId:$projectId details"))
 
-    repository.fetchProjectDetails(uid = ownerId, id = projectId)
+    flow {
+        emit(repository.fetchProjectDetails(uid = ownerId, id = projectId))
+    }
         .flowOn(dispatcherIO)
         .map {
             when {
@@ -322,7 +326,9 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
         else -> result.getOrNull()!!
     }
 
-    repository.fetchUser()
+    flow {
+        emit(repository.fetchUser())
+    }
         .flowOn(dispatcherIO)
         .onStart {
             config.update(Config(gitHubApiToken = user.oauthToken.orEmpty()))
@@ -474,7 +480,9 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
         else -> result.getOrNull()!!
     }
     postSideEffect(UserSideEffects.Toast("Linking user account..."))
-    repository.fetchUser()
+    flow {
+        emit(repository.fetchUser())
+    }
         .flowOn(dispatcherIO)
         .map {
             when {
@@ -582,21 +590,18 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
             return@intent
         }
     }
-    //val projectsSourceFlow: Flow<Project> = flow {
-    //    var isLastPage = false
-    //    while (!isLastPage && currentCoroutineContext().isActive) {
-    //        repository.nextPage().collect {
-    //            val projects = it.getOrThrow()
-    //            projects.forEach { project ->
-    //                repository.fetchStack(project.name).collect { stack ->
-    //                    emit(project.copy(stack = stack.getOrThrow()))
-    //                }
-    //            }
-    //            isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
-    //        }
-    //    }
-    //}
-    val projectsSourceFlow: Flow<Project> = flow {}
+    val projectsSourceFlow: Flow<Project> = flow {
+        var isLastPage = false
+        while (!isLastPage && currentCoroutineContext().isActive) {
+            val page = repository.nextPage(repository.pagingState.paging.nextPageKey)
+            val projects = page.getOrThrow()
+            projects.forEach { project ->
+                val stack = repository.fetchStack(project.name)
+                emit(project.copy(stack = stack.getOrThrow()))
+            }
+            isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
+        }
+    }
     val source = pl.krzyssko.portfoliobrowser.business.Source(
         projectsSourceFlow,
         Source.GitHub
@@ -632,32 +637,9 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
         }
 }
 
-//@OptIn(OrbitExperimental::class)
-//suspend fun OrbitStore<ProjectsListState>.handleListException(exception: Throwable?) = subIntent {
-//    reduce {
-//        ProjectsListState.Error(exception)
-//    }
-//    postSideEffect(UserSideEffects.Error(exception))
-//}
-
-//@OptIn(OrbitExperimental::class)
-//suspend fun OrbitStore<ProjectsListState>.resetProjectsList() = subIntent {
-//    reduce {
-//        ProjectsListState.Initialized
-//    }
-//}
-
-//fun OrbitStore<ProjectsListState>.clearProjectsList() = intent {
-//    resetProjectsList()
-//}
-
 fun OrbitStore<ProjectState>.project(block: OrbitStore<ProjectState>.() -> Unit) {
     apply(block)
 }
-
-//fun OrbitStore<ProjectsListState>.projectsList(block: OrbitStore<ProjectsListState>.() -> Unit) {
-//    apply(block)
-//}
 
 fun OrbitStore<ProfileState>.profile(block: OrbitStore<ProfileState>.() -> Unit) {
     apply(block)

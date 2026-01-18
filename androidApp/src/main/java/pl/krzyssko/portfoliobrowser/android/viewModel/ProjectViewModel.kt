@@ -72,7 +72,7 @@ class ProjectViewModel(
                     MyPagingSource<Project>(
                         repository = repository,
                         query = params.searchPhrase,
-                        stack = params.selectedCategories.firstOrNull(),
+                        categories = params.selectedCategories,
                         featured = params.onlyFeatured
                     )
                 }

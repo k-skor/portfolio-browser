@@ -22,7 +22,6 @@ abstract class Auth(protected val config: Configuration) {
     protected val oauthToken: String?
         get() = config.config.gitHubApiToken
 
-    //fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerData?.map { it.providerId.toLoginMethod() }?.contains(providerType) ?: true
     fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerData?.any { it.providerId == providerType.toProviderId() } == false
 
     open suspend fun startSignInFlow(

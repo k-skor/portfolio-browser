@@ -22,7 +22,8 @@ import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.business.Destination
 import pl.krzyssko.portfoliobrowser.business.SyncHandler
-import pl.krzyssko.portfoliobrowser.business.UserOnboardingImportFromExternalSource
+import pl.krzyssko.portfoliobrowser.business.UserOnboardingProjectsImport
+import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Follower
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.ProfileRole
@@ -33,17 +34,16 @@ import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
 import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.Route
-import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 
-class OrbitStore<TState : Any>(
-    coroutineScope: CoroutineScope,
-    initialState: TState,
-    val dispatcherIO: CoroutineDispatcher
+open class OrbitStore<TState : Any>(
+    val coroutineScope: CoroutineScope,
+    val dispatcherIO: CoroutineDispatcher,
+    initialState: TState
 ) :
     ContainerHost<TState, UserSideEffects>, KoinComponent {
     override val container = coroutineScope.container<TState, UserSideEffects>(
@@ -161,7 +161,7 @@ fun OrbitStore<ProjectState>.saveProject(
 }
 
 @OptIn(OrbitExperimental::class)
-fun OrbitStore<ProfileState>.initAuth(auth: Auth, config: Configuration, db: Firestore, userOnboarding: UserOnboardingImportFromExternalSource) = intent {
+fun OrbitStore<LoginState>.initAuth(auth: Auth, config: Configuration, db: Firestore) = intent {
     auth.initAuth()
     if (auth.isUserSignedIn) {
         val account = auth.userAccount!!
@@ -171,50 +171,27 @@ fun OrbitStore<ProfileState>.initAuth(auth: Auth, config: Configuration, db: Fir
             User.Authenticated(account = account)
         }
         reduce {
-            ProfileState.Authenticated(user = user)
+            LoginState.Authenticated(user = user)
         }
-        if (user is User.Authenticated) {
-            if (!db.hasUser(account.id)) {
-                createUserProfile(user, db)
-            }
-            getUserProfile(user, db)
-            verifyProfileState(auth, config)
-            if (auth.hasGitHubProvider) {
-                userOnboarding.checkImport()
-            }
-        }
+        //if (user is User.Authenticated) {
+        //    if (!db.hasUser(account.id)) {
+        //        createUserProfile(user, db)
+        //    }
+        //    getUserProfile(user, db)
+        //    verifyProfileState(auth, config)
+        //    if (auth.hasGitHubProvider) {
+        //        userOnboarding.start()
+        //    }
+        //}
     } else {
         reduce {
-            ProfileState.Initialized
+            LoginState.Initialized
         }
         postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
     }
 }
 
-fun OrbitStore<ProjectsImportState>.checkImport(auth: Auth, db: Firestore) = intent {
-    if (!auth.isUserSignedIn) {
-        return@intent
-    }
-    val hasTimestamp = withContext(dispatcherIO) {
-        db.getLastSyncTimestampForSource(auth.userAccount!!.id, Source.GitHub) != null
-    }
-    if (!hasTimestamp) {
-        reduce {
-            ProjectsImportState.SourceAvailable
-        }
-        //postSideEffect(UserSideEffects.Toast("New source is available."))
-        postSideEffect(UserSideEffects.NavigateTo(Route.ProviderImport))
-    }
-}
-
-fun OrbitStore<ProjectsImportState>.openImport() = intent {
-    reduce {
-        ProjectsImportState.SourceImportAttempted
-    }
-    postSideEffect(UserSideEffects.NavigateTo(Route.Login(ViewType.SourceSelection)))
-}
-
-fun OrbitStore<ProfileState>.createAccount(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
+fun OrbitStore<LoginState>.createAccount(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(
@@ -240,16 +217,16 @@ fun OrbitStore<ProfileState>.createAccount(uiHandler: Any?, auth: Auth, login: S
         else -> {
             val user = result.getOrNull()!!
             reduce {
-                ProfileState.Authenticated(user = user)
+                LoginState.Authenticated(user = user)
             }
             postSideEffect(UserSideEffects.NavigateTo(Route.Home))
-            createUserProfile(user, db)
-            verifyProfileState(auth, config)
+            //createUserProfile(user, db)
+            //verifyProfileState(auth, config)
         }
     }
 }
 
-fun OrbitStore<ProfileState>.authenticateAnonymous(auth: Auth, firestore: Firestore, config: Configuration) = intent {
+fun OrbitStore<LoginState>.authenticateAnonymous(auth: Auth, firestore: Firestore, config: Configuration) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(uiHandler = null, providerType = Auth.LoginMethod.Anonymous)
@@ -263,14 +240,14 @@ fun OrbitStore<ProfileState>.authenticateAnonymous(auth: Auth, firestore: Firest
 
         else -> {
             reduce {
-                ProfileState.Authenticated(user = User.Guest)
+                LoginState.Authenticated(user = User.Guest)
             }
             postSideEffect(UserSideEffects.NavigateTo(Route.Home))
         }
     }
 }
 
-fun OrbitStore<ProfileState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
+fun OrbitStore<LoginState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, login: String, password: String, db: Firestore, config: Configuration) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(
@@ -294,27 +271,27 @@ fun OrbitStore<ProfileState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, 
 
         else -> {
             val user = result.getOrNull()!!
-            val hasUser = db.hasUser(user.account.id)
+            //val hasUser = db.hasUser(user.account.id)
             reduce {
-                ProfileState.Authenticated(user = user)
+                LoginState.Authenticated(user = user)
             }
             postSideEffect(UserSideEffects.NavigateTo(Route.Home))
-            if (!hasUser) {
-                createUserProfile(user, db)
-            }
-            getUserProfile(user, db)
-            verifyProfileState(auth, config)
+            //if (!hasUser) {
+            //    createUserProfile(user, db)
+            //}
+            //getUserProfile(user, db)
+            //verifyProfileState(auth, config)
         }
     }
 }
 
-fun OrbitStore<ProfileState>.authenticateWithGitHub(
+fun OrbitStore<LoginState>.authenticateWithGitHub(
     uiHandler: Any?,
     auth: Auth,
     config: Configuration,
     repository: ProjectRepository,
     db: Firestore,
-    userOnboarding: UserOnboardingImportFromExternalSource,
+    userOnboarding: UserOnboardingProjectsImport,
     reauthenticate: Boolean = false,
     forceSignIn: Boolean = false
 ) = intent {
@@ -363,7 +340,7 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
         .collect { name ->
             config.update(config.config.copy(gitHubApiUser = name))
             reduce {
-                ProfileState.Authenticated(
+                LoginState.Authenticated(
                     user = user.copy(
                         account = user.account.copy(
                             name = name
@@ -371,42 +348,42 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
                     )
                 )
             }
-            val hasUser = db.hasUser(user.account.id)
-            if (!hasUser) {
-                createUserProfile(user, db)
-            }
-            getUserProfile(user, db)
-            verifyProfileState(auth, config)
-            var profileStatusCreated = true
-            if (auth.hasGitHubProvider) {
-                userOnboarding.checkImport()
-                profileStatusCreated = userOnboarding.stateFlow.value !is ProjectsImportState.SourceAvailable
-            }
-            if (profileStatusCreated) {
-                postSideEffect(UserSideEffects.NavigateTo(Route.Home))
-            }
+            //val hasUser = db.hasUser(user.account.id)
+            //if (!hasUser) {
+            //    createUserProfile(user, db)
+            //}
+            //getUserProfile(user, db)
+            //verifyProfileState(auth, config)
+            //var profileStatusCreated = true
+            //if (auth.hasGitHubProvider) {
+            //    userOnboarding.start()
+            //    profileStatusCreated = userOnboarding.stateFlow.value !is UserOnboardingImportState.SourceAvailable
+            //}
+            //if (profileStatusCreated) {
+            //    postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+            //}
         }
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.handleException(exception: Throwable?) = subIntent {
+suspend fun OrbitStore<LoginState>.handleException(exception: Throwable?) = subIntent {
     reduce {
-        ProfileState.Error(exception)
+        LoginState.Error(exception)
     }
     postSideEffect(UserSideEffects.Error(exception))
     postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.verifyProfileState(auth: Auth, config: Configuration) = subIntent {
-    val profileErrorStatus = state is ProfileState.Error
+suspend fun OrbitStore<LoginState>.verifyProfileState(auth: Auth, config: Configuration) = subIntent {
+    val profileErrorStatus = state is LoginState.Error
     if (profileErrorStatus) {
         resetAuthSub(auth, config)
     }
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated, db: Firestore) = subIntent {
+suspend fun OrbitStore<LoginState>.createUserProfile(user: User.Authenticated, db: Firestore) = subIntent {
     val hasUser = withContext(dispatcherIO) {
         db.hasUser(user.account.id)
     }
@@ -431,7 +408,7 @@ suspend fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated,
         when {
             result.isSuccess -> {
                 reduce {
-                    ProfileState.ProfileCreated(profile)
+                    LoginState.ProfileCreated(profile)
                 }
             }
             else -> {
@@ -442,10 +419,29 @@ suspend fun OrbitStore<ProfileState>.createUserProfile(user: User.Authenticated,
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.getUserProfile(user: User.Authenticated, firestore: Firestore) = subIntent {
+suspend fun OrbitStore<LoginState>.getUserProfile(user: User.Authenticated, firestore: Firestore) = subIntent {
     val result = runCatching {
         withContext(dispatcherIO) {
             firestore.getProfile(user.account.id)?.toProfile() ?: throw Exception("Profile not found.")
+        }
+    }
+    when {
+        result.isSuccess -> {
+            reduce {
+                LoginState.ProfileCreated(result.getOrNull()!!)
+            }
+        }
+
+        else -> {
+            handleException(result.exceptionOrNull())
+        }
+    }
+}
+
+fun OrbitStore<ProfileState>.fetchUserProfile(account: Account, firestore: Firestore) = intent {
+    val result = runCatching {
+        withContext(dispatcherIO) {
+            firestore.getProfile(account.id)?.toProfile() ?: throw Exception("Profile not found.")
         }
     }
     when {
@@ -456,16 +452,21 @@ suspend fun OrbitStore<ProfileState>.getUserProfile(user: User.Authenticated, fi
         }
 
         else -> {
-            handleException(result.exceptionOrNull())
+            val exception = result.exceptionOrNull()
+            reduce {
+                ProfileState.Error(exception)
+            }
+            postSideEffect(UserSideEffects.Error(exception))
+            postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
         }
     }
 }
 
-fun OrbitStore<ProfileState>.updateUserProfile(firestore: Firestore, profile: Profile) = intent {
-    (state as? ProfileState.Authenticated)?.let {
+fun OrbitStore<LoginState>.updateUserProfile(firestore: Firestore, profile: Profile) = intent {
+    (state as? LoginState.Authenticated)?.let {
         (it.user as? User.Authenticated)?.let { user ->
             reduce {
-                ProfileState.ProfileCreated(
+                LoginState.ProfileCreated(
                     profile = profile
                 )
             }
@@ -474,7 +475,7 @@ fun OrbitStore<ProfileState>.updateUserProfile(firestore: Firestore, profile: Pr
     }
 }
 
-fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository) = intent {
+fun OrbitStore<LoginState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository) = intent {
     val result = runCatching {
         withContext(dispatcherIO) {
             auth.startSignInFlow(
@@ -518,7 +519,7 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
                 name = name
             )
             reduce {
-                ProfileState.Authenticated(
+                LoginState.Authenticated(
                     user = user.copy(
                         account = account,
                         additionalData = user.additionalData,
@@ -529,27 +530,27 @@ fun OrbitStore<ProfileState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config:
     }
 }
 
-fun OrbitStore<ProfileState>.resetAuth(auth: Auth, config: Configuration) = intent {
+fun OrbitStore<LoginState>.resetAuth(auth: Auth, config: Configuration) = intent {
     resetAuthSub(auth, config)
 }
 
 @OptIn(OrbitExperimental::class)
-suspend fun OrbitStore<ProfileState>.resetAuthSub(auth: Auth, config: Configuration) = subIntent {
+suspend fun OrbitStore<LoginState>.resetAuthSub(auth: Auth, config: Configuration) = subIntent {
     auth.signOut()
     config.clear()
     reduce {
-        ProfileState.Initialized
+        LoginState.Initialized
     }
     postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
 }
 
-fun OrbitStore<ProfileState>.deleteAccount(auth: Auth, config: Configuration) = intent {
+fun OrbitStore<LoginState>.deleteAccount(auth: Auth, config: Configuration) = intent {
     withContext(dispatcherIO) {
         auth.delete()
     }
     config.clear()
     reduce {
-        ProfileState.Initialized
+        LoginState.Initialized
     }
     postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
 }
@@ -584,7 +585,7 @@ fun OrbitStore<ProjectsListState>.clearFilters() = intent {
     }
 }
 
-fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository, firestore: Firestore, auth: Auth, uiHandler: Any?) = intent {
+fun OrbitStore<UserOnboardingImportState>.importProjects(repository: ProjectRepository, firestore: Firestore, auth: Auth, uiHandler: Any?) = intent {
 
     val result = runCatching {
         withContext(dispatcherIO) {
@@ -598,7 +599,7 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
     when {
         result.isFailure -> {
             reduce {
-                ProjectsImportState.ImportError(result.exceptionOrNull())
+                UserOnboardingImportState.ImportError(result.exceptionOrNull())
             }
             return@intent
         }
@@ -627,18 +628,18 @@ fun OrbitStore<ProjectsImportState>.importProjects(repository: ProjectRepository
         .onStart {
             //repository.resetPagingState()
             reduce {
-                ProjectsImportState.ImportStarted
+                UserOnboardingImportState.ImportStarted
             }
         }
         .onCompletion { throwable ->
             if (throwable != null) {
                 reduce {
-                    ProjectsImportState.ImportError(throwable)
+                    UserOnboardingImportState.ImportError(throwable)
                 }
                 postSideEffect(UserSideEffects.Error(throwable))
             } else {
                 reduce {
-                    ProjectsImportState.ImportCompleted
+                    UserOnboardingImportState.ImportCompleted
                 }
                 postSideEffect(UserSideEffects.NavigateTo(Route.Home))
             }
@@ -654,6 +655,6 @@ fun OrbitStore<ProjectState>.project(block: OrbitStore<ProjectState>.() -> Unit)
     apply(block)
 }
 
-fun OrbitStore<ProfileState>.profile(block: OrbitStore<ProfileState>.() -> Unit) {
+fun OrbitStore<LoginState>.profile(block: OrbitStore<LoginState>.() -> Unit) {
     apply(block)
 }

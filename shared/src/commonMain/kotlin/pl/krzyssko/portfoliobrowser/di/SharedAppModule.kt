@@ -24,17 +24,17 @@ import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.FirestoreProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
-import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
+val NAMED_LOGIN = named("login")
 val NAMED_PROFILE = named("profile")
-val NAMED_ONBOARDING_IMPORT = named("onboarding_import")
 val NAMED_GITHUB = named("github")
 val NAMED_FIRESTORE = named("firestore")
 
@@ -65,29 +65,29 @@ fun sharedAppModule() = module {
     factory<OrbitStore<ProjectsListState>>(NAMED_LIST) { (coroutineScope: CoroutineScope, initialState: ProjectsListState) ->
         OrbitStore(
             coroutineScope,
-            initialState,
-            Dispatchers.IO
+            Dispatchers.IO,
+            initialState
         )
     }
     factory<OrbitStore<ProjectState>>(NAMED_DETAILS) { (coroutineScope: CoroutineScope, initialState: ProjectState) ->
         OrbitStore(
             coroutineScope,
-            initialState,
-            Dispatchers.IO
+            Dispatchers.IO,
+            initialState
+        )
+    }
+    factory<OrbitStore<LoginState>>(NAMED_LOGIN) { (coroutineScope: CoroutineScope, initialState: LoginState) ->
+        OrbitStore(
+            coroutineScope,
+            Dispatchers.IO,
+            initialState
         )
     }
     factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
         OrbitStore(
             coroutineScope,
-            initialState,
-            Dispatchers.IO
-        )
-    }
-    factory<OrbitStore<ProjectsImportState>>(NAMED_ONBOARDING_IMPORT) { (coroutineScope: CoroutineScope, initialState: ProjectsImportState) ->
-        OrbitStore(
-            coroutineScope,
-            initialState,
-            Dispatchers.IO
+            Dispatchers.IO,
+            initialState
         )
     }
 }

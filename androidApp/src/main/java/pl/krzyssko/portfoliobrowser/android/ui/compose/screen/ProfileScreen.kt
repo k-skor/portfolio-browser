@@ -38,7 +38,7 @@ import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.toExperience
-import pl.krzyssko.portfoliobrowser.store.ProfileState
+import pl.krzyssko.portfoliobrowser.store.LoginState
 
 interface ProfileActions {
     fun onLogin()
@@ -132,7 +132,7 @@ fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: L
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
+fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<LoginState>, portfolio: List<Project>, actions: ProfileActions) {
     //val profile by profileState.collectAsState()
     //profile?.let {
     //    ProfileContent(modifier, profile!!, portfolio, actions)
@@ -140,9 +140,9 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
     val state by stateFlow.collectAsState()
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         when {
-            state is ProfileState.Authenticated && (state as ProfileState.Authenticated).user is User.Guest -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
-            state is ProfileState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.ProfileCreated).profile, portfolio, actions)
-            state is ProfileState.Error -> LoadingError()
+            state is LoginState.Authenticated && (state as LoginState.Authenticated).user is User.Guest -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
+            state is LoginState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as LoginState.ProfileCreated).profile, portfolio, actions)
+            state is LoginState.Error -> LoadingError()
             else -> Loading()
         }
     }
@@ -167,7 +167,7 @@ private val fakeProfile = Profile(
 fun ProfilePreview() {
     AppTheme {
         ProfileScreen(
-            stateFlow = MutableStateFlow(ProfileState.ProfileCreated(fakeProfile)),
+            stateFlow = MutableStateFlow(LoginState.ProfileCreated(fakeProfile)),
             //profileState = MutableStateFlow(fakeProfile),
             portfolio = emptyList(),
             actions = object : ProfileActions {

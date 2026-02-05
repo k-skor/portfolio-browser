@@ -26,21 +26,35 @@ sealed class ProjectsListState {
     ) : ProjectsListState()
 }
 
-sealed class ProfileState {
-    data object Initialized : ProfileState()
+sealed class LoginState {
+    data object Initialized : LoginState()
     data class Authenticated(
         val user: User,
         val linkedProviders: List<Provider>? = emptyList()
-    ) : ProfileState()
+    ) : LoginState()
+    data class Error(val reason: Throwable?): LoginState()
+    data class ProfileCreated(val profile: Profile): LoginState()
+}
+
+sealed class ProfileState {
+    data object Initialized : ProfileState()
     data class Error(val reason: Throwable?): ProfileState()
     data class ProfileCreated(val profile: Profile): ProfileState()
 }
 
-sealed class ProjectsImportState {
-    data object Initialized: ProjectsImportState()
-    data object SourceAvailable: ProjectsImportState()
-    data object SourceImportAttempted: ProjectsImportState()
-    data object ImportStarted: ProjectsImportState()
-    data class ImportError(val reason: Throwable?): ProjectsImportState()
-    data object ImportCompleted: ProjectsImportState()
+sealed class UserOnboardingProfileState {
+    data object NotCreated : UserOnboardingProfileState()
+    data object FirstTimeCreation : UserOnboardingProfileState()
+    data class Error(val reason: Throwable?): UserOnboardingProfileState()
+    data class Created(val userName: String): UserOnboardingProfileState()
+}
+
+sealed class UserOnboardingImportState {
+    data object Initialized: UserOnboardingImportState()
+    data object SourceAvailable: UserOnboardingImportState()
+    data object ImportConfirmed: UserOnboardingImportState()
+    data object ImportStarted: UserOnboardingImportState()
+    data class ImportProgress(val progress: Int, val total: Int, val displayName: String?): UserOnboardingImportState()
+    data class ImportError(val reason: Throwable?): UserOnboardingImportState()
+    data object ImportCompleted: UserOnboardingImportState()
 }

@@ -34,6 +34,7 @@ import pl.krzyssko.portfoliobrowser.db.transfer.toDto
 import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
+import pl.krzyssko.portfoliobrowser.navigation.toRoute
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
@@ -201,7 +202,8 @@ fun OrbitStore<ProjectsImportState>.checkImport(auth: Auth, db: Firestore) = int
         reduce {
             ProjectsImportState.SourceAvailable
         }
-        postSideEffect(UserSideEffects.Toast("New source is available."))
+        //postSideEffect(UserSideEffects.Toast("New source is available."))
+        postSideEffect(UserSideEffects.NavigateTo(Route.ProviderImport))
     }
 }
 
@@ -226,8 +228,13 @@ fun OrbitStore<ProfileState>.createAccount(uiHandler: Any?, auth: Auth, login: S
     }
     when {
         result.isFailure -> {
-            handleException(result.exceptionOrNull())
-            resetAuthSub(auth, config)
+            val exception = result.exceptionOrNull()
+            if (exception is AuthAccountExistsException) {
+                postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
+            } else {
+                handleException(result.exceptionOrNull())
+                resetAuthSub(auth, config)
+            }
         }
 
         else -> {
@@ -276,8 +283,13 @@ fun OrbitStore<ProfileState>.authenticateWithEmail(uiHandler: Any?, auth: Auth, 
     }
     when {
         result.isFailure -> {
-            handleException(result.exceptionOrNull())
-            resetAuthSub(auth, config)
+            val exception = result.exceptionOrNull()
+            if (exception is AuthAccountExistsException) {
+                postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
+            } else {
+                handleException(result.exceptionOrNull())
+                resetAuthSub(auth, config)
+            }
         }
 
         else -> {
@@ -318,8 +330,13 @@ fun OrbitStore<ProfileState>.authenticateWithGitHub(
     }
     val user = when {
         result.isFailure -> {
-            handleException(result.exceptionOrNull())
-            resetAuthSub(auth, config)
+            val exception = result.exceptionOrNull()
+            if (exception is AuthAccountExistsException) {
+                postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
+            } else {
+                handleException(result.exceptionOrNull())
+                resetAuthSub(auth, config)
+            }
             return@intent
         }
 
@@ -376,12 +393,8 @@ suspend fun OrbitStore<ProfileState>.handleException(exception: Throwable?) = su
     reduce {
         ProfileState.Error(exception)
     }
-    if (exception is AuthAccountExistsException) {
-        postSideEffect(UserSideEffects.ErrorAccountExists(exception))
-    } else {
-        postSideEffect(UserSideEffects.Error(exception))
-        postSideEffect(UserSideEffects.NavigateTo(Route.Error))
-    }
+    postSideEffect(UserSideEffects.Error(exception))
+    postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
 }
 
 @OptIn(OrbitExperimental::class)

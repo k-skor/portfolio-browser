@@ -99,27 +99,27 @@ class ProfileViewModel(
 
     init {
         // TODO: move to store initializer block
-        loginStore.initAuth(auth, config, firestore)
+        loginStore.initAuth(auth)
 
         handleLoginOnboarding()
         handleProfileOnboarding()
     }
 
     fun createUser(activity: Context, login: String, password: String) {
-        loginStore.createAccount(activity, auth, login, password, firestore, config)
+        loginStore.createAccount(activity, auth, login, password, config)
     }
 
     fun authenticateGuest() {
-        loginStore.authenticateAnonymous(auth, firestore, config)
+        loginStore.authenticateAnonymous(auth, config)
     }
 
     fun authenticateUser(activity: Context, refreshOnly: Boolean = false, forceSignIn: Boolean = false) {
-        loginStore.authenticateWithGitHub(activity, auth, config, repository, firestore, projectsImportOnboarding, refreshOnly, forceSignIn)
+        loginStore.authenticateWithGitHub(activity, auth, config, repository, refreshOnly, forceSignIn)
 
     }
 
     fun authenticateUser(activity: Context, login: String, password: String) {
-        loginStore.authenticateWithEmail(activity, auth, login, password, firestore, config)
+        loginStore.authenticateWithEmail(activity, auth, login, password, config)
 
     }
 
@@ -154,8 +154,6 @@ class ProfileViewModel(
         loginStore.stateFlow.onEach {
             when {
                 it is LoginState.Authenticated -> {
-                    //val account = (it.user as User.Authenticated).account
-                    //profileCreationOnboardingStep.check(account)
                     profileCreationOnboarding = UserOnboardingProfileInitialization(
                         viewModelScope,
                         Dispatchers.IO,
@@ -177,7 +175,6 @@ class ProfileViewModel(
         profileStore.stateFlow.onEach {
             when (it) {
                 is ProfileState.ProfileCreated -> {
-                    //projectsImportOnboardingStep.start()
                     projectsImportOnboarding = UserOnboardingProjectsImport(
                         viewModelScope,
                         Dispatchers.IO,
@@ -208,9 +205,6 @@ class ProfileViewModel(
             return
         }
         when {
-            //loginStore.stateFlow.value is LoginState.Authenticated -> {
-            //    handleProfileCreationOnboardingStates()
-            //}
             profileCreationOnboarding.stateFlow.value is UserOnboardingProfileState.NotCreated -> {
                 profileCreationOnboarding.check()
             }
@@ -225,12 +219,6 @@ class ProfileViewModel(
             }
         }
     }
-
-    //fun createProfile() {
-    //    ((userState.value as? Response.Ok)?.data as? User.Authenticated)?.let {
-    //        profileCreationOnboardingStep.create(it.account)
-    //    }
-    //}
 
     fun profileCreated() {
         profileStore.fetchUserProfile(auth.userAccount!!, firestore)

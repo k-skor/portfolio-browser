@@ -85,7 +85,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         //    throw GitHubException(e)
         //}
         val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "user/repos") {}
+            getHttpRequestBuilderBlock(this, "users/$user/repos") {}
         }
         return if (request.status == HttpStatusCode.OK) {
             val result = request.body<List<GitHubProject>>()
@@ -106,7 +106,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         //}
         val user = configuration.config.gitHubApiUser
         val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "user/repos") {
+            getHttpRequestBuilderBlock(this, "users/$user/repos") {
                 if (queryParams == null) {
                     url.parameters.apply {
                         append("per_page", "5")

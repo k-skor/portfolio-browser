@@ -1,7 +1,5 @@
 package pl.krzyssko.portfoliobrowser.data
 
-import kotlinx.serialization.Serializable
-
 sealed class Resource {
     data class LocalResource(val res: Int): Resource()
     data class NetworkResource(val url: String): Resource()
@@ -59,7 +57,7 @@ data class Account(
     val avatarUrl: String?,
     val isEmailVerified: Boolean,
     val anonymous: Boolean
-) //, val projectsRefId: String? = null
+)
 
 enum class SocialMediaType {
     LinkedIn,
@@ -84,17 +82,17 @@ data class Provider(
     val uid: String,
     val name: String?,
     val email: String?,
-    val photoUrl: String
+    val photoUrl: String?
 )
 
 sealed class User {
-    //data object None : User()
     data object Guest : User()
     data class Authenticated(
         val account: Account,
         val additionalData: AdditionalUserData? = null,
-        val oauthToken: String? = null,
-        val signInMethod: String? = null
+        val oauthAccessToken: String? = null,
+        val signInMethod: String? = null,
+        val identityProviders: List<Provider> = emptyList()
     ) : User()
 }
 
@@ -112,9 +110,6 @@ data class Profile(
     val contact: List<Contact> = emptyList()
 )
 
-@Serializable
-data class ErrorMessage(val title: String, val message: String)
-
 fun Project.canEdit(uid: String): Boolean = createdBy == uid
 fun Int.toExperience(): String = when {
     this == 0 -> "Less than 1"
@@ -123,4 +118,3 @@ fun Int.toExperience(): String = when {
     this >= 20 -> "20+"
     else -> this.toString()
 }
-fun Profile.isEmpty(): Boolean = this.firstName.isEmpty() || this.lastName.isEmpty() || this.location.isEmpty()

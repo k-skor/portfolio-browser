@@ -22,6 +22,10 @@ import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 
+actual val FirebaseProviderId: String = FirebaseAuthProvider.PROVIDER_ID
+actual val GitHubProviderId: String = GithubAuthProvider.PROVIDER_ID
+actual val EmailProviderId: String = EmailAuthProvider.PROVIDER_ID
+
 class AndroidAuth(configuration: Configuration): Auth(configuration) {
     private lateinit var auth: FirebaseAuth
 
@@ -39,23 +43,13 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
         get() = auth.currentUser?.toProviderData()
 
     override val hasGitHubProvider: Boolean
-        get() = providerData?.let {
-            for (provider in it) {
-                if (provider.providerId == GithubAuthProvider.PROVIDER_ID) {
-                    return@let true
-                }
-            }
-            false
+        get() = providerData?.any {
+            it.providerId == GithubAuthProvider.PROVIDER_ID
         } ?: false
 
     override val hasEmailProvider: Boolean
-        get() = providerData?.let {
-            for (provider in it) {
-                if (provider.providerId == EmailAuthProvider.PROVIDER_ID) {
-                    return@let true
-                }
-            }
-            false
+        get() = providerData?.any {
+            it.providerId == EmailAuthProvider.PROVIDER_ID
         } ?: false
 
     override suspend fun startSignInFlow(
@@ -203,7 +197,7 @@ fun FirebaseUser.toProviderData(): List<Provider> =
             it.uid,
             it.displayName,
             it.email,
-            it.photoUrl.toString()
+            it.photoUrl?.toString()
         )
     }
 
@@ -219,8 +213,9 @@ fun AuthResult.toUser(): User.Authenticated? {
     val additionalData = this.additionalUserInfo?.profile
     val accessToken = (this.credential as? OAuthCredential)?.accessToken
     val signInMethod = this.credential?.signInMethod
+    val providers = this.user?.toProviderData() ?: emptyList()
     return account?.let {
-        val user = User.Authenticated(account, additionalData, accessToken, signInMethod)
+        val user = User.Authenticated(account, additionalData, accessToken, signInMethod, providers)
         getLogging().debug("Auth result user=${user}")
         user
     }

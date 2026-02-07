@@ -53,15 +53,17 @@ class UserOnboardingProfileInitialization(
         location: String = "Poznań, Poland",
     ) = intent {
         val userId = user.account.id
+        val alias = user.identityProviders.firstNotNullOfOrNull { it.name }
+        val avatarUrl = user.identityProviders.firstNotNullOfOrNull { it.photoUrl }
         val hasUser = profileExists(userId)
         if (!hasUser) {
             val profile = Profile(
                 firstName = firstName,
                 lastName = lastName,
-                alias = user.account.name,
+                alias = alias,
                 title = title,
                 role = role,
-                avatarUrl = user.account.avatarUrl,
+                avatarUrl = avatarUrl,
                 about = about,
                 experience = experience,
                 location = location,

@@ -53,7 +53,7 @@ fun sharedAppModule() = module {
             expectSuccess = true
             HttpResponseValidator {
                 handleResponseExceptionWithRequest { cause, _ ->
-                    throw ApiRequestException()
+                    throw ApiRequestException(cause)
                 }
             }
         }

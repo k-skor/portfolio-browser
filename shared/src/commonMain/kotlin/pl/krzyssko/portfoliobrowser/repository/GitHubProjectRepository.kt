@@ -35,8 +35,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         return runCatching {
             val user = api.getUser()
             user?.let {
-                //it.totalPublicRepos + it.totalPrivateRepos
-                0
+                it.totalPublicRepos + it.totalPrivateRepos
             } ?: throw GitHubRepositoryException("User not found.")
         }
     }
@@ -94,7 +93,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
 
     override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
         return runCatching {
-            val response = api.getRepos(nextPageKey.toString())
+            val response = api.getRepos(nextPageKey?.toString())
             response.also {
                 gitHubPagingState = GitHubPagingState(
                     paging = Paging(

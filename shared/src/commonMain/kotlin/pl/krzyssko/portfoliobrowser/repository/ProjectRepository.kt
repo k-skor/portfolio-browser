@@ -8,7 +8,7 @@ data class Paging(
     val pageKey: Any? = null,
     val nextPageKey: Any? = null,
     val prevPageKey: Any? = null,
-    val isLastPage: Boolean = true
+    val isLastPage: Boolean = false
 )
 
 interface PagingState {

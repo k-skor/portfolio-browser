@@ -29,7 +29,6 @@ import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
-import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserOnboardingImportState
@@ -71,7 +70,6 @@ class UserOnboardingProjectsImport(
     private val projectsList: MutableList<ProjectDto> = mutableListOf()
     private var importJob: Job? = null
     private var saveJob: Job? = null
-    //private var readJob: Job? = null
 
     fun start() = intent {
         if (!auth.isUserSignedIn) {
@@ -117,32 +115,26 @@ class UserOnboardingProjectsImport(
         with(GitHubSource(repository)) {
             importJob = importFlow
                 .onStart {
-                    getLogging().debug("onStart start")
                     reduce {
                         UserOnboardingImportState.ImportStarted
                     }
-                    getLogging().debug("onStart before login")
                     auth.startSignInFlow(
                         uiHandler = uiHandler,
                         providerType = Auth.LoginMethod.GitHub,
                         refresh = true
                     )
                     projectsList.clear()
-                    //readProjectsToImport(totalItems)
                     totalItems
                         .onEach {
-                            getLogging().debug("readProjectsToImport collected")
                             reduce {
                                 UserOnboardingImportState.ImportProgress(0, it, null)
                             }
                         }
                         .collect()
-                    getLogging().debug("onStart after readProjectsToImport")
                 }
                 .map { it.toDto() }
                 .onEach {
                     projectsList += it
-                    getLogging().debug("onEach")
                     reduce {
                         (state as UserOnboardingImportState.ImportProgress).copy(
                             progress = projectsList.size,
@@ -162,35 +154,16 @@ class UserOnboardingProjectsImport(
         }
     }
 
-    //@OptIn(OrbitExperimental::class)
-    //private suspend fun readProjectsToImport(totalItemsFlow: Flow<Int>) = subIntent {
-    //    readJob = totalItemsFlow
-    //        .onEach {
-    //            getLogging().debug("readProjectsToImport collected")
-    //            reduce {
-    //                UserOnboardingImportState.ImportProgress(0, it, null)
-    //            }
-    //        }
-    //        .catch {
-    //            reduce {
-    //                UserOnboardingImportState.ImportError(it)
-    //            }
-    //        }
-    //        .launchIn(coroutineScope)
-    //}
-
     @OptIn(OrbitExperimental::class)
     private suspend fun saveProjects(projectsList: List<ProjectDto>, source: Source) = subIntent {
         val result = runCatching {
-            saveJob = coroutineScope.launch {
-                withContext(dispatcherIO) {
-                    val userId = auth.userAccount!!.id
-                    firestore.syncProjects(
-                        userId,
-                        projectsList,
-                        source
-                    )
-                }
+            saveJob = coroutineScope.launch(dispatcherIO) {
+                val userId = auth.userAccount!!.id
+                firestore.syncProjects(
+                    userId,
+                    projectsList,
+                    source
+                )
             }
         }
         when {
@@ -198,6 +171,7 @@ class UserOnboardingProjectsImport(
                 reduce {
                     UserOnboardingImportState.ImportCompleted
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.List))
             }
             result.isFailure -> {
                 reduce {

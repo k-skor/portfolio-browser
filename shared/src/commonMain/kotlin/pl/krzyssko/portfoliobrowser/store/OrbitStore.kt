@@ -296,7 +296,7 @@ fun OrbitStore<LoginState>.authenticateWithGitHub(
     }
         .flowOn(dispatcherIO)
         .onStart {
-            config.update(Config(gitHubApiToken = user.oauthToken.orEmpty()))
+            config.update(Config(gitHubApiToken = user.oauthAccessToken.orEmpty()))
         }
         .map {
             when {
@@ -405,7 +405,7 @@ fun OrbitStore<LoginState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: C
         .collect { name ->
             config.update(Config(
                 gitHubApiUser = name,
-                gitHubApiToken = user.oauthToken.orEmpty(),
+                gitHubApiToken = user.oauthAccessToken.orEmpty(),
                 lastSignInMethod = user.signInMethod.orEmpty()
             ))
             val account = user.account.copy(
@@ -416,7 +416,7 @@ fun OrbitStore<LoginState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: C
                     user = user.copy(
                         account = account,
                         additionalData = user.additionalData,
-                        oauthToken = user.oauthToken
+                        oauthAccessToken = user.oauthAccessToken
                     )
                 )
             }

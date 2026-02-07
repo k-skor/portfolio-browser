@@ -3,6 +3,10 @@ package pl.krzyssko.portfoliobrowser.auth
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 
+actual val FirebaseProviderId: String = "firestore"
+actual val GitHubProviderId: String = "github"
+actual val EmailProviderId: String = "email"
+
 class IosAuth(configuration: Configuration): Auth(configuration) {
     override fun initAuth() {
         TODO("Not yet implemented")

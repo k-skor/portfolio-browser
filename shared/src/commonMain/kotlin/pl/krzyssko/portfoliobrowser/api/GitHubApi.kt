@@ -46,6 +46,19 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         }
     }
 
+    //private fun HttpRequestBuilder.getHttpRequestBuilder(path: String, block: HttpRequestBuilder.() -> Unit = {}) {
+    //    val token = configuration.config.gitHubApiToken
+    //    url( Url("$BASE_URL/$path") )
+    //    headers {
+    //        accept(ContentType("application", "vnd.github+json"))
+    //        token?.let {
+    //            bearerAuth(token)
+    //        }
+    //        append("X-GitHub-Api-Version", apiVersion)
+    //    }
+    //    block()
+    //}
+
     override suspend fun getUser(): GitHubUser? {
         //return try {
         //} catch (e: Exception) {
@@ -72,7 +85,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         //    throw GitHubException(e)
         //}
         val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "users/$user/repos") {}
+            getHttpRequestBuilderBlock(this, "user/repos") {}
         }
         return if (request.status == HttpStatusCode.OK) {
             val result = request.body<List<GitHubProject>>()
@@ -93,7 +106,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         //}
         val user = configuration.config.gitHubApiUser
         val request = httpClient.get {
-            getHttpRequestBuilderBlock(this, "users/$user/repos") {
+            getHttpRequestBuilderBlock(this, "user/repos") {
                 if (queryParams == null) {
                     url.parameters.apply {
                         append("per_page", "5")

@@ -24,7 +24,6 @@ import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import pl.krzyssko.portfoliobrowser.store.followProject
 import pl.krzyssko.portfoliobrowser.store.loadFrom
-import pl.krzyssko.portfoliobrowser.store.project
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrThrow
 
@@ -63,24 +62,14 @@ class ProjectDetailsViewModel(
         .map { it.getOrThrow() }
         .filterNotNull()
 
-    //val errorFlow: Flow<Throwable?> = stateFlow
-    //    .map {
-    //        when (it) {
-    //            is ProjectState.Error -> it.reason?.let { reason -> throw reason }
-    //            else -> null
-    //        }
-    //    }
-
     fun getProjectDetails(project: Project) {
-        store.project {
-            loadFrom(repository, colorPicker, project.createdBy, project.id)
-        }
+        store.loadFrom(repository, colorPicker, project.createdBy, project.id)
+
     }
 
     fun toggleFavorite(favorite: Boolean) {
-        store.project {
-            followProject(firestore, auth, favorite)
-        }
+        store.followProject(firestore, auth, favorite)
+
     }
 
     companion object {

@@ -33,7 +33,7 @@ sealed class LoginState {
         val linkedProviders: List<Provider>? = emptyList()
     ) : LoginState()
     data class Error(val reason: Throwable?): LoginState()
-    data class ProfileCreated(val profile: Profile): LoginState()
+    //data class ProfileCreated(val profile: Profile): LoginState()
 }
 
 sealed class ProfileState {
@@ -45,8 +45,9 @@ sealed class ProfileState {
 sealed class UserOnboardingProfileState {
     data object NotCreated : UserOnboardingProfileState()
     data object FirstTimeCreation : UserOnboardingProfileState()
+    data object AlreadyCreated: UserOnboardingProfileState()
     data class Error(val reason: Throwable?): UserOnboardingProfileState()
-    data class Created(val userName: String): UserOnboardingProfileState()
+    data class NewlyCreated(val userName: String): UserOnboardingProfileState()
 }
 
 sealed class UserOnboardingImportState {

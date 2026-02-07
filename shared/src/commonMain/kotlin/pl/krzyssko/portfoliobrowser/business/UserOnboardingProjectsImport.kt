@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -27,6 +28,8 @@ import pl.krzyssko.portfoliobrowser.db.transfer.toDto
 import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
+import pl.krzyssko.portfoliobrowser.navigation.toRoute
+import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserOnboardingImportState
@@ -40,7 +43,7 @@ abstract class ImportSource(val source: Source) {
 class GitHubSource(repository: ProjectRepository) : ImportSource(Source.GitHub) {
 
     override var totalItems: Flow<Int> = flow {
-        repository.getTotalProjectsSize().getOrThrow()
+        emit(repository.fetchTotalProjectsSize().getOrThrow())
     }
 
     override val importFlow = flow {
@@ -68,6 +71,7 @@ class UserOnboardingProjectsImport(
     private val projectsList: MutableList<ProjectDto> = mutableListOf()
     private var importJob: Job? = null
     private var saveJob: Job? = null
+    //private var readJob: Job? = null
 
     fun start() = intent {
         if (!auth.isUserSignedIn) {
@@ -92,8 +96,12 @@ class UserOnboardingProjectsImport(
     }
 
     fun import(uiHandler: Any?, source: Source) = intent {
+        postSideEffect(UserSideEffects.NavigateTo(Route.ProviderImportOngoing))
         importProjects(uiHandler)
-        saveProjects(projectsList, source)
+        importJob?.join()
+        if (state !is UserOnboardingImportState.ImportError) {
+            saveProjects(projectsList, source)
+        }
     }
 
     fun cancel() = intent {
@@ -107,41 +115,69 @@ class UserOnboardingProjectsImport(
     @OptIn(OrbitExperimental::class)
     private suspend fun importProjects(uiHandler: Any?) = subIntent {
         with(GitHubSource(repository)) {
-            importJob = coroutineScope.launch {
-                importFlow
-                    .onStart {
-                        auth.startSignInFlow(
-                            uiHandler = uiHandler,
-                            providerType = Auth.LoginMethod.GitHub,
-                            refresh = true
-                        )
-                        projectsList.clear()
-                        totalItems.collect {
+            importJob = importFlow
+                .onStart {
+                    getLogging().debug("onStart start")
+                    reduce {
+                        UserOnboardingImportState.ImportStarted
+                    }
+                    getLogging().debug("onStart before login")
+                    auth.startSignInFlow(
+                        uiHandler = uiHandler,
+                        providerType = Auth.LoginMethod.GitHub,
+                        refresh = true
+                    )
+                    projectsList.clear()
+                    //readProjectsToImport(totalItems)
+                    totalItems
+                        .onEach {
+                            getLogging().debug("readProjectsToImport collected")
                             reduce {
                                 UserOnboardingImportState.ImportProgress(0, it, null)
                             }
                         }
+                        .collect()
+                    getLogging().debug("onStart after readProjectsToImport")
+                }
+                .map { it.toDto() }
+                .onEach {
+                    projectsList += it
+                    getLogging().debug("onEach")
+                    reduce {
+                        (state as UserOnboardingImportState.ImportProgress).copy(
+                            progress = projectsList.size,
+                            displayName = it.name
+                        )
                     }
-                    .map { it.toDto() }
-                    .onEach {
-                        projectsList += it
-                        reduce {
-                            (state as UserOnboardingImportState.ImportProgress).copy(
-                                progress = projectsList.size,
-                                displayName = it.name
-                            )
-                        }
+                }
+                .catch {
+                    reduce {
+                        UserOnboardingImportState.ImportError(it)
                     }
-                    .catch {
-                        reduce {
-                            UserOnboardingImportState.ImportError(it)
-                        }
-                    }
-                    .flowOn(dispatcherIO)
-                    .collect()
-            }
+                    postSideEffect(UserSideEffects.NavigateTo(it.toRoute()))
+                    postSideEffect(UserSideEffects.Error(it))
+                }
+                .flowOn(dispatcherIO)
+                .launchIn(coroutineScope)
         }
     }
+
+    //@OptIn(OrbitExperimental::class)
+    //private suspend fun readProjectsToImport(totalItemsFlow: Flow<Int>) = subIntent {
+    //    readJob = totalItemsFlow
+    //        .onEach {
+    //            getLogging().debug("readProjectsToImport collected")
+    //            reduce {
+    //                UserOnboardingImportState.ImportProgress(0, it, null)
+    //            }
+    //        }
+    //        .catch {
+    //            reduce {
+    //                UserOnboardingImportState.ImportError(it)
+    //            }
+    //        }
+    //        .launchIn(coroutineScope)
+    //}
 
     @OptIn(OrbitExperimental::class)
     private suspend fun saveProjects(projectsList: List<ProjectDto>, source: Source) = subIntent {

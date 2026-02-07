@@ -54,7 +54,6 @@ import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.AccountsMergeDialo
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ErrorDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ImportDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.PrepareProfile
-import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.PrepareProfileActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ProviderImportDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
@@ -82,7 +81,6 @@ import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.store.UserOnboardingImportState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
@@ -105,9 +103,9 @@ class MainActivity : ComponentActivity() {
                 //launch {
                 //    projectDetailsViewModel.stateFlow.collect { render(it) }
                 //}
-                launch {
-                    profileViewModel.projectsImportOnboardingStep.stateFlow.collect { render(it) }
-                }
+                //launch {
+                //    profileViewModel.projectsImportOnboardingStep.stateFlow.collect { render(it) }
+                //}
                 //launch {
                 //    profileViewModel.stateFlow.collect { render(it) }
                 //}
@@ -137,14 +135,14 @@ class MainActivity : ComponentActivity() {
     //    logging.debug("new state")
     //}
 
-    private fun render(state: UserOnboardingImportState) {
-        logging.debug("new state ${state::class}")
-        logging.debug("lifecycle=${lifecycle.currentState}")
-        when (state) {
-            is UserOnboardingImportState.ImportCompleted -> projectViewModel.refreshProjectsList()
-            else -> {}
-        }
-    }
+    //private fun render(state: UserOnboardingImportState) {
+    //    logging.debug("new state ${state::class}")
+    //    logging.debug("lifecycle=${lifecycle.currentState}")
+    //    when (state) {
+    //        is UserOnboardingImportState.ImportCompleted -> projectViewModel.refreshProjectsList()
+    //        else -> {}
+    //    }
+    //}
 
     companion object {
         const val TAG = "MainActivity"
@@ -278,13 +276,6 @@ fun AppContent(modifier: Modifier = Modifier,
 ) {
     val userState by profileViewModel.userState.collectAsState()
     val isSignedIn = userState.getOrNull() is User.Authenticated
-    //val error by merge(
-    //    //listViewModel.errorFlow,
-    //    detailsViewModel.errorFlow,
-    //    profileViewModel.errorFlow
-    //)
-    //    .catch { emit(it) }
-    //    .collectAsState(null)
     LaunchedEffect(Unit) {
         lifecycle.coroutineScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -429,7 +420,7 @@ fun AppContent(modifier: Modifier = Modifier,
                     })
                 }
                 composable<Route.Profile> {
-                    ProfileScreen(Modifier, profileViewModel.loginStore.stateFlow, portfolio = emptyList(), object : ProfileActions {
+                    ProfileScreen(Modifier, profileViewModel.profileStore.stateFlow, portfolio = emptyList(), object : ProfileActions {
                         override fun onLogin() {
                             navController.navigate(Route.Login(ViewType.Login))
                         }
@@ -499,10 +490,24 @@ fun AppContent(modifier: Modifier = Modifier,
                         title = "Import Projects",
                         description = "Import projects from a provider?",
                         onConfirm = {
-                            profileViewModel.openImportPage()
                             navController.popBackStack()
+                            profileViewModel.openImportPage()
                         },
                         onDismiss = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+                dialog<Route.ProviderImportOngoing> {
+                    ImportDialog(
+                        title = "Importing Projects",
+                        importState = profileViewModel.projectsImportOnboarding.stateFlow,
+                        onCancel = {
+                            profileViewModel.cancelImport()
+                            navController.popBackStack()
+                        },
+                        onComplete = {
+                            listViewModel.refreshProjectsList()
                             navController.popBackStack()
                         }
                     )
@@ -513,28 +518,13 @@ fun AppContent(modifier: Modifier = Modifier,
                         navController.popBackStack()
                     }
                 }
-                dialog<Route.ProviderImportOngoing> {
-                    ImportDialog(
-                        title = "Import Projects",
-                        importState = profileViewModel.projectsImportOnboardingStep.stateFlow,
-                        onCancel = {
-                            profileViewModel.cancelImport()
-                            navController.popBackStack()
-                        }
-                    )
-                }
                 dialog<Route.PrepareProfile> {
                     PrepareProfile(
                         title = "Preparing Profile",
-                        profileState = profileViewModel.profileStore.stateFlow,
-                        actions = object : PrepareProfileActions {
-                            override fun onDialogLoad() {
-                                profileViewModel.createProfile()
-                            }
-
-                            override fun onComplete() {
-                                navController.popBackStack()
-                            }
+                        profileState = profileViewModel.profileCreationOnboarding.stateFlow,
+                        onComplete = {
+                            profileViewModel.profileCreated()
+                            navController.popBackStack()
                         }
                     )
                 }

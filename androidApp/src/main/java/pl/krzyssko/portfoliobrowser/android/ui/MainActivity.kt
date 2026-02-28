@@ -52,6 +52,8 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.AccountsMergeDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ErrorDialog
+import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ImportDialog
+import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.PrepareProfile
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ProviderImportDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsActions
 import pl.krzyssko.portfoliobrowser.android.ui.compose.screen.DetailsScreen
@@ -79,9 +81,6 @@ import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.store.ProjectState
-import pl.krzyssko.portfoliobrowser.store.ProjectsImportState
-import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
@@ -98,15 +97,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                launch {
-                    projectViewModel.stateFlow.collect { render(it) }
-                }
-                launch {
-                    projectDetailsViewModel.stateFlow.collect { render(it) }
-                }
-                launch {
-                    profileViewModel.userOnboarding.stateFlow.collect { render(it) }
-                }
+                //launch {
+                //    projectViewModel.stateFlow.collect { render(it) }
+                //}
+                //launch {
+                //    projectDetailsViewModel.stateFlow.collect { render(it) }
+                //}
+                //launch {
+                //    profileViewModel.projectsImportOnboardingStep.stateFlow.collect { render(it) }
+                //}
                 //launch {
                 //    profileViewModel.stateFlow.collect { render(it) }
                 //}
@@ -128,22 +127,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun render(state: ProjectsListState) {
-        logging.debug("new state")
-    }
+    //private fun render(state: ProjectsListState) {
+    //    logging.debug("new state")
+    //}
 
-    private fun render(state: ProjectState) {
-        logging.debug("new state")
-    }
+    //private fun render(state: ProjectState) {
+    //    logging.debug("new state")
+    //}
 
-    private fun render(state: ProjectsImportState) {
-        logging.debug("new state ${state::class}")
-        logging.debug("lifecycle=${lifecycle.currentState}")
-        when (state) {
-            is ProjectsImportState.ImportCompleted -> projectViewModel.refreshProjectsList()
-            else -> {}
-        }
-    }
+    //private fun render(state: UserOnboardingImportState) {
+    //    logging.debug("new state ${state::class}")
+    //    logging.debug("lifecycle=${lifecycle.currentState}")
+    //    when (state) {
+    //        is UserOnboardingImportState.ImportCompleted -> projectViewModel.refreshProjectsList()
+    //        else -> {}
+    //    }
+    //}
 
     companion object {
         const val TAG = "MainActivity"
@@ -277,13 +276,6 @@ fun AppContent(modifier: Modifier = Modifier,
 ) {
     val userState by profileViewModel.userState.collectAsState()
     val isSignedIn = userState.getOrNull() is User.Authenticated
-    //val error by merge(
-    //    //listViewModel.errorFlow,
-    //    detailsViewModel.errorFlow,
-    //    profileViewModel.errorFlow
-    //)
-    //    .catch { emit(it) }
-    //    .collectAsState(null)
     LaunchedEffect(Unit) {
         lifecycle.coroutineScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -367,10 +359,11 @@ fun AppContent(modifier: Modifier = Modifier,
                     }
                 }, object : ImportActions {
                     override fun importFromSource(source: Source) {
-                        profileViewModel.startImportFromSource(context)
+                        profileViewModel.startImportFromSource(context, source)
                     }
 
                     override fun cancelImport() {
+                        profileViewModel.cancelImport()
                         navController.popBackStack()
                     }
                 })
@@ -427,7 +420,7 @@ fun AppContent(modifier: Modifier = Modifier,
                     })
                 }
                 composable<Route.Profile> {
-                    ProfileScreen(Modifier, profileViewModel.stateFlow, portfolio = emptyList(), object : ProfileActions {
+                    ProfileScreen(Modifier, profileViewModel.profileStore.stateFlow, portfolio = emptyList(), object : ProfileActions {
                         override fun onLogin() {
                             navController.navigate(Route.Login(ViewType.Login))
                         }
@@ -497,10 +490,24 @@ fun AppContent(modifier: Modifier = Modifier,
                         title = "Import Projects",
                         description = "Import projects from a provider?",
                         onConfirm = {
-                            profileViewModel.openImportPage()
                             navController.popBackStack()
+                            profileViewModel.openImportPage()
                         },
                         onDismiss = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+                dialog<Route.ProviderImportOngoing> {
+                    ImportDialog(
+                        title = "Importing Projects",
+                        importState = profileViewModel.projectsImportOnboarding.stateFlow,
+                        onCancel = {
+                            profileViewModel.cancelImport()
+                            navController.popBackStack()
+                        },
+                        onComplete = {
+                            listViewModel.refreshProjectsList()
                             navController.popBackStack()
                         }
                     )
@@ -510,6 +517,16 @@ fun AppContent(modifier: Modifier = Modifier,
                     ErrorDialog(route.title, route.message) {
                         navController.popBackStack()
                     }
+                }
+                dialog<Route.PrepareProfile> {
+                    PrepareProfile(
+                        title = "Preparing Profile",
+                        profileState = profileViewModel.profileCreationOnboarding.stateFlow,
+                        onComplete = {
+                            profileViewModel.profileCreated()
+                            navController.popBackStack()
+                        }
+                    )
                 }
             }
         }

@@ -52,6 +52,10 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }
 
+    override suspend fun fetchTotalProjectsSize(): Result<Int> {
+        return Result.failure(FirestoreException(throwable = NotImplementedError()))
+    }
+
     override suspend fun fetchStack(name: String): Result<List<Stack>> {
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }

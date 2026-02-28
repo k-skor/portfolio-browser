@@ -31,12 +31,22 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
+    override suspend fun fetchTotalProjectsSize(): Result<Int> {
+        return runCatching {
+            val user = api.getUser()
+            user?.let {
+                it.totalPublicRepos + it.totalPrivateRepos
+            } ?: throw GitHubRepositoryException("User not found.")
+        }
+    }
+
     override suspend fun fetchStack(name: String): Result<List<Stack>> {
         return runCatching {
             val response = api.getRepoLanguages(name)
             val sum =
                 response.map { it.value }
-                    .reduce { sum, lines -> sum + lines }
+                    .takeIf { it.isNotEmpty() }
+                    ?.reduce { sum, lines -> sum + lines } ?: 0
 
             response.map {
                 Stack(
@@ -83,7 +93,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
 
     override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
         return runCatching {
-            val response = api.getRepos(nextPageKey.toString())
+            val response = api.getRepos(nextPageKey?.toString())
             response.also {
                 gitHubPagingState = GitHubPagingState(
                     paging = Paging(

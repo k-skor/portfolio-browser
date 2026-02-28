@@ -1,12 +1,17 @@
 package pl.krzyssko.portfoliobrowser.auth
 
 import pl.krzyssko.portfoliobrowser.data.Account
+import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 
 class AuthInvalidUserException(throwable: Throwable?) : Exception("Invalid user.", throwable)
 class AuthPasswordTooWeakException(throwable: Throwable?) : Exception("Password is too weak.", throwable)
 class AuthAccountExistsException(throwable: Throwable) : Exception("Cannot link accounts because the account already exists.", throwable)
+
+expect val FirebaseProviderId: String
+expect val GitHubProviderId: String
+expect val EmailProviderId: String
 
 abstract class Auth(protected val config: Configuration) {
 
@@ -55,7 +60,7 @@ abstract class Auth(protected val config: Configuration) {
 
     abstract val isUserSignedIn: Boolean
     abstract val userAccount: Account?
-    abstract val providerData: List<pl.krzyssko.portfoliobrowser.data.Provider>?
+    abstract val providerData: List<Provider>?
     //abstract var accessToken: String?
     abstract val hasGitHubProvider: Boolean
     abstract val hasEmailProvider: Boolean

@@ -133,17 +133,12 @@ fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: L
 
 @Composable
 fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
-    //val profile by profileState.collectAsState()
-    //profile?.let {
-    //    ProfileContent(modifier, profile!!, portfolio, actions)
-    //} ?: ProfileEmpty(modifier, actions)
     val state by stateFlow.collectAsState()
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
-        when {
-            state is ProfileState.Authenticated && (state as ProfileState.Authenticated).user is User.Guest -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
-            state is ProfileState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.ProfileCreated).profile, portfolio, actions)
-            state is ProfileState.Error -> LoadingError()
-            else -> Loading()
+        when (state) {
+            is ProfileState.Initialized -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
+            is ProfileState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.ProfileCreated).profile, portfolio, actions)
+            is ProfileState.Error -> LoadingError()
         }
     }
 }
@@ -152,7 +147,7 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
 //    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
 //)
 private val fakeUser = User.Guest
-private val fakeProfile = Profile(
+val fakeProfile = Profile(
     firstName = "Krzysztof",
     lastName = "Skorcz",
     alias = "k-skor",
@@ -168,7 +163,6 @@ fun ProfilePreview() {
     AppTheme {
         ProfileScreen(
             stateFlow = MutableStateFlow(ProfileState.ProfileCreated(fakeProfile)),
-            //profileState = MutableStateFlow(fakeProfile),
             portfolio = emptyList(),
             actions = object : ProfileActions {
                 override fun onLogin() {

@@ -17,6 +17,9 @@ import pl.krzyssko.portfoliobrowser.api.ApiRequestException
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
+import pl.krzyssko.portfoliobrowser.business.ProfileEdition
+import pl.krzyssko.portfoliobrowser.business.UserLogin
+import pl.krzyssko.portfoliobrowser.business.UserLoginAccountLink
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -31,8 +34,8 @@ import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
-//val NAMED_LOGIN = named("login")
-//val NAMED_PROFILE = named("profile")
+val NAMED_LOGIN = named("login")
+val NAMED_PROFILE = named("profile")
 val NAMED_GITHUB = named("github")
 val NAMED_FIRESTORE = named("firestore")
 
@@ -74,27 +77,29 @@ fun sharedAppModule() = module {
             initialState
         )
     }
-    //factory<OrbitStore<LoginState>>(NAMED_LOGIN) { (coroutineScope: CoroutineScope, initialState: LoginState) ->
-    //    OrbitStore(
-    //        coroutineScope,
-    //        Dispatchers.IO,
-    //        initialState
-    //    )
-    //}
-    //factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
-    //    UserLoginAccountLink(
-    //        coroutineScope,
-    //        Dispatchers.IO,
-    //        get(),
-    //        get(),
-    //        get(NAMED_GITHUB)
-    //    )
-    //}
-    //factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
-    //    OrbitStore(
-    //        coroutineScope,
-    //        Dispatchers.IO,
-    //        initialState
-    //    )
-    //}
+    factory<UserLogin>(NAMED_LOGIN) { (coroutineScope: CoroutineScope) ->
+        UserLogin(
+            coroutineScope,
+            Dispatchers.IO,
+            get(),
+            get(),
+            get(NAMED_GITHUB)
+        )
+    }
+    factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
+        UserLoginAccountLink(
+            coroutineScope,
+            Dispatchers.IO,
+            get(),
+            get(),
+            get(NAMED_GITHUB)
+        )
+    }
+    factory<ProfileEdition>(NAMED_PROFILE) { (coroutineScope: CoroutineScope) ->
+        ProfileEdition(
+            coroutineScope,
+            Dispatchers.IO,
+            get()
+        )
+    }
 }

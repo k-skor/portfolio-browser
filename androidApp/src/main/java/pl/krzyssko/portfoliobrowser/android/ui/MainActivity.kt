@@ -45,7 +45,6 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
@@ -81,9 +80,8 @@ import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
-import pl.krzyssko.portfoliobrowser.util.Response
-import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 private val logging = getLogging()
 
@@ -175,8 +173,9 @@ fun PortfolioApp(
         },
         bottomBar =
             {
-            val userState by profileViewModel.userState.collectAsState()
-            if (userState.getOrNull() != null) {
+            val userState by profileViewModel.userLogin.stateFlow.collectAsState()
+            if (userState is LoginState.Authenticated) {
+                val profile by profileViewModel.profileState.collectAsState()
                 NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
                     val navBackStackEntry by navController.currentBackStackEntryAsState()
                     val currentDestination = navBackStackEntry?.destination
@@ -192,10 +191,7 @@ fun PortfolioApp(
                                 }
                                 when (topLevelRoute.route) {
                                     Route.Profile -> {
-                                        val profile by profileViewModel.profileState
-                                            .filter { it is Response.Ok }
-                                            .collectAsState(Response.Pending)
-                                        profile.getOrNull()?.avatarUrl?.let {
+                                        (profile as? Profile.Loaded)?.avatarUrl?.let {
                                             Avatar(
                                                 Modifier.size(30.dp),
                                                 it
@@ -275,7 +271,7 @@ fun AppContent(modifier: Modifier = Modifier,
                contentPaddingValues: PaddingValues
 ) {
     val userState by profileViewModel.userState.collectAsState()
-    val isSignedIn = userState.getOrNull() is User.Authenticated
+    val isSignedIn = userState is User.Authenticated
     LaunchedEffect(Unit) {
         lifecycle.coroutineScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -420,7 +416,7 @@ fun AppContent(modifier: Modifier = Modifier,
                     })
                 }
                 composable<Route.Profile> {
-                    ProfileScreen(Modifier, profileViewModel.profileStore.stateFlow, portfolio = emptyList(), object : ProfileActions {
+                    ProfileScreen(Modifier, profileViewModel.profileEdition.stateFlow, portfolio = emptyList(), object : ProfileActions {
                         override fun onLogin() {
                             navController.navigate(Route.Login(ViewType.Login))
                         }

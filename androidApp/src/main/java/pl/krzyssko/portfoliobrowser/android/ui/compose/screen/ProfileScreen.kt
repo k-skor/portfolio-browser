@@ -60,7 +60,7 @@ fun ProfileEmpty(modifier: Modifier = Modifier, actions: ProfileActions) {
 }
 
 @Composable
-fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: List<Project>, actions: ProfileActions) {
+fun ProfileContent(modifier: Modifier = Modifier, profile: Profile.Loaded, portfolio: List<Project>, actions: ProfileActions) {
     Box {
         Column(
             modifier = modifier
@@ -137,7 +137,7 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         when (state) {
             is ProfileState.Initialized -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
-            is ProfileState.ProfileCreated -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.ProfileCreated).profile, portfolio, actions)
+            is ProfileState.Loaded -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.Loaded).profile, portfolio, actions)
             is ProfileState.Error -> LoadingError()
         }
     }
@@ -147,7 +147,7 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
 //    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
 //)
 private val fakeUser = User.Guest
-val fakeProfile = Profile(
+val fakeProfile = Profile.Loaded(
     firstName = "Krzysztof",
     lastName = "Skorcz",
     alias = "k-skor",
@@ -162,7 +162,7 @@ val fakeProfile = Profile(
 fun ProfilePreview() {
     AppTheme {
         ProfileScreen(
-            stateFlow = MutableStateFlow(ProfileState.ProfileCreated(fakeProfile)),
+            stateFlow = MutableStateFlow(ProfileState.Loaded(fakeProfile)),
             portfolio = emptyList(),
             actions = object : ProfileActions {
                 override fun onLogin() {

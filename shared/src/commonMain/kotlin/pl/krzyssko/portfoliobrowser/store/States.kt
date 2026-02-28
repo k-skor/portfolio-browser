@@ -39,7 +39,7 @@ sealed class LoginState {
 sealed class ProfileState {
     data object Initialized : ProfileState()
     data class Error(val reason: Throwable?): ProfileState()
-    data class ProfileCreated(val profile: Profile): ProfileState()
+    data class Loaded(val profile: Profile.Loaded): ProfileState()
 }
 
 sealed class UserOnboardingProfileState {

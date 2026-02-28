@@ -147,12 +147,12 @@ val profileDtoValidation = Validation<ProfileDto> {
     ProfileDto::experience required {}
 }
 
-fun ProfileDto.toProfile(): Profile {
+fun ProfileDto.toProfile(): Profile.Loaded {
     val validationResult = profileDtoValidation(this)
     if (validationResult.errors.isNotEmpty()) {
         throw IllegalArgumentException("Invalid ProfileDto: ${validationResult.errors}")
     }
-    return Profile(
+    return Profile.Loaded(
         firstName = this.firstName ?: throw IllegalArgumentException("firstName is required"),
         lastName = this.lastName ?: throw IllegalArgumentException("lastName is required"),
         alias = this.alias,
@@ -176,7 +176,7 @@ fun ProfileDto.toProfile(): Profile {
     )
 }
 
-fun Profile.toDto(): ProfileDto {
+fun Profile.Loaded.toDto(): ProfileDto {
     return ProfileDto(
         firstName = this.firstName,
         lastName = this.lastName,

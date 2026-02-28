@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.business.ProfileEdition
@@ -28,6 +30,8 @@ import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
+import pl.krzyssko.portfoliobrowser.di.NAMED_LOGIN
+import pl.krzyssko.portfoliobrowser.di.NAMED_PROFILE
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
@@ -48,15 +52,16 @@ class ProfileViewModel(
 
     lateinit var projectsImportOnboarding: UserOnboardingProjectsImport
     lateinit var profileCreationOnboarding: UserOnboardingProfileStubCreation
-    lateinit var accountLink: UserLoginAccountLink
-    val userLogin: UserLogin = UserLogin(
-        viewModelScope,
-        Dispatchers.IO,
-        auth,
-        config,
-        repository
-    )
-    lateinit var profileEdition: ProfileEdition
+    
+    val accountLink: UserLoginAccountLink by inject {
+        parametersOf(viewModelScope)
+    }
+    val userLogin: UserLogin by inject(NAMED_LOGIN) {
+        parametersOf(viewModelScope)
+    }
+    val profileEdition: ProfileEdition by inject(NAMED_PROFILE) {
+        parametersOf(viewModelScope)
+    }
 
     private val _sideEffectsFlow = MutableSharedFlow<UserSideEffects>()
     val sideEffectsFlow: SharedFlow<UserSideEffects> = _sideEffectsFlow
@@ -127,24 +132,12 @@ class ProfileViewModel(
                             firestore
                         )
                         handleProfileCreationOnboarding()
-                        profileEdition = ProfileEdition(
-                            viewModelScope,
-                            Dispatchers.IO,
-                            firestore
-                        )
                         handleProfileState()
                     }
                 }
 
                 is LoginState.Error -> {
                     if (it.reason is AuthAccountExistsException) {
-                        accountLink = UserLoginAccountLink(
-                            viewModelScope,
-                            Dispatchers.IO,
-                            auth,
-                            config,
-                            repository
-                        )
                         handleAccountLink()
                     }
                 }

@@ -29,6 +29,7 @@ import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
+import pl.krzyssko.portfoliobrowser.repository.CategoriesRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserOnboardingImportState
@@ -39,7 +40,7 @@ abstract class ImportSource(val source: Source) {
     abstract val importFlow: Flow<Project>
 }
 
-class GitHubSource(repository: ProjectRepository) : ImportSource(Source.GitHub) {
+class GitHubSource(repository: ProjectRepository, categoriesRepository: CategoriesRepository) : ImportSource(Source.GitHub) {
 
     override var totalItems: Flow<Int> = flow {
         emit(repository.fetchTotalProjectsSize().getOrThrow())
@@ -51,7 +52,7 @@ class GitHubSource(repository: ProjectRepository) : ImportSource(Source.GitHub) 
             val page = repository.nextPage(repository.pagingState.paging.nextPageKey)
             val projects = page.getOrThrow()
             projects.forEach { project ->
-                val stack = repository.fetchStack(project.name)
+                val stack = categoriesRepository.fetchStack(project.name)
                 emit(project.copy(stack = stack.getOrThrow()))
             }
             isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
@@ -67,6 +68,7 @@ class UserOnboardingProjectsImport(
 ) : KoinComponent, OrbitStore<UserOnboardingImportState>(coroutineScope, dispatcherIO, UserOnboardingImportState.Initialized) {
 
     private val repository: ProjectRepository by inject(NAMED_GITHUB)
+    private val categoriesRepository: CategoriesRepository by inject(NAMED_GITHUB)
     private val projectsList: MutableList<ProjectDto> = mutableListOf()
     private var importJob: Job? = null
     private var saveJob: Job? = null
@@ -112,7 +114,7 @@ class UserOnboardingProjectsImport(
 
     @OptIn(OrbitExperimental::class)
     private suspend fun importProjects(uiHandler: Any?) = subIntent {
-        with(GitHubSource(repository)) {
+        with(GitHubSource(repository, categoriesRepository)) {
             importJob = importFlow
                 .onStart {
                     reduce {

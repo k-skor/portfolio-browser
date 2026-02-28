@@ -72,7 +72,7 @@ import pl.krzyssko.portfoliobrowser.android.ui.navigation.topLevelRoutes
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
-import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
+import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectsListViewModel
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
@@ -86,7 +86,7 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 private val logging = getLogging()
 
 class MainActivity : ComponentActivity() {
-    private val projectViewModel: ProjectViewModel by viewModel()
+    private val projectsListViewModel: ProjectsListViewModel by viewModel()
     private val projectDetailsViewModel: ProjectDetailsViewModel by viewModel()
     private val profileViewModel: ProfileViewModel by viewModel()
 
@@ -116,7 +116,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     context = this,
                     lifecycle = lifecycle,
-                    listViewModel = projectViewModel,
+                    listViewModel = projectsListViewModel,
                     detailsViewModel = projectDetailsViewModel,
                     profileViewModel = profileViewModel,
                     navController = rememberNavController()
@@ -153,7 +153,7 @@ fun PortfolioApp(
     modifier: Modifier = Modifier,
     context: Context,
     lifecycle: Lifecycle,
-    listViewModel: ProjectViewModel,
+    listViewModel: ProjectsListViewModel,
     detailsViewModel: ProjectDetailsViewModel,
     profileViewModel: ProfileViewModel,
     navController: NavHostController
@@ -265,7 +265,7 @@ fun AppContent(modifier: Modifier = Modifier,
                context: Context,
                lifecycle: Lifecycle,
                navController: NavHostController,
-               listViewModel: ProjectViewModel,
+               listViewModel: ProjectsListViewModel,
                detailsViewModel: ProjectDetailsViewModel,
                profileViewModel: ProfileViewModel,
                contentPaddingValues: PaddingValues

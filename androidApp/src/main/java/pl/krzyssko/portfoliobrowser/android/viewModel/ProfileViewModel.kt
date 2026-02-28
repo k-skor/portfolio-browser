@@ -30,8 +30,6 @@ import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
-import pl.krzyssko.portfoliobrowser.di.NAMED_LOGIN
-import pl.krzyssko.portfoliobrowser.di.NAMED_PROFILE
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
@@ -56,10 +54,10 @@ class ProfileViewModel(
     val accountLink: UserLoginAccountLink by inject {
         parametersOf(viewModelScope)
     }
-    val userLogin: UserLogin by inject(NAMED_LOGIN) {
+    val userLogin: UserLogin by inject {
         parametersOf(viewModelScope)
     }
-    val profileEdition: ProfileEdition by inject(NAMED_PROFILE) {
+    val profileEdition: ProfileEdition by inject {
         parametersOf(viewModelScope)
     }
 

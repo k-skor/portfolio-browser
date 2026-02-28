@@ -12,7 +12,8 @@ class GitHubRepositoryException(message: String? = null, throwable: Throwable? =
 
 class GitHubPagingState(override val pageSize: Int = 10, override val paging: Paging): PagingState
 
-class GitHubProjectRepository(private val api: Api, private val auth: Auth) : ProjectRepository {
+class GitHubProjectRepository(private val api: Api, private val auth: Auth) : ProjectRepository,
+    UserRepository, CategoriesRepository {
 
     private var gitHubPagingState = GitHubPagingState(paging = Paging())
     override val pagingState: GitHubPagingState

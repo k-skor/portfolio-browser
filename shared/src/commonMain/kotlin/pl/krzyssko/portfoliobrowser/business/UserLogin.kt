@@ -21,6 +21,7 @@ import pl.krzyssko.portfoliobrowser.navigation.toRoute
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserFetchException
@@ -32,7 +33,8 @@ class UserLogin(
     dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
     private val config: Configuration,
-    private val repository: ProjectRepository
+    private val repository: ProjectRepository,
+    private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, dispatcherIO, LoginState.Initialized) {
 
     val userState: SharedFlow<Response<User>> = stateFlow
@@ -114,7 +116,7 @@ class UserLogin(
         }
 
         flow {
-            emit(repository.fetchUser())
+            emit(userRepository.fetchUser())
         }
             .flowOn(dispatcherIO)
             .onStart {

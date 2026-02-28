@@ -3,7 +3,6 @@ package pl.krzyssko.portfoliobrowser.repository
 import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.QueryPagedResult
 import pl.krzyssko.portfoliobrowser.db.transfer.toProject
@@ -48,15 +47,7 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
     //    )
     //}
 
-    override suspend fun fetchUser(): Result<String> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
-    }
-
     override suspend fun fetchTotalProjectsSize(): Result<Int> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
-    }
-
-    override suspend fun fetchStack(name: String): Result<List<Stack>> {
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }
 

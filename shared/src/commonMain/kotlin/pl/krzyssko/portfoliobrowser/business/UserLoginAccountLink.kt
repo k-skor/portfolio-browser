@@ -16,7 +16,7 @@ import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
-import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.AccountMergeState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserFetchException
@@ -27,7 +27,7 @@ class UserLoginAccountLink(
     dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
     private val config: Configuration,
-    private val repository: ProjectRepository
+    private val repository: UserRepository
 ) : KoinComponent, OrbitStore<AccountMergeState>(coroutineScope, dispatcherIO, AccountMergeState.Idle) {
 
     init {

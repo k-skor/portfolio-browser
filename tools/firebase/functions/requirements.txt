@@ -1,0 +1,9 @@
+firebase_functions~=0.1.0
+azure-identity==1.25.1
+azure-search-documents==11.6.0
+polyglot==16.7.4
+six
+numpy
+pyicu
+pycld2
+morfessor

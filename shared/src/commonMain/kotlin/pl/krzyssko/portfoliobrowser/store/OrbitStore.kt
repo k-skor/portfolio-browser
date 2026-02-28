@@ -153,7 +153,6 @@ fun OrbitStore<ProjectState>.saveProject(
 
 @OptIn(OrbitExperimental::class)
 fun OrbitStore<LoginState>.initAuth(auth: Auth) = intent {
-    auth.initAuth()
     if (auth.isUserSignedIn) {
         val account = auth.userAccount!!
         val user = if (account.anonymous) {

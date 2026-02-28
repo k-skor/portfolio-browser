@@ -1,0 +1,70 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    match /users/{userId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
+
+      match /projects/{projectId} {
+
+        function getUser(res) {
+          return res.data.createdBy;
+        }
+
+        function isOwner() {
+        	return getUser(request.resource) == getUser(resource)
+        }
+
+        // allow read: if (request.auth != null && request.auth.uid == userId) || resource.data.public == true;
+        allow create: if request.auth != null && request.auth.uid == userId;
+        allow update, delete: if request.auth != null && isOwner();
+      }
+      
+      match /sync_data/{syncId} {
+        allow read, write: if true;
+      }
+    }
+    
+//      match /projects/{projectId} {
+
+//        function getRole() {
+//          return get(/databases/$(database)/documents/projects/$(projectId)/private_data/private).data.roles[request.auth.uid]
+//        }
+      
+//       function hasRoles(roles) {
+//       	return getRole() in roles
+//       }
+
+//       allow create: if request.auth != null;
+//       allow read: if (request.auth != null && hasRoles(["reader", "editor", "owner"])) || resource.data.public == true;
+//       allow update: if request.auth != null && hasRoles(["editor", "owner"]);
+//       allow delete: if request.auth != null && hasRoles(["owner"]);
+//     }
+    
+    // match /users/{userId}/projects/{projectId} {
+    //   allow read: if (request.auth != null && request.auth.uid == userId) || resource.data.public == true;
+    // }
+    
+    match /{path=**}/projects/{projectId} {
+    
+      // function getRole(userId) {
+      //   return get(/databases/$(database)/documents/users/$(userId)/projects/$(projectId)/private_data/access).data.roles[userId]
+      // }
+      
+      // function hasRoles(roles, userId) {
+      // 	return getRole(userId) in roles
+      // }
+     
+      allow read: if (request.auth != null && (request.auth.uid == resource.data.createdBy)) || resource.data.public == true; // || hasRoles(["Editor"], request.auth.uid)
+    }
+    
+    // Debug rule
+    match /{document=**} {
+      allow read: if true;
+      allow write: if false;
+    }
+    
+  }
+}

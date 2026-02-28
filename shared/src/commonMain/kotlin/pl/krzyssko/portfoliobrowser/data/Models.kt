@@ -96,19 +96,34 @@ sealed class User {
     ) : User()
 }
 
-data class Profile(
-    val firstName: String,
-    val lastName: String,
-    val alias: String? = null,
-    val role: List<ProfileRole> = listOf(ProfileRole.Other),
-    val avatarUrl: String? = null,
-    val title: String? = null,
-    val about: String? = null,
-    val assets: List<String> = emptyList(),
-    val experience: Int,
-    val location: String,
-    val contact: List<Contact> = emptyList()
-)
+sealed class Profile {
+    data object Stub : Profile()
+    data class Loaded(
+        val firstName: String,
+        val lastName: String,
+        val alias: String? = null,
+        val role: List<ProfileRole> = listOf(ProfileRole.Other),
+        val avatarUrl: String? = null,
+        val title: String? = null,
+        val about: String? = null,
+        val assets: List<String> = emptyList(),
+        val experience: Int,
+        val location: String,
+        val contact: List<Contact> = emptyList()
+    ) : Profile()
+
+    companion object {
+        val DEFAULT = Loaded(
+            firstName = "Krzysztof",
+            lastName = "Skorcz",
+            title = "apps for Android",
+            role = listOf(ProfileRole.Developer),
+            about = "I'm a developer...",
+            experience = 10,
+            location = "Poznań, Poland",
+        )
+    }
+}
 
 fun Project.canEdit(uid: String): Boolean = createdBy == uid
 fun Int.toExperience(): String = when {

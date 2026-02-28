@@ -17,7 +17,6 @@ import pl.krzyssko.portfoliobrowser.api.ApiRequestException
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
-import pl.krzyssko.portfoliobrowser.business.UserLoginAccountLink
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -25,17 +24,15 @@ import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.FirestoreProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
-import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
-import pl.krzyssko.portfoliobrowser.store.ProfileState
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 val NAMED_LIST = named("list")
 val NAMED_DETAILS = named("details")
-val NAMED_LOGIN = named("login")
-val NAMED_PROFILE = named("profile")
+//val NAMED_LOGIN = named("login")
+//val NAMED_PROFILE = named("profile")
 val NAMED_GITHUB = named("github")
 val NAMED_FIRESTORE = named("firestore")
 
@@ -77,27 +74,27 @@ fun sharedAppModule() = module {
             initialState
         )
     }
-    factory<OrbitStore<LoginState>>(NAMED_LOGIN) { (coroutineScope: CoroutineScope, initialState: LoginState) ->
-        OrbitStore(
-            coroutineScope,
-            Dispatchers.IO,
-            initialState
-        )
-    }
-    factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
-        UserLoginAccountLink(
-            coroutineScope,
-            Dispatchers.IO,
-            get(),
-            get(),
-            get(NAMED_GITHUB)
-        )
-    }
-    factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
-        OrbitStore(
-            coroutineScope,
-            Dispatchers.IO,
-            initialState
-        )
-    }
+    //factory<OrbitStore<LoginState>>(NAMED_LOGIN) { (coroutineScope: CoroutineScope, initialState: LoginState) ->
+    //    OrbitStore(
+    //        coroutineScope,
+    //        Dispatchers.IO,
+    //        initialState
+    //    )
+    //}
+    //factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
+    //    UserLoginAccountLink(
+    //        coroutineScope,
+    //        Dispatchers.IO,
+    //        get(),
+    //        get(),
+    //        get(NAMED_GITHUB)
+    //    )
+    //}
+    //factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->
+    //    OrbitStore(
+    //        coroutineScope,
+    //        Dispatchers.IO,
+    //        initialState
+    //    )
+    //}
 }

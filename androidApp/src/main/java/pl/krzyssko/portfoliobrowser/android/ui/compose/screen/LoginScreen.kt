@@ -41,8 +41,6 @@ import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
-import pl.krzyssko.portfoliobrowser.util.Response
-import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 interface LoginActions {
     fun onGitHubSignIn()
@@ -184,14 +182,14 @@ fun LoginContent(modifier: Modifier = Modifier, viewType: ViewType, isSignedIn: 
 fun LoginScreen(
     modifier: Modifier = Modifier,
     viewType: ViewType,
-    userFlow: StateFlow<Response<User>>,
+    userFlow: StateFlow<User>,
     actions: LoginActions,
     welcomeActions: WelcomeActions,
     importActions: ImportActions
 ) {
     val user by userFlow.collectAsState()
     //val isSignedIn = user is User.Authenticated
-    val isSignedIn = user.getOrNull() is User.Authenticated
+    val isSignedIn = user is User.Authenticated
     //Box(
     //    modifier = modifier
     //) {
@@ -360,7 +358,7 @@ private val fakeUser = User.Authenticated(
 @Composable
 fun LoginPreview() {
     AppTheme {
-        val stateFlow = MutableStateFlow(Response.Ok(User.Guest))
+        val stateFlow = MutableStateFlow(User.Guest)
         LoginScreen(Modifier.fillMaxSize(), ViewType.SourceSelection, stateFlow, object : LoginActions {
             override fun onGitHubSignIn() {
                 TODO("Not yet implemented")

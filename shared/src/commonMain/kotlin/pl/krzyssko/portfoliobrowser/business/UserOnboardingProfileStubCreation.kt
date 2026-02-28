@@ -7,7 +7,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import pl.krzyssko.portfoliobrowser.data.Profile
-import pl.krzyssko.portfoliobrowser.data.ProfileRole
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
@@ -16,7 +15,7 @@ import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserOnboardingProfileState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 
-class UserOnboardingProfileInitialization(
+class UserOnboardingProfileStubCreation(
     coroutineScope: CoroutineScope,
     dispatcherIO: CoroutineDispatcher,
     private val user: User.Authenticated,
@@ -43,30 +42,15 @@ class UserOnboardingProfileInitialization(
         }
     }
 
-    fun create(
-        firstName: String = "Krzysztof",
-        lastName: String = "Skorcz",
-        title: String = "apps for Android",
-        role: List<ProfileRole> = listOf(ProfileRole.Developer),
-        about: String = "I'm a developer...",
-        experience: Int = 10,
-        location: String = "Poznań, Poland",
-    ) = intent {
+    fun create() = intent {
         val userId = user.account.id
         val alias = user.identityProviders.firstNotNullOfOrNull { it.name }
         val avatarUrl = user.identityProviders.firstNotNullOfOrNull { it.photoUrl }
         val hasUser = profileExists(userId)
         if (!hasUser) {
-            val profile = Profile(
-                firstName = firstName,
-                lastName = lastName,
+            val profile = Profile.DEFAULT.copy(
                 alias = alias,
-                title = title,
-                role = role,
-                avatarUrl = avatarUrl,
-                about = about,
-                experience = experience,
-                location = location,
+                avatarUrl = avatarUrl
             )
             val result = runCatching {
                 withContext(dispatcherIO) {

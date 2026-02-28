@@ -20,7 +20,7 @@ val androidAppModule = module {
         ProjectDetailsViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(), get())
     }
     viewModel {
-        ProfileViewModel(get(qualifier = NAMED_GITHUB), get(), get(), get(), get())
+        ProfileViewModel(get(qualifier = NAMED_GITHUB), get(), get(), get(), get(),)
     }
     single<Configuration> { getConfiguration(androidContext()) }
 }

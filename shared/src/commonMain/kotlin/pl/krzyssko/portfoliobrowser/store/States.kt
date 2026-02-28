@@ -50,6 +50,13 @@ sealed class UserOnboardingProfileState {
     data class NewlyCreated(val userName: String): UserOnboardingProfileState()
 }
 
+sealed class AccountMergeState {
+    data object Idle : AccountMergeState()
+    data object InProgress : AccountMergeState()
+    data class Success(val user: User.Authenticated) : AccountMergeState()
+    data class Error(val reason: Throwable?) : AccountMergeState()
+}
+
 sealed class UserOnboardingImportState {
     data object Initialized: UserOnboardingImportState()
     data object SourceAvailable: UserOnboardingImportState()

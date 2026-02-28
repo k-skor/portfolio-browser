@@ -17,6 +17,7 @@ import pl.krzyssko.portfoliobrowser.api.ApiRequestException
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
+import pl.krzyssko.portfoliobrowser.business.UserLoginAccountLink
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -81,6 +82,15 @@ fun sharedAppModule() = module {
             coroutineScope,
             Dispatchers.IO,
             initialState
+        )
+    }
+    factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
+        UserLoginAccountLink(
+            coroutineScope,
+            Dispatchers.IO,
+            get(),
+            get(),
+            get(NAMED_GITHUB)
         )
     }
     factory<OrbitStore<ProfileState>>(NAMED_PROFILE) { (coroutineScope: CoroutineScope, initialState: ProfileState) ->

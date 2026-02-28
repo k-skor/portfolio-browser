@@ -20,6 +20,8 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
+import pl.krzyssko.portfoliobrowser.business.UserLoginAccountLink
 import pl.krzyssko.portfoliobrowser.business.UserOnboardingProfileInitialization
 import pl.krzyssko.portfoliobrowser.business.UserOnboardingProjectsImport
 import pl.krzyssko.portfoliobrowser.data.Profile
@@ -31,6 +33,7 @@ import pl.krzyssko.portfoliobrowser.di.NAMED_PROFILE
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.store.AccountMergeState
 import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProfileState
@@ -39,11 +42,11 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.store.authenticateAnonymous
 import pl.krzyssko.portfoliobrowser.store.authenticateWithEmail
 import pl.krzyssko.portfoliobrowser.store.authenticateWithGitHub
+import pl.krzyssko.portfoliobrowser.store.completeAccountLink
 import pl.krzyssko.portfoliobrowser.store.createAccount
 import pl.krzyssko.portfoliobrowser.store.deleteAccount
 import pl.krzyssko.portfoliobrowser.store.fetchUserProfile
 import pl.krzyssko.portfoliobrowser.store.initAuth
-import pl.krzyssko.portfoliobrowser.store.linkWithGitHub
 import pl.krzyssko.portfoliobrowser.store.resetAuth
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
@@ -72,6 +75,7 @@ class ProfileViewModel(
 
     lateinit var projectsImportOnboarding: UserOnboardingProjectsImport
     lateinit var profileCreationOnboarding: UserOnboardingProfileInitialization
+    lateinit var accountLinking: UserLoginAccountLink
 
     private val _sideEffectsFlow = MutableSharedFlow<UserSideEffects>()
     val sideEffectsFlow: SharedFlow<UserSideEffects> = _sideEffectsFlow
@@ -102,8 +106,8 @@ class ProfileViewModel(
         // TODO: move to store initializer block
         loginStore.initAuth(auth)
 
-        handleLoginOnboarding()
-        handleProfileOnboarding()
+        handleLoginState()
+        handleProfileState()
     }
 
     fun createUser(activity: Context, login: String, password: String) {
@@ -116,17 +120,14 @@ class ProfileViewModel(
 
     fun authenticateUser(activity: Context, refreshOnly: Boolean = false, forceSignIn: Boolean = false) {
         loginStore.authenticateWithGitHub(activity, auth, config, repository, refreshOnly, forceSignIn)
-
     }
 
     fun authenticateUser(activity: Context, login: String, password: String) {
         loginStore.authenticateWithEmail(activity, auth, login, password, config)
-
     }
 
     fun linkUser(activity: Context) {
-        loginStore.linkWithGitHub(activity, auth, config, repository)
-
+        accountLinking.link(activity)
     }
 
     fun resetAuthentication() {
@@ -151,19 +152,37 @@ class ProfileViewModel(
         projectsImportOnboarding.cancel()
     }
 
-    private fun handleLoginOnboarding() {
+    private fun handleLoginState() {
         loginStore.stateFlow.onEach {
-            when {
-                it is LoginState.Authenticated && it.user is User.Authenticated -> {
-                    profileCreationOnboarding = UserOnboardingProfileInitialization(
-                        viewModelScope,
-                        Dispatchers.IO,
-                        it.user as User.Authenticated,
-                        firestore
-                    )
-                    publishSideEffects(profileCreationOnboarding.sideEffectFlow)
-                    handleProfileCreationOnboarding()
+            when (it) {
+                is LoginState.Authenticated -> {
+                    if (it.user is User.Authenticated) {
+                        profileCreationOnboarding = UserOnboardingProfileInitialization(
+                            viewModelScope,
+                            Dispatchers.IO,
+                            it.user as User.Authenticated,
+                            firestore
+                        )
+                        publishSideEffects(profileCreationOnboarding.sideEffectFlow)
+                        handleProfileCreationOnboarding()
+                    }
                 }
+
+                is LoginState.Error -> {
+                    if (it.reason is AuthAccountExistsException) {
+                        accountLinking = UserLoginAccountLink(
+                            viewModelScope,
+                            Dispatchers.IO,
+                            auth,
+                            config,
+                            repository
+                        )
+                        publishSideEffects(accountLinking.sideEffectFlow)
+                        handleAccountMerge()
+                    }
+                }
+
+                else -> {}
             }
             nextOnboardingAction()
         }
@@ -172,7 +191,7 @@ class ProfileViewModel(
         publishSideEffects(loginStore.sideEffectFlow)
     }
 
-    private fun handleProfileOnboarding() {
+    private fun handleProfileState() {
         profileStore.stateFlow.onEach {
             when (it) {
                 is ProfileState.ProfileCreated -> {
@@ -198,7 +217,14 @@ class ProfileViewModel(
             nextOnboardingAction()
         }
             .launchIn(viewModelScope)
+    }
 
+    private fun handleAccountMerge() {
+        accountLinking.stateFlow.onEach {
+            if (it is AccountMergeState.Success) {
+                loginStore.completeAccountLink(it.user)
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun nextOnboardingAction() {

@@ -278,9 +278,7 @@ fun OrbitStore<LoginState>.authenticateWithGitHub(
     val user = when {
         result.isFailure -> {
             val exception = result.exceptionOrNull()
-            if (exception is AuthAccountExistsException) {
-                postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
-            } else {
+            if (exception !is AuthAccountExistsException) {
                 handleException(result.exceptionOrNull())
                 resetAuthSub(auth, config)
             }
@@ -327,7 +325,10 @@ suspend fun OrbitStore<LoginState>.handleException(exception: Throwable?) = subI
         LoginState.Error(exception)
     }
     postSideEffect(UserSideEffects.Error(exception))
-    postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
+    // Navigation is handled at the checkpoint (e.g. ViewModel) for specific cases like AccountMerge
+    if (exception !is AuthAccountExistsException) {
+        postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
+    }
 }
 
 fun OrbitStore<ProfileState>.fetchUserProfile(account: Account, firestore: Firestore) = intent {
@@ -354,71 +355,9 @@ fun OrbitStore<ProfileState>.fetchUserProfile(account: Account, firestore: Fires
     }
 }
 
-//fun OrbitStore<LoginState>.updateUserProfile(firestore: Firestore, profile: Profile) = intent {
-//    (state as? LoginState.Authenticated)?.let {
-//        (it.user as? User.Authenticated)?.let { user ->
-//            reduce {
-//                LoginState.ProfileCreated(
-//                    profile = profile
-//                )
-//            }
-//            firestore.createProfile(user.account.id, profile.toDto())
-//        }
-//    }
-//}
-
-fun OrbitStore<LoginState>.linkWithGitHub(uiHandler: Any?, auth: Auth, config: Configuration, repository: ProjectRepository) = intent {
-    val result = runCatching {
-        withContext(dispatcherIO) {
-            auth.startSignInFlow(
-                uiHandler,
-                providerType = Auth.LoginMethod.GitHub,
-                linkWithProvider = true
-            )
-        }
-    }
-    val user = when {
-        result.isFailure -> {
-            handleException(result.exceptionOrNull())
-            return@intent
-        }
-
-        else -> result.getOrNull()!!
-    }
-    postSideEffect(UserSideEffects.Toast("Linking user account..."))
-    flow {
-        emit(repository.fetchUser())
-    }
-        .flowOn(dispatcherIO)
-        .map {
-            when {
-                it.isSuccess -> it.getOrNull()
-
-                else -> {
-                    handleException(it.exceptionOrNull())
-                    null
-                }
-            }
-        }
-        .filterNotNull()
-        .collect { name ->
-            config.update(Config(
-                gitHubApiUser = name,
-                gitHubApiToken = user.oauthAccessToken.orEmpty(),
-                lastSignInMethod = user.signInMethod.orEmpty()
-            ))
-            val account = user.account.copy(
-                name = name
-            )
-            reduce {
-                LoginState.Authenticated(
-                    user = user.copy(
-                        account = account,
-                        additionalData = user.additionalData,
-                        oauthAccessToken = user.oauthAccessToken
-                    )
-                )
-            }
+fun OrbitStore<LoginState>.completeAccountLink(user: User.Authenticated) = intent {
+    reduce {
+        LoginState.Authenticated(user = user)
     }
 }
 

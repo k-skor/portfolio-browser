@@ -21,15 +21,19 @@ import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.platform.isEmulator
 
 actual val FirebaseProviderId: String = FirebaseAuthProvider.PROVIDER_ID
 actual val GitHubProviderId: String = GithubAuthProvider.PROVIDER_ID
 actual val EmailProviderId: String = EmailAuthProvider.PROVIDER_ID
 
 class AndroidAuth(configuration: Configuration): Auth(configuration) {
-    private lateinit var auth: FirebaseAuth
+    private val auth: FirebaseAuth
 
-    override fun initAuth() {
+    init {
+        if (isEmulator) {
+            Firebase.auth.useEmulator("10.0.2.2", 9099)
+        }
         auth = Firebase.auth
     }
 

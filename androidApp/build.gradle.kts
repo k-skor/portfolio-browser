@@ -25,8 +25,11 @@ android {
         }
     }
     buildTypes {
-        getByName("release") {
+        release {
             isMinifyEnabled = false
+        }
+        create("emulator") {
+            initWith(getByName("debug"))
         }
     }
     compileOptions {

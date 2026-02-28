@@ -46,6 +46,7 @@ import pl.krzyssko.portfoliobrowser.store.initAuth
 import pl.krzyssko.portfoliobrowser.store.linkWithGitHub
 import pl.krzyssko.portfoliobrowser.store.resetAuth
 import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 class ProfileViewModel(
     private val repository: ProjectRepository,
@@ -153,7 +154,7 @@ class ProfileViewModel(
     private fun handleLoginOnboarding() {
         loginStore.stateFlow.onEach {
             when {
-                it is LoginState.Authenticated -> {
+                it is LoginState.Authenticated && it.user is User.Authenticated -> {
                     profileCreationOnboarding = UserOnboardingProfileInitialization(
                         viewModelScope,
                         Dispatchers.IO,
@@ -201,7 +202,7 @@ class ProfileViewModel(
     }
 
     fun nextOnboardingAction() {
-        if (loginStore.stateFlow.value !is LoginState.Authenticated) {
+        if (userState.value.getOrNull() !is User.Authenticated) {
             return
         }
         when {

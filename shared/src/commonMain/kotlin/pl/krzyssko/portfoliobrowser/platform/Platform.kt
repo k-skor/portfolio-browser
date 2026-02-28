@@ -9,7 +9,8 @@ interface Platform {
 data class Config(
     val gitHubApiUser: String? = null,
     val gitHubApiToken: String? = null,
-    val lastSignInMethod: String? = null
+    val lastSignInMethod: String? = null,
+    val isEmulator: Boolean? = null
 )
 
 abstract class Configuration {
@@ -25,13 +26,15 @@ abstract class Configuration {
         config.gitHubApiUser?.let { vault.set("$KEY_CONFIG.gitHubApiUser", it) }
         config.gitHubApiToken?.let { vault.set("$KEY_CONFIG.gitHubApiToken", it) }
         config.lastSignInMethod?.let { vault.set("$KEY_CONFIG.lastSignInMethod", it) }
+        config.isEmulator?.let { vault.set("$KEY_CONFIG.isEmulator", it) }
     }
 
     fun restore(): Config {
         return Config(
             gitHubApiUser = vault.string("$KEY_CONFIG.gitHubApiUser"),
             gitHubApiToken = vault.string("$KEY_CONFIG.gitHubApiToken"),
-            lastSignInMethod = vault.string("$KEY_CONFIG.lastSignInMethod")
+            lastSignInMethod = vault.string("$KEY_CONFIG.lastSignInMethod"),
+            isEmulator = vault.bool("$KEY_CONFIG.isEmulator")
         )
     }
 

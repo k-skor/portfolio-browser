@@ -65,6 +65,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+    buildTypes {
+        create("emulator") {
+            initWith(getByName("debug"))
+        }
+    }
+    sourceSets {
+        getByName("emulator") {
+            res.setSrcDirs(sourceSets.getByName("debug").res.srcDirs)
+        }
+    }
 
     secrets {
         propertiesFileName = "secrets.local"

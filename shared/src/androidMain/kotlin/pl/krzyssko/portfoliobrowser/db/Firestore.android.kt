@@ -7,6 +7,7 @@ import com.google.firebase.firestore.DocumentReference
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.Filter
+import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.firestore
@@ -23,10 +24,18 @@ import pl.krzyssko.portfoliobrowser.db.transfer.DataSyncDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.platform.isEmulator
 
 
 class AndroidFirestore: Firestore {
-    private val db = Firebase.firestore
+    private val db: FirebaseFirestore
+
+    init {
+        if (isEmulator) {
+            Firebase.firestore.useEmulator("10.0.2.2", 8080)
+        }
+        db = Firebase.firestore
+    }
 
     override suspend fun hasUser(uid: String): Boolean {
         val result = db.collection("users").document(uid).get().await()

@@ -50,8 +50,9 @@ fun sharedAppModule() = module {
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind SearchRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind UserRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind CategoriesRepository::class
+
+    factory { GitHubProjectRepository(get(), get()) } bind UserRepository::class
     
-    factory<ProjectRepository>(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) }
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind ProjectRepository::class
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind CategoriesRepository::class
     single<HttpClient> {

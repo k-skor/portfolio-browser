@@ -52,7 +52,7 @@ class GitHubSource(repository: ProjectRepository, categoriesRepository: Categori
             val page = repository.nextPage(repository.pagingState.paging.nextPageKey)
             val projects = page.getOrThrow()
             projects.forEach { project ->
-                val stack = categoriesRepository.fetchStack(project.name)
+                val stack = categoriesRepository.fetchCategory(project.name)
                 emit(project.copy(stack = stack.getOrThrow()))
             }
             isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()
@@ -90,7 +90,7 @@ class UserOnboardingProjectsImport(
 
     fun confirm() = intent {
         reduce {
-            UserOnboardingImportState.ImportConfirmed
+            UserOnboardingImportState.Confirmed
         }
         postSideEffect(UserSideEffects.NavigateTo(Route.Login(ViewType.SourceSelection)))
     }
@@ -99,7 +99,7 @@ class UserOnboardingProjectsImport(
         postSideEffect(UserSideEffects.NavigateTo(Route.ProviderImportOngoing))
         importProjects(uiHandler)
         importJob?.join()
-        if (state !is UserOnboardingImportState.ImportError) {
+        if (state !is UserOnboardingImportState.Error) {
             saveProjects(projectsList, source)
         }
     }
@@ -108,7 +108,7 @@ class UserOnboardingProjectsImport(
         importJob?.cancel()
         saveJob?.join()
         reduce {
-            UserOnboardingImportState.ImportCompleted
+            UserOnboardingImportState.Completed
         }
     }
 
@@ -118,7 +118,7 @@ class UserOnboardingProjectsImport(
             importJob = importFlow
                 .onStart {
                     reduce {
-                        UserOnboardingImportState.ImportStarted
+                        UserOnboardingImportState.Started
                     }
                     auth.startSignInFlow(
                         uiHandler = uiHandler,
@@ -129,7 +129,7 @@ class UserOnboardingProjectsImport(
                     totalItems
                         .onEach {
                             reduce {
-                                UserOnboardingImportState.ImportProgress(0, it, null)
+                                UserOnboardingImportState.InProgress(0, it, null)
                             }
                         }
                         .collect()
@@ -138,7 +138,7 @@ class UserOnboardingProjectsImport(
                 .onEach {
                     projectsList += it
                     reduce {
-                        (state as UserOnboardingImportState.ImportProgress).copy(
+                        (state as UserOnboardingImportState.InProgress).copy(
                             progress = projectsList.size,
                             displayName = it.name
                         )
@@ -146,7 +146,7 @@ class UserOnboardingProjectsImport(
                 }
                 .catch {
                     reduce {
-                        UserOnboardingImportState.ImportError(it)
+                        UserOnboardingImportState.Error(it)
                     }
                     postSideEffect(UserSideEffects.NavigateTo(it.toRoute()))
                     postSideEffect(UserSideEffects.Error(it))
@@ -171,13 +171,13 @@ class UserOnboardingProjectsImport(
         when {
             result.isSuccess -> {
                 reduce {
-                    UserOnboardingImportState.ImportCompleted
+                    UserOnboardingImportState.Completed
                 }
                 postSideEffect(UserSideEffects.NavigateTo(Route.List))
             }
             result.isFailure -> {
                 reduce {
-                    UserOnboardingImportState.ImportError(result.exceptionOrNull())
+                    UserOnboardingImportState.Error(result.exceptionOrNull())
                 }
             }
         }

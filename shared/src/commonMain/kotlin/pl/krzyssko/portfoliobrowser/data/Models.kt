@@ -5,7 +5,10 @@ sealed class Resource {
     data class NetworkResource(val url: String): Resource()
 }
 
-data class Stack(val name: String, val percent: Float = 0f, val color: Int = 0x00FFFFFF)
+data class Stack(
+    val name: String,
+    val color: Int = 0x00FFFFFF
+)
 
 enum class Source {
     GitHub
@@ -42,10 +45,10 @@ data class Project(
     val roles: List<AccessRole> = emptyList()
 )
 
-data class FilterParams(
-    val query: String,
-    val stack: String?,
-    val featured: Boolean
+data class FilterOptions(
+    val query: String = "",
+    val categories: List<String> = emptyList(),
+    val featured: Boolean = false
 )
 
 typealias AdditionalUserData = Map<String, Any>
@@ -98,7 +101,7 @@ sealed class User {
 
 sealed class Profile {
     data object Stub : Profile()
-    data class Loaded(
+    data class Created(
         val firstName: String,
         val lastName: String,
         val alias: String? = null,
@@ -113,7 +116,7 @@ sealed class Profile {
     ) : Profile()
 
     companion object {
-        val DEFAULT = Loaded(
+        val DEFAULT = Created(
             firstName = "Krzysztof",
             lastName = "Skorcz",
             title = "apps for Android",

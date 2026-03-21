@@ -152,7 +152,7 @@ class ProfileViewModel(
     private fun handleProfileState() {
         profileEdition.stateFlow.onEach {
             when (it) {
-                is ProfileState.Loaded -> {
+                is ProfileState.Completed -> {
                     projectsImportOnboarding = UserOnboardingProjectsImport(
                         viewModelScope,
                         Dispatchers.IO,
@@ -200,7 +200,7 @@ class ProfileViewModel(
             profileCreationOnboarding.stateFlow.value is UserOnboardingProfileState.FirstTimeCreation -> {
                 profileCreationOnboarding.create()
             }
-            profileEdition.stateFlow.value is ProfileState.Loaded -> {
+            profileEdition.stateFlow.value is ProfileState.Completed -> {
                 projectsImportOnboarding.start()
             }
             profileCreationOnboarding.stateFlow.value is UserOnboardingProfileState.AlreadyCreated -> {

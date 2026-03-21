@@ -61,31 +61,21 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         }
     }
 
-    override suspend fun searchProjects(query: String, queryParams: String?): Result<PagedResponse<Project>> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
-    }
-
-    override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
+    override suspend fun nextPage(nextPageKey: Any?, category: String?): Result<List<Project>> {
         if (!auth.isUserSignedIn) {
             return Result.failure(IllegalStateException("User not logged in."))
         }
         return runCatching {
             firestore.getProjects(
                 firestorePagingState.nextPageCursor,
-                auth.userAccount?.id!!
+                auth.userAccount?.id!!,
+                category
             ).also {
                 firestorePagingState = it.getNextPage2(firestorePagingState, nextPageKey)
             }.value.map {
                 it.toProject()
             }
         }
-    }
-
-    override suspend fun nextSearchPage(
-        query: String,
-        nextPageKey: Any?
-    ): Result<List<Project>> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }
 
     override suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>> {

@@ -20,9 +20,7 @@ interface ProjectRepository {
 
     fun resetPagingState()
     suspend fun fetchTotalProjectsSize(): Result<Int>
-    suspend fun nextPage(nextPageKey: Any?): Result<List<Project>>
+    suspend fun nextPage(nextPageKey: Any?, category: String? = null): Result<List<Project>>
     suspend fun fetchProjectDetails(uid: String, id: String): Result<Project>
-    suspend fun searchProjects(query: String, queryParams: String?): Result<PagedResponse<Project>>
-    suspend fun nextSearchPage(query: String, nextPageKey: Any?): Result<List<Project>>
     suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>>
 }

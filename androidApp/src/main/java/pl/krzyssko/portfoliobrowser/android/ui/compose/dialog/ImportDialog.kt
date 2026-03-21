@@ -33,7 +33,7 @@ fun ImportDialog(
     onComplete: () -> Unit
 ) {
     val state by importState.collectAsState()
-    val isDone = state is UserOnboardingImportState.ImportCompleted
+    val isDone = state is UserOnboardingImportState.Completed
     Dialog(
         onDismissRequest = onCancel
     ) {
@@ -42,12 +42,12 @@ fun ImportDialog(
                 Text(text = title, style = MaterialTheme.typography.titleLarge)
                 Box(modifier = Modifier.padding(vertical = 64.dp)) {
                     when (state) {
-                        is UserOnboardingImportState.ImportStarted -> {
+                        is UserOnboardingImportState.Started -> {
                             Text(text = "Working...")
                         }
-                        is UserOnboardingImportState.ImportProgress -> {
+                        is UserOnboardingImportState.InProgress -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                val data = (state as UserOnboardingImportState.ImportProgress)
+                                val data = (state as UserOnboardingImportState.InProgress)
                                 val text = "${data.progress}/${data.total} Importing ${data.displayName}"
                                 Text(text = text, style = MaterialTheme.typography.bodyMedium)
                                 CircularProgressIndicator(
@@ -57,10 +57,10 @@ fun ImportDialog(
                                 )
                             }
                         }
-                        is UserOnboardingImportState.ImportCompleted -> {
+                        is UserOnboardingImportState.Completed -> {
                             Text(text = "Completed!")
                         }
-                        is UserOnboardingImportState.ImportError -> {
+                        is UserOnboardingImportState.Error -> {
                             Text(text = "Error 💀")
                         }
                         else -> {}
@@ -86,7 +86,7 @@ private fun ImportDialogPreview() {
     MyApplicationTheme {
         ImportDialog(
             title = "Importing Data",
-            importState = MutableStateFlow(UserOnboardingImportState.ImportProgress(50, 100, "Projects")),
+            importState = MutableStateFlow(UserOnboardingImportState.InProgress(50, 100, "Projects")),
             onCancel = {},
             onComplete = {}
         )

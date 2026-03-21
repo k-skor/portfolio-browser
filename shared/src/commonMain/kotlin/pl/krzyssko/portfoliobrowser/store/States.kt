@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.store
 
+import pl.krzyssko.portfoliobrowser.data.FilterOptions
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Provider
@@ -19,11 +20,7 @@ sealed class ProjectState {
 
 sealed class ProjectsListState {
     data object Initialized : ProjectsListState()
-    data class FilterRequested(
-        val searchPhrase: String = "",
-        val selectedCategories: List<String> = emptyList(),
-        val onlyFeatured: Boolean = false
-    ) : ProjectsListState()
+    data class FilterSelected(val options: FilterOptions) : ProjectsListState()
 }
 
 sealed class LoginState {
@@ -39,7 +36,7 @@ sealed class LoginState {
 sealed class ProfileState {
     data object Initialized : ProfileState()
     data class Error(val reason: Throwable?): ProfileState()
-    data class Loaded(val profile: Profile.Loaded): ProfileState()
+    data class Completed(val profile: Profile.Created): ProfileState()
 }
 
 sealed class UserOnboardingProfileState {
@@ -47,7 +44,7 @@ sealed class UserOnboardingProfileState {
     data object FirstTimeCreation : UserOnboardingProfileState()
     data object AlreadyCreated: UserOnboardingProfileState()
     data class Error(val reason: Throwable?): UserOnboardingProfileState()
-    data class NewlyCreated(val userName: String): UserOnboardingProfileState()
+    data class Completed(val userName: String): UserOnboardingProfileState()
 }
 
 sealed class AccountMergeState {
@@ -60,9 +57,9 @@ sealed class AccountMergeState {
 sealed class UserOnboardingImportState {
     data object Initialized: UserOnboardingImportState()
     data object SourceAvailable: UserOnboardingImportState()
-    data object ImportConfirmed: UserOnboardingImportState()
-    data object ImportStarted: UserOnboardingImportState()
-    data class ImportProgress(val progress: Int, val total: Int, val displayName: String?): UserOnboardingImportState()
-    data class ImportError(val reason: Throwable?): UserOnboardingImportState()
-    data object ImportCompleted: UserOnboardingImportState()
+    data object Confirmed: UserOnboardingImportState()
+    data object Started: UserOnboardingImportState()
+    data class InProgress(val progress: Int, val total: Int, val displayName: String?): UserOnboardingImportState()
+    data class Error(val reason: Throwable?): UserOnboardingImportState()
+    data object Completed: UserOnboardingImportState()
 }

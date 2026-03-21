@@ -14,10 +14,12 @@ import org.koin.core.component.inject
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.repository.SearchRepository
 
 @Suppress("CAST_NEVER_SUCCEEDS")
 class MyPagingSource<T : Any>(
     private val repository: ProjectRepository,
+    private val searchRepository: SearchRepository,
     private val query: String,
     private val categories: List<String>,
     private val featured: Boolean
@@ -25,14 +27,6 @@ class MyPagingSource<T : Any>(
     private val logging: Logging by inject()
 
     override fun getRefreshKey(state: PagingState<Any, T>): Any? = null
-    //{
-    //    val closestPage = state.closestPageToPosition(state.anchorPosition ?: 0)
-
-    //    logging.debug("getRefreshKey: closest page=$closestPage")
-    //    return closestPage?.nextKey?.let {
-    //        it.ifBlank { null }
-    //    } ?: closestPage?.prevKey
-    //}
 
     /**
      *  1. Create intent to fetch repos with paging params
@@ -46,18 +40,25 @@ class MyPagingSource<T : Any>(
         return try {
             val response = withContext(Dispatchers.IO) {
                 when {
-                    query.isNotBlank() -> repository.nextSearchPage(query, pageKey)
+                    query.isNotBlank() -> searchRepository.nextSearchPage(query, pageKey)
                     featured -> repository.nextFavoritePage(pageKey)
+                    categories.isNotEmpty() -> repository.nextPage(pageKey)
                     else -> repository.nextPage(pageKey)
                 }
             }
 
             logging.debug("Load page projects size=${response.getOrNull()?.size}")
 
+            val nextKey = if (query.isNotBlank()) {
+                searchRepository.searchPagingState.paging.nextPageKey
+            } else {
+                repository.pagingState.paging.nextPageKey
+            }
+
             PagingSourceLoadResultPage(
                 data = response.getOrNull() ?: emptyList(),
                 prevKey = null,
-                nextKey = repository.pagingState.paging.nextPageKey
+                nextKey = nextKey
             ) as PagingSourceLoadResult<Any, T>
         } catch (e: Exception) {
             PagingSourceLoadResultError<Any, List<Project>>(e) as PagingSourceLoadResult<Any, T>

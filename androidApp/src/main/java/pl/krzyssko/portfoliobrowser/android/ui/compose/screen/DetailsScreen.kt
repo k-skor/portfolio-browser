@@ -190,8 +190,8 @@ val fakeProject = Project(
     name = "Title 1",
     description = loremIpsum,
     stack = listOf(
-        Stack(name = "Kotlin", percent = 67f, color = 0x00DA02B8 or (0xFF shl 24)),
-        Stack(name = "Java", percent = 33f, color = 0x3F0AB7C3 or (0xFF shl 24))
+        Stack("Kotlin", color = 0x00DA02B8 or (0xFF shl 24)),
+        Stack("Java", color = 0x3F0AB7C3 or (0xFF shl 24))
     ),
     image = Resource.LocalResource(R.drawable.default_img),
     createdBy = "0123456",

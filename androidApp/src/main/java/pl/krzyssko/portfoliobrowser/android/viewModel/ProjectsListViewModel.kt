@@ -18,16 +18,19 @@ import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.paging.MyPagingSource
-import pl.krzyssko.portfoliobrowser.business.ProjectsListInteractions
+import pl.krzyssko.portfoliobrowser.business.ProjectsListInteraction
+import pl.krzyssko.portfoliobrowser.data.FilterOptions
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.repository.SearchRepository
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 
 class ProjectsListViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val repository: ProjectRepository,
+    private val searchRepository: SearchRepository,
     private val logging: Logging
 ) : ViewModel(), KoinComponent {
 
@@ -39,7 +42,7 @@ class ProjectsListViewModel(
     private val colorPicker: InfiniteColorPicker by inject {
         parametersOf(savedStateHandle.get<StackColorMap>(COLORS_STATE_KEY))
     }
-    private val interactions: ProjectsListInteractions by inject {
+    private val interactions: ProjectsListInteraction by inject {
         parametersOf(viewModelScope)
     }
 
@@ -47,14 +50,14 @@ class ProjectsListViewModel(
     val sideEffectsFlow = interactions.sideEffectFlow
 
     val searchPhrase = stateFlow
-        .map { (it as? ProjectsListState.FilterRequested)?.searchPhrase }
+        .map { (it as? ProjectsListState.FilterSelected)?.options?.query }
         .filterNotNull()
 
     private var pagingSource: MyPagingSource<Project>? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val pagingFlow = interactions.stateFlow
-        .map { it as? ProjectsListState.FilterRequested }
+        .map { it as? ProjectsListState.FilterSelected }
         .filterNotNull()
         .distinctUntilChanged()
         .flatMapLatest { params ->
@@ -63,10 +66,11 @@ class ProjectsListViewModel(
                 pagingSourceFactory = {
                     MyPagingSource<Project>(
                         repository = repository,
-                        query = params.searchPhrase,
-                        categories = params.selectedCategories,
-                        featured = params.onlyFeatured
-                    )
+                        searchRepository = searchRepository,
+                        query = params.options.query,
+                        categories = params.options.categories,
+                        featured = params.options.featured
+                    ).also { pagingSource = it }
                 }
             ).flow
         }
@@ -85,15 +89,15 @@ class ProjectsListViewModel(
     }
 
     fun updateSearchPhrase(searchFieldText: String) {
-        interactions.updateSearchPhrase(searchFieldText)
+        interactions.updateFilters(FilterOptions(query = searchFieldText))
     }
 
     fun updateSelectedCategories(selectedCategories: List<String>) {
-        interactions.updateSelectedCategories(selectedCategories)
+        interactions.updateFilters(FilterOptions(categories = selectedCategories))
     }
 
     fun updateOnlyFeatured(favoritesSelected: Boolean) {
-        interactions.updateOnlyFeatured(favoritesSelected)
+        interactions.updateFilters(FilterOptions(featured = favoritesSelected))
     }
 
     fun refreshProjectsList() {

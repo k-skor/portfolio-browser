@@ -60,7 +60,7 @@ class UserOnboardingProfileStubCreation(
             when {
                 result.isSuccess -> {
                     reduce {
-                        UserOnboardingProfileState.NewlyCreated(userName = profile.alias ?: "${profile.firstName} ${profile.lastName}")
+                        UserOnboardingProfileState.Completed(userName = profile.alias ?: "${profile.firstName} ${profile.lastName}")
                     }
                 }
                 else -> {

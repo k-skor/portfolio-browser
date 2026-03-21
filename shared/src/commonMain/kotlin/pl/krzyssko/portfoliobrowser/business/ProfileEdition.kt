@@ -28,7 +28,7 @@ class ProfileEdition(
         .map {
             when (it) {
                 is ProfileState.Initialized -> Response.Pending
-                is ProfileState.Loaded -> Response.Ok(it.profile)
+                is ProfileState.Completed -> Response.Ok(it.profile)
                 is ProfileState.Error -> Response.Error(it.reason)
             }
         }
@@ -43,7 +43,7 @@ class ProfileEdition(
         when {
             result.isSuccess -> {
                 reduce {
-                    ProfileState.Loaded(result.getOrNull()!!)
+                    ProfileState.Completed(result.getOrNull()!!)
                 }
             }
 

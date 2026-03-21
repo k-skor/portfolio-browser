@@ -191,7 +191,7 @@ fun PortfolioApp(
                                 }
                                 when (topLevelRoute.route) {
                                     Route.Profile -> {
-                                        (profile as? Profile.Loaded)?.avatarUrl?.let {
+                                        (profile as? Profile.Created)?.avatarUrl?.let {
                                             Avatar(
                                                 Modifier.size(30.dp),
                                                 it

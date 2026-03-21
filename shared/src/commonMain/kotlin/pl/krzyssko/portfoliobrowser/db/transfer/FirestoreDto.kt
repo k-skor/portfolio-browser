@@ -1,13 +1,16 @@
 package pl.krzyssko.portfoliobrowser.db.transfer
 
-data class StackDto(val name: String? = null, val percent: Float? = null)
+data class StackDto(
+    val name: String? = null,
+    //val percent: Float? = null
+)
 data class FollowerDto(val uid: String? = null, val name: String? = null)
 data class ProjectDto(
     val id: String? = null,
     val name: String? = null,
     val namePartial: List<String> = emptyList(),
     val description: String? = null,
-    val stack: List<StackDto> = emptyList(),
+    val stack: List<String> = emptyList(),
     val image: String? = null,
     val followersCount: Int = 0,
     val followers: List<FollowerDto> = emptyList(),

@@ -32,13 +32,16 @@ class ProjectEdition(
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun Flow<Project>.mapProject(colorPicker: InfiniteColorPicker, ownerId: String): Flow<Project> =
         map { project ->
-            project.copy(stack = project.stack.map { stack ->
-                stack.copy(
-                    color = colorPicker.pick(
-                        stack.name
+            project.copy(
+                stack = project.stack.map { stack ->
+                    stack.copy(
+                        color = colorPicker.pick(
+                            stack.name
+                        )
                     )
-                )
-            }, favorite = project.followers.any { it.uid == ownerId })
+                }, 
+                favorite = project.followers.any { it.uid == ownerId }
+            )
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)

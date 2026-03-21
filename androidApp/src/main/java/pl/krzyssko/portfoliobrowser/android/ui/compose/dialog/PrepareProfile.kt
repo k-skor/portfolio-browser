@@ -29,14 +29,14 @@ fun PrepareProfile(
     onComplete: () -> Unit
 ) {
     val state by profileState.collectAsState()
-    val isDone = state is UserOnboardingProfileState.NewlyCreated
+    val isDone = state is UserOnboardingProfileState.Completed
     Dialog({}) {
         Card(shape = MaterialTheme.shapes.medium) {
             Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = title, style = MaterialTheme.typography.titleLarge)
                 Box(modifier = Modifier.padding(vertical = 64.dp)) {
                     if (isDone) {
-                        Text(text = "Hello ${(state as UserOnboardingProfileState.NewlyCreated).userName}!")
+                        Text(text = "Hello ${(state as UserOnboardingProfileState.Completed).userName}!")
                     } else {
                         Text(text = "Creating profile...")
                     }
@@ -61,7 +61,7 @@ fun PrepareProfilePreview() {
     AppTheme {
         PrepareProfile(
             title = "Preparing Profile",
-            profileState = MutableStateFlow(UserOnboardingProfileState.NewlyCreated("Michael")),
+            profileState = MutableStateFlow(UserOnboardingProfileState.Completed("Michael")),
             onComplete = {}
         )
     }

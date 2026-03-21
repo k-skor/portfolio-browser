@@ -5,10 +5,7 @@ sealed class Resource {
     data class NetworkResource(val url: String): Resource()
 }
 
-data class Stack(
-    val name: String,
-    val color: Int = 0x00FFFFFF
-)
+data class Stack(val name: String, val percent: Float = 0f, val color: Int = 0x00FFFFFF)
 
 enum class Source {
     GitHub
@@ -32,6 +29,7 @@ data class Project(
     val name: String = "",
     val description: String? = null,
     val stack: List<Stack> = emptyList(),
+    val categories: List<String> = emptyList(),
     val image: Resource? = null,
     val followersCount: Int = 0,
     val followers: List<Follower> = emptyList(),

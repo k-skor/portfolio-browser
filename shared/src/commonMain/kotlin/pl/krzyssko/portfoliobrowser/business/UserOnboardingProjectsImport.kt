@@ -52,7 +52,7 @@ class GitHubSource(repository: ProjectRepository, categoriesRepository: Categori
             val page = repository.nextPage(repository.pagingState.paging.nextPageKey)
             val projects = page.getOrThrow()
             projects.forEach { project ->
-                val stack = categoriesRepository.fetchCategory(project.name)
+                val stack = repository.fetchStack(project.name)
                 emit(project.copy(stack = stack.getOrThrow()))
             }
             isLastPage = repository.pagingState.paging.isLastPage || projects.isEmpty()

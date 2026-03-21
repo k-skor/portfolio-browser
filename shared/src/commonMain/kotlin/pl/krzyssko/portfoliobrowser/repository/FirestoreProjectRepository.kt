@@ -3,6 +3,7 @@ package pl.krzyssko.portfoliobrowser.repository
 import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.data.Stack
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.QueryPagedResult
 import pl.krzyssko.portfoliobrowser.db.transfer.toProject
@@ -15,7 +16,7 @@ class FirestoreException(message: String? = null, throwable: Throwable? = null):
 
 class FirestorePagingState(val nextPageCursor: Any? = null, override val pageSize: Int = 5, override val paging: Paging = Paging()): PagingState
 
-class FirestoreProjectRepository(private val firestore: Firestore, private val auth: Auth) : ProjectRepository {
+class FirestoreProjectRepository(private val firestore: Firestore, private val auth: Auth) : ProjectRepository, CategoriesRepository {
 
     private var firestorePagingState = FirestorePagingState(null, paging = Paging())
 
@@ -26,29 +27,16 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         firestorePagingState = FirestorePagingState(null, paging = Paging())
     }
 
-    //override suspend fun uploadProject(docId: String, project: Project) {
-    //    uploadProjects(docId, listOf(project))
-    //}
-
-    //override suspend fun uploadProjects(docId: String, projects: List<Project>) {
-    //    firestore.syncProjects(docId, projects)
-    //    //auth.userProfile?.id?.let { uid ->
-    //    //    firestore.syncProjects(uid, projects)
-    //    //} ?: throw IllegalStateException("User id missing.")
-    //}
-
-    //override suspend fun uploadProjects(projectsFlow: Flow<List<Project>>) {
-    //    logging.debug("upload projects")
-    //    val last = (userFlow.value as? User.Authenticated)
-    //    logging.debug("upload projects last value=$last")
-    //    firestore.syncProjects(
-    //        last?.account?.id ?: return,
-    //        projectsFlow.toList().reduce { acc, projects -> acc.toMutableList() + projects }
-    //    )
-    //}
-
     override suspend fun fetchTotalProjectsSize(): Result<Int> {
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
+    }
+
+    override suspend fun fetchStack(name: String): Result<List<Stack>> {
+        return Result.failure(FirestoreException(throwable = NotImplementedError()))
+    }
+
+    override suspend fun fetchCategory(name: String): Result<List<Stack>> {
+        return Result.success(emptyList<Stack>())
     }
 
     override suspend fun fetchProjectDetails(uid: String, id: String): Result<Project> {

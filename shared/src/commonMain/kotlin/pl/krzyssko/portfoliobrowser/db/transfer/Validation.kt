@@ -41,7 +41,8 @@ fun ProjectDto.toProject(): Project {
         id = this.id ?: throw IllegalArgumentException("id is required"),
         name = this.name ?: throw IllegalArgumentException("name is required"),
         description = this.description,
-        stack = this.stack.map { name -> Stack(name) },
+        stack = this.stack.map { dto -> dto.toStack() },
+        categories = this.categories,
         image = this.image?.let {
             if (it.startsWith("http")) Resource.NetworkResource(this.image) else Resource.LocalResource(this.image.toInt())
         }, // ?: throw IllegalArgumentException("image is required")
@@ -66,7 +67,8 @@ fun Project.toDto(): ProjectDto {
         name = this.name,
         namePartial = this.name.split("[^a-zA-Z0-9]+".toRegex()).filter { it.isNotEmpty() },
         description = this.description,
-        stack = this.stack.map { it.name },
+        stack = this.stack.map { it.toDto() },
+        categories = this.categories,
         image = this.image?.let {
             when (it) {
                 is Resource.LocalResource -> it.res.toString()
@@ -111,17 +113,17 @@ val stackDtoValidation = Validation<StackDto> {
     }
 }
 
-//fun StackDto.toStack(): Stack {
-//    val validationResult = stackDtoValidation(this)
-//    if (validationResult.errors.isNotEmpty()) {
-//        throw IllegalArgumentException("Invalid StackDto: ${validationResult.errors}")
-//    }
-//    return Stack(this.name ?: throw IllegalArgumentException("name is required")/*, this.percent ?: 0f*/)
-//}
+fun StackDto.toStack(): Stack {
+    val validationResult = stackDtoValidation(this)
+    if (validationResult.errors.isNotEmpty()) {
+        throw IllegalArgumentException("Invalid StackDto: ${validationResult.errors}")
+    }
+    return Stack(this.name ?: throw IllegalArgumentException("name is required"), this.percent ?: 0f)
+}
 
-//fun Stack.toDto(): StackDto {
-//    return StackDto(this.name/*, this.percent*/)
-//}
+fun Stack.toDto(): StackDto {
+    return StackDto(this.name, this.percent)
+}
 
 val profileDtoValidation = Validation<ProfileDto> {
     ProfileDto::firstName required {

@@ -48,13 +48,24 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
-    override suspend fun fetchCategory(name: String): Result<List<Stack>> {
+    override suspend fun fetchStack(name: String): Result<List<Stack>> {
         return runCatching {
             val response = api.getRepoLanguages(name)
+            val sum =
+                response.map { it.value }
+                    .takeIf { it.isNotEmpty() }
+                    ?.reduce { sum, lines -> sum + lines } ?: 0
+
             response.map {
-                Stack(name = it.key)
+                Stack(
+                    name = it.key, percent = it.value * 100f / sum
+                )
             }
         }
+    }
+
+    override suspend fun fetchCategory(name: String): Result<List<Stack>> {
+        return Result.success(emptyList())
     }
 
     override suspend fun fetchProjectDetails(uid: String, id: String): Result<Project> {
@@ -64,6 +75,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     id = it.id.toString(),
                     name = it.name,
                     description = it.description,
+                    categories = emptyList(),
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userAccount?.id ?: "",
                     createdByName = auth.userAccount?.name ?: "",
@@ -91,6 +103,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     id = it.id.toString(),
                     name = it.name,
                     description = it.description,
+                    categories = emptyList(),
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userAccount?.id ?: "",
                     createdByName = auth.userAccount?.name ?: "",
@@ -118,6 +131,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     id = it.id.toString(),
                     name = it.name,
                     description = it.description,
+                    categories = emptyList(),
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userAccount?.id ?: "",
                     createdByName = auth.userAccount?.name ?: "",

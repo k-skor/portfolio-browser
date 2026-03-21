@@ -94,7 +94,7 @@ class AndroidFirestore: Firestore {
         )
 
         if (category != null) {
-            query = query.whereArrayContains("stack", category)
+            query = query.whereArrayContains("categories", category)
         }
 
         query = query.orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
@@ -108,7 +108,7 @@ class AndroidFirestore: Firestore {
             )
 
             if (category != null) {
-                pagedQuery = pagedQuery.whereArrayContains("stack", category)
+                pagedQuery = pagedQuery.whereArrayContains("categories", category)
             }
 
             query = pagedQuery.orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)

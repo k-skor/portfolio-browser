@@ -42,7 +42,7 @@ class MyPagingSource<T : Any>(
                 when {
                     query.isNotBlank() -> searchRepository.nextSearchPage(query, pageKey)
                     featured -> repository.nextFavoritePage(pageKey)
-                    categories.isNotEmpty() -> repository.nextPage(pageKey)
+                    categories.isNotEmpty() -> repository.nextPage(pageKey, categories.firstOrNull())
                     else -> repository.nextPage(pageKey)
                 }
             }

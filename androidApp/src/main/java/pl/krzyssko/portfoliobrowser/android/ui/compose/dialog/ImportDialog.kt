@@ -22,32 +22,34 @@ import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
-import pl.krzyssko.portfoliobrowser.store.UserOnboardingImportState
+import pl.krzyssko.portfoliobrowser.store.OnboardingState
 
 @Composable
 fun ImportDialog(
     modifier: Modifier = Modifier,
     title: String,
-    importState: StateFlow<UserOnboardingImportState>,
+    importState: StateFlow<OnboardingState>,
     onCancel: () -> Unit,
     onComplete: () -> Unit
 ) {
     val state by importState.collectAsState()
-    val isDone = state is UserOnboardingImportState.ImportCompleted
+    val isDone = state is OnboardingState.OnboardingCompleted
     Dialog(
         onDismissRequest = onCancel
     ) {
         Card(shape = MaterialTheme.shapes.medium) {
-            Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(modifier
+                .fillMaxWidth()
+                .padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = title, style = MaterialTheme.typography.titleLarge)
                 Box(modifier = Modifier.padding(vertical = 64.dp)) {
                     when (state) {
-                        is UserOnboardingImportState.ImportStarted -> {
+                        is OnboardingState.ImportStarted -> {
                             Text(text = "Working...")
                         }
-                        is UserOnboardingImportState.ImportProgress -> {
+                        is OnboardingState.ImportProgress -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                val data = (state as UserOnboardingImportState.ImportProgress)
+                                val data = (state as OnboardingState.ImportProgress)
                                 val text = "${data.progress}/${data.total} Importing ${data.displayName}"
                                 Text(text = text, style = MaterialTheme.typography.bodyMedium)
                                 CircularProgressIndicator(
@@ -57,10 +59,10 @@ fun ImportDialog(
                                 )
                             }
                         }
-                        is UserOnboardingImportState.ImportCompleted -> {
+                        is OnboardingState.OnboardingCompleted -> {
                             Text(text = "Completed!")
                         }
-                        is UserOnboardingImportState.ImportError -> {
+                        is OnboardingState.Error -> {
                             Text(text = "Error 💀")
                         }
                         else -> {}
@@ -86,7 +88,7 @@ private fun ImportDialogPreview() {
     MyApplicationTheme {
         ImportDialog(
             title = "Importing Data",
-            importState = MutableStateFlow(UserOnboardingImportState.ImportProgress(50, 100, "Projects")),
+            importState = MutableStateFlow(OnboardingState.ImportProgress(50, 100, "Projects")),
             onCancel = {},
             onComplete = {}
         )

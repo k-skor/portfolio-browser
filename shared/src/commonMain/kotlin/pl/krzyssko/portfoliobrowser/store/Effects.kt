@@ -4,6 +4,7 @@ import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.navigation.Route
 
 sealed class UserSideEffects {
+    object None: UserSideEffects()
     class Toast(val message: String): UserSideEffects()
     class Trace(val message: String) : UserSideEffects()
     class NavigateTo(val route: Route, val popFromBackStack: Boolean = false) : UserSideEffects()

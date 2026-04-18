@@ -42,6 +42,7 @@ fun ProjectDto.toProject(): Project {
         name = this.name ?: throw IllegalArgumentException("name is required"),
         description = this.description,
         stack = this.stack.map { dto -> dto.toStack() },
+        categories = this.categories,
         image = this.image?.let {
             if (it.startsWith("http")) Resource.NetworkResource(this.image) else Resource.LocalResource(this.image.toInt())
         }, // ?: throw IllegalArgumentException("image is required")
@@ -64,9 +65,10 @@ fun Project.toDto(): ProjectDto {
     return ProjectDto(
         id = this.id,
         name = this.name,
-        namePartial = this.name.split("[a-zA-Z0-9]+".toRegex()),
+        namePartial = this.name.split("[^a-zA-Z0-9]+".toRegex()).filter { it.isNotEmpty() },
         description = this.description,
-        stack = this.stack.map { stack -> stack.toDto() },
+        stack = this.stack.map { it.toDto() },
+        categories = this.categories,
         image = this.image?.let {
             when (it) {
                 is Resource.LocalResource -> it.res.toString()
@@ -147,12 +149,12 @@ val profileDtoValidation = Validation<ProfileDto> {
     ProfileDto::experience required {}
 }
 
-fun ProfileDto.toProfile(): Profile.Loaded {
+fun ProfileDto.toProfile(): Profile.Created {
     val validationResult = profileDtoValidation(this)
     if (validationResult.errors.isNotEmpty()) {
         throw IllegalArgumentException("Invalid ProfileDto: ${validationResult.errors}")
     }
-    return Profile.Loaded(
+    return Profile.Created(
         firstName = this.firstName ?: throw IllegalArgumentException("firstName is required"),
         lastName = this.lastName ?: throw IllegalArgumentException("lastName is required"),
         alias = this.alias,
@@ -176,7 +178,7 @@ fun ProfileDto.toProfile(): Profile.Loaded {
     )
 }
 
-fun Profile.Loaded.toDto(): ProfileDto {
+fun Profile.Created.toDto(): ProfileDto {
     return ProfileDto(
         firstName = this.firstName,
         lastName = this.lastName,

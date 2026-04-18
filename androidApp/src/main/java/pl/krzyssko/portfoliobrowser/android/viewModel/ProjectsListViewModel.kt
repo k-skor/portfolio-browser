@@ -18,51 +18,46 @@ import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.paging.MyPagingSource
+import pl.krzyssko.portfoliobrowser.business.ProjectsListInteraction
+import pl.krzyssko.portfoliobrowser.data.FilterOptions
 import pl.krzyssko.portfoliobrowser.data.Project
-import pl.krzyssko.portfoliobrowser.di.NAMED_LIST
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
-import pl.krzyssko.portfoliobrowser.store.OrbitStore
+import pl.krzyssko.portfoliobrowser.repository.SearchRepository
 import pl.krzyssko.portfoliobrowser.store.ProjectsListState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
-import pl.krzyssko.portfoliobrowser.store.clearFilters
-import pl.krzyssko.portfoliobrowser.store.updateOnlyFeatured
-import pl.krzyssko.portfoliobrowser.store.updateSearchPhrase
-import pl.krzyssko.portfoliobrowser.store.updateSelectedCategories
 
-class ProjectViewModel(
+class ProjectsListViewModel(
     private val savedStateHandle: SavedStateHandle,
     private val repository: ProjectRepository,
+    private val searchRepository: SearchRepository,
     private val logging: Logging
 ) : ViewModel(), KoinComponent {
 
     companion object {
-        const val TAG = "ProjectViewModel"
+        val TAG = ProjectsListViewModel::class.java.simpleName.toString()
         const val COLORS_STATE_KEY = "app.state.colors"
     }
 
     private val colorPicker: InfiniteColorPicker by inject {
         parametersOf(savedStateHandle.get<StackColorMap>(COLORS_STATE_KEY))
     }
-    private val store: OrbitStore<ProjectsListState> by inject(NAMED_LIST) {
-        parametersOf(
-            viewModelScope,
-            ProjectsListState.Initialized
-        )
+    private val interactions: ProjectsListInteraction by inject {
+        parametersOf(viewModelScope)
     }
 
-    val stateFlow = store.stateFlow
-    val sideEffectsFlow = store.sideEffectFlow
+    val stateFlow = interactions.stateFlow
+    val sideEffectsFlow = interactions.sideEffectFlow
 
     val searchPhrase = stateFlow
-        .map { (it as? ProjectsListState.FilterRequested)?.searchPhrase }
+        .map { (it as? ProjectsListState.FilterSelected)?.options?.query }
         .filterNotNull()
 
     private var pagingSource: MyPagingSource<Project>? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pagingFlow = store.stateFlow
-        .map { it as? ProjectsListState.FilterRequested }
+    val pagingFlow = interactions.stateFlow
+        .map { it as? ProjectsListState.FilterSelected }
         .filterNotNull()
         .distinctUntilChanged()
         .flatMapLatest { params ->
@@ -71,10 +66,11 @@ class ProjectViewModel(
                 pagingSourceFactory = {
                     MyPagingSource<Project>(
                         repository = repository,
-                        query = params.searchPhrase,
-                        categories = params.selectedCategories,
-                        featured = params.onlyFeatured
-                    )
+                        searchRepository = searchRepository,
+                        query = params.options.query,
+                        categories = params.options.categories,
+                        featured = params.options.featured
+                    ).also { pagingSource = it }
                 }
             ).flow
         }
@@ -89,19 +85,19 @@ class ProjectViewModel(
     }
 
     fun clearFilters() {
-        store.clearFilters()
+        interactions.clearFilters()
     }
 
     fun updateSearchPhrase(searchFieldText: String) {
-        store.updateSearchPhrase(searchFieldText)
+        interactions.updateFilters(FilterOptions(query = searchFieldText))
     }
 
     fun updateSelectedCategories(selectedCategories: List<String>) {
-        store.updateSelectedCategories(selectedCategories)
+        interactions.updateFilters(FilterOptions(categories = selectedCategories))
     }
 
     fun updateOnlyFeatured(favoritesSelected: Boolean) {
-        store.updateOnlyFeatured(favoritesSelected)
+        interactions.updateFilters(FilterOptions(featured = favoritesSelected))
     }
 
     fun refreshProjectsList() {

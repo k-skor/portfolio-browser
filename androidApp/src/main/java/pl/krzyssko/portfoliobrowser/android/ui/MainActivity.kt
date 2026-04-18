@@ -32,10 +32,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.coroutineScope
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -45,7 +45,6 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
@@ -72,7 +71,7 @@ import pl.krzyssko.portfoliobrowser.android.ui.navigation.topLevelRoutes
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectDetailsViewModel
-import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
+import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectsListViewModel
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
@@ -86,7 +85,7 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 private val logging = getLogging()
 
 class MainActivity : ComponentActivity() {
-    private val projectViewModel: ProjectViewModel by viewModel()
+    private val projectsListViewModel: ProjectsListViewModel by viewModel()
     private val projectDetailsViewModel: ProjectDetailsViewModel by viewModel()
     private val profileViewModel: ProfileViewModel by viewModel()
 
@@ -116,7 +115,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     context = this,
                     lifecycle = lifecycle,
-                    listViewModel = projectViewModel,
+                    listViewModel = projectsListViewModel,
                     detailsViewModel = projectDetailsViewModel,
                     profileViewModel = profileViewModel,
                     navController = rememberNavController()
@@ -153,7 +152,7 @@ fun PortfolioApp(
     modifier: Modifier = Modifier,
     context: Context,
     lifecycle: Lifecycle,
-    listViewModel: ProjectViewModel,
+    listViewModel: ProjectsListViewModel,
     detailsViewModel: ProjectDetailsViewModel,
     profileViewModel: ProfileViewModel,
     navController: NavHostController
@@ -173,12 +172,11 @@ fun PortfolioApp(
         },
         bottomBar =
             {
-            val userState by profileViewModel.userLogin.stateFlow.collectAsState()
+            val userState by profileViewModel.login.stateFlow.collectAsState()
+            val navBackStackEntry by navController.currentBackStackEntryAsState()
+            val currentDestination = navBackStackEntry?.destination
             if (userState is LoginState.Authenticated) {
-                val profile by profileViewModel.profileState.collectAsState()
                 NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
                     topLevelRoutes.forEach { topLevelRoute ->
                         NavigationBarItem(
                             icon = {
@@ -191,7 +189,8 @@ fun PortfolioApp(
                                 }
                                 when (topLevelRoute.route) {
                                     Route.Profile -> {
-                                        (profile as? Profile.Loaded)?.avatarUrl?.let {
+                                        val profile by profileViewModel.profileState.collectAsState()
+                                        (profile as? Profile.Created)?.avatarUrl?.let {
                                             Avatar(
                                                 Modifier.size(30.dp),
                                                 it
@@ -203,9 +202,10 @@ fun PortfolioApp(
                                 }
                             },
                             label = { Text(topLevelRoute.name) },
-                            selected = currentDestination?.hierarchy?.any {
-                                it.route == topLevelRoute.route::class.qualifiedName
-                            } == true,
+                            selected = currentDestination?.hasRoute(topLevelRoute.route::class) == true,
+                            //selected = currentDestination?.hierarchy?.any {
+                            //    it.route == topLevelRoute.route::class.qualifiedName
+                            //} == true,
                             onClick = {
                                 Log.d(TAG, "PortfolioApp: navigate to route=${topLevelRoute.route}")
                                 navController.navigate(topLevelRoute.route) {
@@ -245,7 +245,9 @@ fun handleSideEffects(effect: UserSideEffects, navController: NavHostController,
                         popUpTo(Route.Welcome) { inclusive = true }
                         launchSingleTop = true
                     }
-                    is Route.Welcome -> popUpTo(Route.Home) { inclusive = true }
+                    is Route.Welcome -> {
+                        popUpTo(Route.Home) { inclusive = true }
+                    }
                     else -> {}
                 }
             }
@@ -265,35 +267,23 @@ fun AppContent(modifier: Modifier = Modifier,
                context: Context,
                lifecycle: Lifecycle,
                navController: NavHostController,
-               listViewModel: ProjectViewModel,
+               listViewModel: ProjectsListViewModel,
                detailsViewModel: ProjectDetailsViewModel,
                profileViewModel: ProfileViewModel,
                contentPaddingValues: PaddingValues
 ) {
     val userState by profileViewModel.userState.collectAsState()
     val isSignedIn = userState is User.Authenticated
-    LaunchedEffect(Unit) {
-        lifecycle.coroutineScope.launch {
-            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                merge(
-                    listViewModel.sideEffectsFlow,
-                    detailsViewModel.sideEffectsFlow,
-                    profileViewModel.sideEffectsFlow
-                ).collect {
-                    handleSideEffects(it, navController, context)
-                }
-            }
-        }
-    }
     Column(
         modifier.padding(
             top = contentPaddingValues.calculateTopPadding(),
             bottom = contentPaddingValues.calculateBottomPadding()
         )
     ) {
+        val startScreen = if (isSignedIn) Route.Home else Route.Welcome
         NavHost(
             navController = navController,
-            startDestination = Route.Home,
+            startDestination = startScreen,
             modifier = modifier
         ) {
             composable<Route.Welcome> {
@@ -312,6 +302,13 @@ fun AppContent(modifier: Modifier = Modifier,
                 })
             }
             composable<Route.Login> { backStackEntry ->
+                val effect by profileViewModel.login.sideEffectFlow.collectAsStateWithLifecycle(
+                    initialValue = UserSideEffects.None,
+                    minActiveState = Lifecycle.State.STARTED
+                )
+                LaunchedEffect(effect) {
+                    handleSideEffects(effect, navController, context)
+                }
                 val route: Route.Login = backStackEntry.toRoute()
                 LoginScreen(
                     modifier,
@@ -366,6 +363,13 @@ fun AppContent(modifier: Modifier = Modifier,
             }
             navigation<Route.Home>(startDestination = Route.List) {
                 composable<Route.List> {
+                    val effect by profileViewModel.onboarding.sideEffectFlow.collectAsStateWithLifecycle(
+                        initialValue = UserSideEffects.None,
+                        minActiveState = Lifecycle.State.STARTED
+                    )
+                    LaunchedEffect(effect) {
+                        handleSideEffects(effect, navController, context)
+                    }
                     LaunchedEffect(Unit) {
                         listViewModel.clearFilters()
                     }
@@ -416,7 +420,14 @@ fun AppContent(modifier: Modifier = Modifier,
                     })
                 }
                 composable<Route.Profile> {
-                    ProfileScreen(Modifier, profileViewModel.profileEdition.stateFlow, portfolio = emptyList(), object : ProfileActions {
+                    val effect by profileViewModel.profile.sideEffectFlow.collectAsStateWithLifecycle(
+                        initialValue = UserSideEffects.None,
+                        minActiveState = Lifecycle.State.STARTED
+                    )
+                    LaunchedEffect(effect) {
+                        handleSideEffects(effect, navController, context)
+                    }
+                    ProfileScreen(Modifier, profileViewModel.profile.stateFlow, portfolio = emptyList(), object : ProfileActions {
                         override fun onLogin() {
                             navController.navigate(Route.Login(ViewType.Login))
                         }
@@ -497,7 +508,7 @@ fun AppContent(modifier: Modifier = Modifier,
                 dialog<Route.ProviderImportOngoing> {
                     ImportDialog(
                         title = "Importing Projects",
-                        importState = profileViewModel.projectsImportOnboarding.stateFlow,
+                        importState = profileViewModel.onboarding.stateFlow,
                         onCancel = {
                             profileViewModel.cancelImport()
                             navController.popBackStack()
@@ -517,9 +528,9 @@ fun AppContent(modifier: Modifier = Modifier,
                 dialog<Route.PrepareProfile> {
                     PrepareProfile(
                         title = "Preparing Profile",
-                        profileState = profileViewModel.profileCreationOnboarding.stateFlow,
+                        profileState = profileViewModel.onboarding.stateFlow,
                         onComplete = {
-                            profileViewModel.profileCreated()
+                            //profileViewModel.profileCreated()
                             navController.popBackStack()
                         }
                     )

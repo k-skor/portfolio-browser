@@ -84,22 +84,34 @@ class AndroidFirestore: Firestore {
         return projectRef.collection("private_data").document("private").set(mapOf("role" to role), SetOptions.merge())
     }
 
-    override suspend fun getProjects(cursor: Any?, uid: String): QueryPagedResult<ProjectDto> {
+    override suspend fun getProjects(cursor: Any?, uid: String, category: String?): QueryPagedResult<ProjectDto> {
         val colRef = db.collectionGroup("projects")
         var query = colRef.where(
             Filter.or(
                 Filter.equalTo("public", true),
                 Filter.equalTo("createdBy", uid)
             )
-        ).orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
+        )
+
+        if (category != null) {
+            query = query.whereArrayContains("categories", category)
+        }
+
+        query = query.orderBy("followersCount", Query.Direction.DESCENDING).limit(5)
 
         (cursor as? DocumentSnapshot)?.let {
-            query = colRef.where(
+            var pagedQuery = db.collectionGroup("projects").where(
                 Filter.or(
                     Filter.equalTo("public", true),
                     Filter.equalTo("createdBy", uid)
                 )
-            ).orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
+            )
+
+            if (category != null) {
+                pagedQuery = pagedQuery.whereArrayContains("categories", category)
+            }
+
+            query = pagedQuery.orderBy("followersCount", Query.Direction.DESCENDING).startAfter(it).limit(5)
         }
 
         val snapshot = query.get().await()

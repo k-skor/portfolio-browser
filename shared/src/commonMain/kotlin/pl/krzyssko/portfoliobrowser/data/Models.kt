@@ -29,6 +29,7 @@ data class Project(
     val name: String = "",
     val description: String? = null,
     val stack: List<Stack> = emptyList(),
+    val categories: List<String> = emptyList(),
     val image: Resource? = null,
     val followersCount: Int = 0,
     val followers: List<Follower> = emptyList(),
@@ -42,10 +43,10 @@ data class Project(
     val roles: List<AccessRole> = emptyList()
 )
 
-data class FilterParams(
-    val query: String,
-    val stack: String?,
-    val featured: Boolean
+data class FilterOptions(
+    val query: String = "",
+    val categories: List<String> = emptyList(),
+    val featured: Boolean = false
 )
 
 typealias AdditionalUserData = Map<String, Any>
@@ -98,7 +99,7 @@ sealed class User {
 
 sealed class Profile {
     data object Stub : Profile()
-    data class Loaded(
+    data class Created(
         val firstName: String,
         val lastName: String,
         val alias: String? = null,
@@ -113,7 +114,7 @@ sealed class Profile {
     ) : Profile()
 
     companion object {
-        val DEFAULT = Loaded(
+        val DEFAULT = Created(
             firstName = "Krzysztof",
             lastName = "Skorcz",
             title = "apps for Android",

@@ -16,7 +16,7 @@ class FirestoreException(message: String? = null, throwable: Throwable? = null):
 
 class FirestorePagingState(val nextPageCursor: Any? = null, override val pageSize: Int = 5, override val paging: Paging = Paging()): PagingState
 
-class FirestoreProjectRepository(private val firestore: Firestore, private val auth: Auth) : ProjectRepository {
+class FirestoreProjectRepository(private val firestore: Firestore, private val auth: Auth) : ProjectRepository, CategoriesRepository {
 
     private var firestorePagingState = FirestorePagingState(null, paging = Paging())
 
@@ -27,37 +27,16 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         firestorePagingState = FirestorePagingState(null, paging = Paging())
     }
 
-    //override suspend fun uploadProject(docId: String, project: Project) {
-    //    uploadProjects(docId, listOf(project))
-    //}
-
-    //override suspend fun uploadProjects(docId: String, projects: List<Project>) {
-    //    firestore.syncProjects(docId, projects)
-    //    //auth.userProfile?.id?.let { uid ->
-    //    //    firestore.syncProjects(uid, projects)
-    //    //} ?: throw IllegalStateException("User id missing.")
-    //}
-
-    //override suspend fun uploadProjects(projectsFlow: Flow<List<Project>>) {
-    //    logging.debug("upload projects")
-    //    val last = (userFlow.value as? User.Authenticated)
-    //    logging.debug("upload projects last value=$last")
-    //    firestore.syncProjects(
-    //        last?.account?.id ?: return,
-    //        projectsFlow.toList().reduce { acc, projects -> acc.toMutableList() + projects }
-    //    )
-    //}
-
-    override suspend fun fetchUser(): Result<String> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
-    }
-
     override suspend fun fetchTotalProjectsSize(): Result<Int> {
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }
 
     override suspend fun fetchStack(name: String): Result<List<Stack>> {
         return Result.failure(FirestoreException(throwable = NotImplementedError()))
+    }
+
+    override suspend fun fetchCategory(name: String): Result<List<Stack>> {
+        return Result.success(emptyList<Stack>())
     }
 
     override suspend fun fetchProjectDetails(uid: String, id: String): Result<Project> {
@@ -70,31 +49,21 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         }
     }
 
-    override suspend fun searchProjects(query: String, queryParams: String?): Result<PagedResponse<Project>> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
-    }
-
-    override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
+    override suspend fun nextPage(nextPageKey: Any?, category: String?): Result<List<Project>> {
         if (!auth.isUserSignedIn) {
             return Result.failure(IllegalStateException("User not logged in."))
         }
         return runCatching {
             firestore.getProjects(
                 firestorePagingState.nextPageCursor,
-                auth.userAccount?.id!!
+                auth.userAccount?.id!!,
+                category
             ).also {
                 firestorePagingState = it.getNextPage2(firestorePagingState, nextPageKey)
             }.value.map {
                 it.toProject()
             }
         }
-    }
-
-    override suspend fun nextSearchPage(
-        query: String,
-        nextPageKey: Any?
-    ): Result<List<Project>> {
-        return Result.failure(FirestoreException(throwable = NotImplementedError()))
     }
 
     override suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>> {

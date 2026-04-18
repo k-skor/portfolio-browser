@@ -1,7 +1,6 @@
 package pl.krzyssko.portfoliobrowser.repository
 
 import pl.krzyssko.portfoliobrowser.api.Api
-import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
@@ -10,16 +9,25 @@ import pl.krzyssko.portfoliobrowser.data.Stack
 
 class GitHubRepositoryException(message: String? = null, throwable: Throwable? = null): Exception(message, throwable)
 
-class GitHubPagingState(override val pageSize: Int = 10, override val paging: Paging): PagingState
+class GitHubPagingState(override val pageSize: Int = 10, override val paging: Paging = Paging()): PagingState
 
-class GitHubProjectRepository(private val api: Api, private val auth: Auth) : ProjectRepository {
+class GitHubProjectRepository(private val api: Api, private val auth: Auth) : ProjectRepository,
+    SearchRepository, UserRepository, CategoriesRepository {
 
-    private var gitHubPagingState = GitHubPagingState(paging = Paging())
-    override val pagingState: GitHubPagingState
+    private var gitHubPagingState = GitHubPagingState()
+    override val pagingState: PagingState
         get() = gitHubPagingState
 
+    private var gitHubSearchPagingState = GitHubPagingState()
+    override val searchPagingState: PagingState
+        get() = gitHubSearchPagingState
+
     override fun resetPagingState() {
-        gitHubPagingState = GitHubPagingState(paging = Paging())
+        gitHubPagingState = GitHubPagingState()
+    }
+
+    override fun resetSearchPagingState() {
+        gitHubSearchPagingState = GitHubPagingState()
     }
 
     /**
@@ -56,6 +64,10 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
+    override suspend fun fetchCategory(name: String): Result<List<Stack>> {
+        return Result.success(emptyList())
+    }
+
     override suspend fun fetchProjectDetails(uid: String, id: String): Result<Project> {
         return runCatching {
             api.getRepoBy(id)?.let {
@@ -63,6 +75,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     id = it.id.toString(),
                     name = it.name,
                     description = it.description,
+                    categories = emptyList(),
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userAccount?.id ?: "",
                     createdByName = auth.userAccount?.name ?: "",
@@ -73,25 +86,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
-    override suspend fun searchProjects(query: String, queryParams: String?): Result<PagedResponse<Project>> {
-        return runCatching {
-            val response = api.searchRepos(query, queryParams)
-            PagedResponse(page = response.page.projects.map {
-                Project(
-                    id = it.id.toString(),
-                    name = it.name,
-                    description = it.description,
-                    image = Resource.NetworkResource("https://picsum.photos/500/500"),
-                    createdBy = auth.userAccount?.id ?: "",
-                    createdByName = auth.userAccount?.name ?: "",
-                    createdOn = 11234567890,
-                    public = !it.private
-                )
-            }, next = response.next, prev = response.prev, last = response.last)
-        }
-    }
-
-    override suspend fun nextPage(nextPageKey: Any?): Result<List<Project>> {
+    override suspend fun nextPage(nextPageKey: Any?, category: String?): Result<List<Project>> {
         return runCatching {
             val response = api.getRepos(nextPageKey?.toString())
             response.also {
@@ -108,6 +103,7 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                     id = it.id.toString(),
                     name = it.name,
                     description = it.description,
+                    categories = emptyList(),
                     image = Resource.NetworkResource("https://picsum.photos/500/500"),
                     createdBy = auth.userAccount?.id ?: "",
                     createdByName = auth.userAccount?.name ?: "",
@@ -119,8 +115,33 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
-    override suspend fun nextSearchPage(query: String, nextPageKey: Any?): Result<List<Project>> =
-        Result.failure(GitHubRepositoryException(throwable = NotImplementedError()))
+    override suspend fun nextSearchPage(query: String, nextPageKey: Any?): Result<List<Project>> {
+        return runCatching {
+            val response = api.searchRepos(query, nextPageKey?.toString())
+            gitHubSearchPagingState = GitHubPagingState(
+                paging = Paging(
+                    pageKey = nextPageKey,
+                    nextPageKey = response.next,
+                    prevPageKey = response.prev,
+                    isLastPage = response.next == null
+                )
+            )
+            response.page.projects.map {
+                Project(
+                    id = it.id.toString(),
+                    name = it.name,
+                    description = it.description,
+                    categories = emptyList(),
+                    image = Resource.NetworkResource("https://picsum.photos/500/500"),
+                    createdBy = auth.userAccount?.id ?: "",
+                    createdByName = auth.userAccount?.name ?: "",
+                    createdOn = 11234567890,
+                    public = !it.private,
+                    source = Source.GitHub
+                )
+            }
+        }
+    }
 
     override suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>> =
         Result.failure(GitHubRepositoryException(throwable = NotImplementedError()))

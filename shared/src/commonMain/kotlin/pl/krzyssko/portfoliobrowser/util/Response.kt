@@ -2,8 +2,6 @@ package pl.krzyssko.portfoliobrowser.util
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.map
-import pl.krzyssko.portfoliobrowser.data.User
 
 sealed class Response<out T> {
     data object Pending: Response<Nothing>()

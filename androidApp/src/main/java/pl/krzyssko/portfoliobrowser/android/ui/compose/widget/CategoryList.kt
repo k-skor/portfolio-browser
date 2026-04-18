@@ -30,20 +30,20 @@ fun CategoryList(modifier: Modifier = Modifier, stack: List<Stack>) {
                 )
             }
         }
-        Row(modifier = Modifier.fillMaxWidth()) {
-            for (stackIt in stack) {
-                val weight = stackIt.percent / 100.0f
-                if (weight > 0) {
-                    Surface(
-                        modifier = Modifier
-                            .height(4.dp)
-                            .weight(weight),
-                        color = Color(stackIt.color),
-                        shape = RectangleShape
-                    ) { }
-                }
-            }
-        }
+        //Row(modifier = Modifier.fillMaxWidth()) {
+        //    for (stackIt in stack) {
+        //        val weight = stackIt.percent / 100.0f
+        //        if (weight > 0) {
+        //            Surface(
+        //                modifier = Modifier
+        //                    .height(4.dp)
+        //                    .weight(weight),
+        //                color = Color(stackIt.color),
+        //                shape = RectangleShape
+        //            ) { }
+        //        }
+        //    }
+        //}
         //Column {
         //    for (stackIt in stack) {
         //        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

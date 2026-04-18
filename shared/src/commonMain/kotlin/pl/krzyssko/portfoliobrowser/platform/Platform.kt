@@ -10,7 +10,10 @@ data class Config(
     val gitHubApiUser: String? = null,
     val gitHubApiToken: String? = null,
     val lastSignInMethod: String? = null,
-    val isEmulator: Boolean? = null
+    val isEmulator: Boolean? = null,
+    val azureSearchEndpoint: String? = null,
+    val azureSearchApiKey: String? = null,
+    val azureSearchIndex: String? = null
 )
 
 abstract class Configuration {
@@ -27,6 +30,9 @@ abstract class Configuration {
         config.gitHubApiToken?.let { vault.set("$KEY_CONFIG.gitHubApiToken", it) }
         config.lastSignInMethod?.let { vault.set("$KEY_CONFIG.lastSignInMethod", it) }
         config.isEmulator?.let { vault.set("$KEY_CONFIG.isEmulator", it) }
+        config.azureSearchEndpoint?.let { vault.set("$KEY_CONFIG.azureSearchEndpoint", it) }
+        config.azureSearchApiKey?.let { vault.set("$KEY_CONFIG.azureSearchApiKey", it) }
+        config.azureSearchIndex?.let { vault.set("$KEY_CONFIG.azureSearchIndex", it) }
     }
 
     fun restore(): Config {
@@ -34,7 +40,10 @@ abstract class Configuration {
             gitHubApiUser = vault.string("$KEY_CONFIG.gitHubApiUser"),
             gitHubApiToken = vault.string("$KEY_CONFIG.gitHubApiToken"),
             lastSignInMethod = vault.string("$KEY_CONFIG.lastSignInMethod"),
-            isEmulator = vault.bool("$KEY_CONFIG.isEmulator")
+            isEmulator = vault.bool("$KEY_CONFIG.isEmulator"),
+            azureSearchEndpoint = vault.string("$KEY_CONFIG.azureSearchEndpoint"),
+            azureSearchApiKey = vault.string("$KEY_CONFIG.azureSearchApiKey"),
+            azureSearchIndex = vault.string("$KEY_CONFIG.azureSearchIndex")
         )
     }
 

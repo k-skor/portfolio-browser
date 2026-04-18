@@ -20,16 +20,15 @@ import pl.krzyssko.portfoliobrowser.api.AzureSearchApi
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
-import pl.krzyssko.portfoliobrowser.business.ProfileEdition
+import pl.krzyssko.portfoliobrowser.business.Login
+import pl.krzyssko.portfoliobrowser.business.Onboarding
 import pl.krzyssko.portfoliobrowser.business.ProjectEdition
 import pl.krzyssko.portfoliobrowser.business.ProjectsListInteraction
-import pl.krzyssko.portfoliobrowser.business.UserLogin
-import pl.krzyssko.portfoliobrowser.business.UserLoginAccountLink
+import pl.krzyssko.portfoliobrowser.business.UserProfile
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.repository.AzureSearchRepository
 import pl.krzyssko.portfoliobrowser.repository.CategoriesRepository
 import pl.krzyssko.portfoliobrowser.repository.FirestoreProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
@@ -76,8 +75,7 @@ fun sharedAppModule() = module {
     single<InfiniteColorPicker> { (colorMap: StackColorMap?) -> InfiniteColorPicker(colorMap ?: emptyMap()) }
     factory<ProjectsListInteraction> { (coroutineScope: CoroutineScope) ->
         ProjectsListInteraction(
-            coroutineScope,
-            Dispatchers.IO
+            coroutineScope
         )
     }
     factory<ProjectEdition> { (coroutineScope: CoroutineScope) ->
@@ -86,29 +84,28 @@ fun sharedAppModule() = module {
             Dispatchers.IO
         )
     }
-    factory<UserLogin> { (coroutineScope: CoroutineScope) ->
-        UserLogin(
+    single<Onboarding> { (coroutineScope: CoroutineScope) ->
+        Onboarding(
             coroutineScope,
             Dispatchers.IO,
             get(),
-            get(),
-            get(NAMED_GITHUB),
             get()
         )
     }
-    factory<UserLoginAccountLink> { (coroutineScope: CoroutineScope) ->
-        UserLoginAccountLink(
+    single<Login> { (coroutineScope: CoroutineScope) ->
+        Login(
             coroutineScope,
             Dispatchers.IO,
             get(),
             get(),
-            get(NAMED_GITHUB)
+            get()
         )
     }
-    factory<ProfileEdition> { (coroutineScope: CoroutineScope) ->
-        ProfileEdition(
+    factory<UserProfile> { (coroutineScope: CoroutineScope) ->
+        UserProfile(
             coroutineScope,
             Dispatchers.IO,
+            get(),
             get()
         )
     }

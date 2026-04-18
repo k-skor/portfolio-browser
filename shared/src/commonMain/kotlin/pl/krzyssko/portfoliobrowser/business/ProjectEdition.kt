@@ -26,8 +26,8 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 
 class ProjectEdition(
     coroutineScope: CoroutineScope,
-    dispatcherIO: CoroutineDispatcher
-) : KoinComponent, OrbitStore<ProjectState>(coroutineScope, dispatcherIO, ProjectState.Loading) {
+    private val dispatcherIO: CoroutineDispatcher
+) : KoinComponent, OrbitStore<ProjectState>(coroutineScope, ProjectState.Loading) {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun Flow<Project>.mapProject(colorPicker: InfiniteColorPicker, ownerId: String): Flow<Project> =

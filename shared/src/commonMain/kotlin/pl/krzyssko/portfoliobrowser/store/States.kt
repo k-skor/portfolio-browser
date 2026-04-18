@@ -25,12 +25,12 @@ sealed class ProjectsListState {
 
 sealed class LoginState {
     data object Initialized : LoginState()
+    data object LinkInProgress : LoginState()
     data class Authenticated(
         val user: User,
         val linkedProviders: List<Provider>? = emptyList()
     ) : LoginState()
     data class Error(val reason: Throwable?): LoginState()
-    //data class ProfileCreated(val profile: Profile): LoginState()
 }
 
 sealed class ProfileState {
@@ -39,27 +39,16 @@ sealed class ProfileState {
     data class Completed(val profile: Profile.Created): ProfileState()
 }
 
-sealed class UserOnboardingProfileState {
-    data object NotCreated : UserOnboardingProfileState()
-    data object FirstTimeCreation : UserOnboardingProfileState()
-    data object AlreadyCreated: UserOnboardingProfileState()
-    data class Error(val reason: Throwable?): UserOnboardingProfileState()
-    data class Completed(val userName: String): UserOnboardingProfileState()
-}
-
-sealed class AccountMergeState {
-    data object Idle : AccountMergeState()
-    data object InProgress : AccountMergeState()
-    data class Success(val user: User.Authenticated) : AccountMergeState()
-    data class Error(val reason: Throwable?) : AccountMergeState()
-}
-
-sealed class UserOnboardingImportState {
-    data object Initialized: UserOnboardingImportState()
-    data object SourceAvailable: UserOnboardingImportState()
-    data object Confirmed: UserOnboardingImportState()
-    data object Started: UserOnboardingImportState()
-    data class InProgress(val progress: Int, val total: Int, val displayName: String?): UserOnboardingImportState()
-    data class Error(val reason: Throwable?): UserOnboardingImportState()
-    data object Completed: UserOnboardingImportState()
+sealed class OnboardingState {
+    data object Initialized : OnboardingState()
+    data object ProfileNotCreated : OnboardingState()
+    data object FirstTimeSignUp : OnboardingState()
+    data object ProfileExists: OnboardingState()
+    data class FirstTimeSignUpCompleted(val userName: String): OnboardingState()
+    data object ImportSourceAvailable: OnboardingState()
+    data object ImportConfirmed: OnboardingState()
+    data object ImportStarted: OnboardingState()
+    data class ImportProgress(val progress: Int, val total: Int, val displayName: String?): OnboardingState()
+    data class Error(val reason: Throwable?): OnboardingState()
+    data object OnboardingCompleted: OnboardingState()
 }

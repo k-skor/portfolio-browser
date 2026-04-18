@@ -19,24 +19,24 @@ import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
-import pl.krzyssko.portfoliobrowser.store.UserOnboardingProfileState
+import pl.krzyssko.portfoliobrowser.store.OnboardingState
 
 @Composable
 fun PrepareProfile(
     modifier: Modifier = Modifier,
     title: String,
-    profileState: StateFlow<UserOnboardingProfileState>,
+    profileState: StateFlow<OnboardingState>,
     onComplete: () -> Unit
 ) {
     val state by profileState.collectAsState()
-    val isDone = state is UserOnboardingProfileState.Completed
+    val isDone = state is OnboardingState.FirstTimeSignUpCompleted
     Dialog({}) {
         Card(shape = MaterialTheme.shapes.medium) {
             Column(modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(text = title, style = MaterialTheme.typography.titleLarge)
                 Box(modifier = Modifier.padding(vertical = 64.dp)) {
                     if (isDone) {
-                        Text(text = "Hello ${(state as UserOnboardingProfileState.Completed).userName}!")
+                        Text(text = "Hello ${(state as OnboardingState.FirstTimeSignUpCompleted).userName}!")
                     } else {
                         Text(text = "Creating profile...")
                     }
@@ -61,7 +61,7 @@ fun PrepareProfilePreview() {
     AppTheme {
         PrepareProfile(
             title = "Preparing Profile",
-            profileState = MutableStateFlow(UserOnboardingProfileState.Completed("Michael")),
+            profileState = MutableStateFlow(OnboardingState.FirstTimeSignUpCompleted("Michael")),
             onComplete = {}
         )
     }

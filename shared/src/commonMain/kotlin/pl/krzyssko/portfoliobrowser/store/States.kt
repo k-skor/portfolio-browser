@@ -15,12 +15,11 @@ sealed class ProjectState {
     data object Loading: ProjectState()
     data class Error(val reason: Throwable?): ProjectState()
     data class Loaded(val project: Project): ProjectState()
-    //data object Updated: ProjectState()
 }
 
-sealed class ProjectsListState {
-    data object Initialized : ProjectsListState()
-    data class FilterSelected(val options: FilterOptions) : ProjectsListState()
+sealed class ProjectsQueryState {
+    data object Initialized : ProjectsQueryState()
+    data class FilterSelected(val options: FilterOptions) : ProjectsQueryState()
 }
 
 sealed class LoginState {
@@ -36,7 +35,7 @@ sealed class LoginState {
 sealed class ProfileState {
     data object Initialized : ProfileState()
     data class Error(val reason: Throwable?): ProfileState()
-    data class Completed(val profile: Profile.Created): ProfileState()
+    data class Completed(val profile: Profile): ProfileState()
 }
 
 sealed class OnboardingState {

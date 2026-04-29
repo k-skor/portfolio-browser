@@ -22,7 +22,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,13 +32,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppTitle
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
-import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Source
-import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 
 interface LoginActions {
@@ -182,14 +177,11 @@ fun LoginContent(modifier: Modifier = Modifier, viewType: ViewType, isSignedIn: 
 fun LoginScreen(
     modifier: Modifier = Modifier,
     viewType: ViewType,
-    userFlow: StateFlow<User>,
+    isSignedIn: Boolean,
     actions: LoginActions,
     welcomeActions: WelcomeActions,
     importActions: ImportActions
 ) {
-    val user by userFlow.collectAsState()
-    //val isSignedIn = user is User.Authenticated
-    val isSignedIn = user is User.Authenticated
     //Box(
     //    modifier = modifier
     //) {
@@ -349,17 +341,11 @@ fun EmailSignIn(modifier: Modifier = Modifier, loginState: MutableState<String?>
     }
 }
 
-//private val fakeUser = User.Guest
-private val fakeUser = User.Authenticated(
-    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
-)
-
 @Preview(widthDp = 320, heightDp = 640)
 @Composable
 fun LoginPreview() {
     AppTheme {
-        val stateFlow = MutableStateFlow(User.Guest)
-        LoginScreen(Modifier.fillMaxSize(), ViewType.SourceSelection, stateFlow, object : LoginActions {
+        LoginScreen(Modifier.fillMaxSize(), ViewType.SourceSelection, false, object : LoginActions {
             override fun onGitHubSignIn() {
                 TODO("Not yet implemented")
             }

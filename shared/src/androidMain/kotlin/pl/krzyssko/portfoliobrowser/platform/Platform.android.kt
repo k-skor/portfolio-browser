@@ -12,10 +12,21 @@ class AndroidPlatform : Platform {
 
 class AndroidConfiguration(private val appContextHandle: Any?): Configuration() {
     override val vault by lazy { KVault(appContextHandle as Context, "private_config") }
-    //override val default = Config(BuildConfig.githubApiUser, BuildConfig.githubApiKey)
     override var config: Config
         get() = restore()
         set(value) = save(value)
+
+    override fun restore(): Config {
+        val restored = super.restore()
+        return restored.copy(
+            azureTenantId = restored.azureTenantId.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureTenantId,
+            azureClientId = restored.azureClientId.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureClientId,
+            azureClientSecret = restored.azureClientSecret.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureClientSecret,
+            azureSearchEndpoint = restored.azureSearchEndpoint.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchEndpoint,
+            azureSearchIndex = restored.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchIndex,
+            azureScope = restored.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureScope,
+        )
+    }
 }
 
 class AndroidLogging: Logging {

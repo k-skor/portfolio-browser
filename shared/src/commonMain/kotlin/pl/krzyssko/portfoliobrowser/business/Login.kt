@@ -39,18 +39,19 @@ class Login(
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
 
-    val userState: Flow<User> = stateFlow
-        .map {
-            when (it) {
-                is LoginState.LinkInProgress,
-                is LoginState.Initialized -> Response.Pending
-                is LoginState.Authenticated -> Response.Ok(it.user)
-                is LoginState.Error -> Response.Error(it.reason)
+    val user: Flow<User>
+        get() = stateFlow
+            .map {
+                when (it) {
+                    is LoginState.LinkInProgress,
+                    is LoginState.Initialized -> Response.Pending
+                    is LoginState.Authenticated -> Response.Ok(it.user)
+                    is LoginState.Error -> Response.Error(it.reason)
+                }
             }
-        }
-        .map { it.getOrNull() }
-        .filterNotNull()
-        //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
+            .map { it.getOrNull() }
+            .filterNotNull()
+            //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
 
     init {
         initialize()
@@ -76,13 +77,17 @@ class Login(
         }
     }
 
+    fun welcome() = intent {
+        postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+    }
+
     fun login() = intent {
         loginAnonymous()
             .catch { handleException(it) }
             .flowOn(dispatcherIO)
             .onCompletion {
                 if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
                 } else {
                     resetAuthSub()
                 }
@@ -112,7 +117,7 @@ class Login(
             .flowOn(dispatcherIO)
             .onCompletion {
                 if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
                 } else {
                     if (it !is AuthAccountExistsException) {
                         resetAuthSub()
@@ -132,7 +137,7 @@ class Login(
             .flowOn(dispatcherIO)
             .onCompletion {
                 if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.Home))
+                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
                 } else {
                     resetAuthSub()
                 }

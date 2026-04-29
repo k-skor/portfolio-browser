@@ -30,17 +30,18 @@ class UserProfile(
 
     private var fetchJob: Job? = null
 
-    val profileState: Flow<Profile> = stateFlow
-        .map {
-            when (it) {
-                is ProfileState.Initialized -> Response.Pending
-                is ProfileState.Completed -> Response.Ok(it.profile)
-                is ProfileState.Error -> Response.Error(it.reason)
+    val profile: Flow<Profile>
+        get() = stateFlow
+            .map {
+                when (it) {
+                    is ProfileState.Initialized -> Response.Pending
+                    is ProfileState.Completed -> Response.Ok(it.profile)
+                    is ProfileState.Error -> Response.Error(it.reason)
+                }
             }
-        }
-        .map { it.getOrNull() }
-        .filterNotNull()
-        //.stateIn(coroutineScope, SharingStarted.Eagerly, Profile.Stub)
+            .map { it.getOrNull() }
+            .filterNotNull()
+            //.stateIn(coroutineScope, SharingStarted.Eagerly, Profile.Stub)
 
     fun fetch() = intent {
         fetchJob?.cancel()

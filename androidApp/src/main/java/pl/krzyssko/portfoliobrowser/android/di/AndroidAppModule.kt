@@ -17,7 +17,7 @@ val androidAppModule = module {
         ProjectsListViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(qualifier = NAMED_AZURE), get())
     }
     viewModel { (handle: SavedStateHandle) ->
-        ProjectDetailsViewModel(handle, get(qualifier = NAMED_FIRESTORE), get(), get())
+        ProjectDetailsViewModel(handle)
     }
     viewModel {
         ProfileViewModel()

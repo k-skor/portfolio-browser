@@ -97,24 +97,21 @@ sealed class User {
     ) : User()
 }
 
-sealed class Profile {
-    data object Stub : Profile()
-    data class Created(
-        val firstName: String,
-        val lastName: String,
-        val alias: String? = null,
-        val role: List<ProfileRole> = listOf(ProfileRole.Other),
-        val avatarUrl: String? = null,
-        val title: String? = null,
-        val about: String? = null,
-        val assets: List<String> = emptyList(),
-        val experience: Int,
-        val location: String,
-        val contact: List<Contact> = emptyList()
-    ) : Profile()
-
+data class Profile(
+    val firstName: String,
+    val lastName: String,
+    val alias: String? = null,
+    val role: List<ProfileRole> = listOf(ProfileRole.Other),
+    val avatarUrl: String? = null,
+    val title: String? = null,
+    val about: String? = null,
+    val assets: List<String> = emptyList(),
+    val experience: Int,
+    val location: String,
+    val contact: List<Contact> = emptyList()
+) {
     companion object {
-        val DEFAULT = Created(
+        val DefaultProfile = Profile(
             firstName = "Krzysztof",
             lastName = "Skorcz",
             title = "apps for Android",
@@ -125,6 +122,12 @@ sealed class Profile {
         )
     }
 }
+
+data class SearchDoc(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+)
 
 fun Project.canEdit(uid: String): Boolean = createdBy == uid
 fun Int.toExperience(): String = when {

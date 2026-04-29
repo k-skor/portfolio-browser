@@ -18,6 +18,7 @@ interface Firestore {
     suspend fun updateProject(uid: String, id: String?, project: ProjectDto)
     suspend fun toggleFollowProject(uid: String, id: String, follower: Follower, toggle: Boolean)
     suspend fun getFavoriteProjects(cursor: Any?, uid: String): QueryPagedResult<ProjectDto>
+    suspend fun getSearchResults(documentIds: List<String>): List<ProjectDto>
     suspend fun searchProjects(phrase: String, cursor: Any?, uid: String): QueryPagedResult<ProjectDto>
     suspend fun getLastSyncTimestampForSource(uid: String, source: Source): Long?
 }

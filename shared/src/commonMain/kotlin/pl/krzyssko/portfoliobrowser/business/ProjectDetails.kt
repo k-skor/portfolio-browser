@@ -23,11 +23,28 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
+import pl.krzyssko.portfoliobrowser.util.Response
+import pl.krzyssko.portfoliobrowser.util.getOrNull
 
-class ProjectEdition(
+class ProjectDetails(
     coroutineScope: CoroutineScope,
-    private val dispatcherIO: CoroutineDispatcher
+    private val dispatcherIO: CoroutineDispatcher,
+    private val repository: ProjectRepository,
+    private val auth: Auth,
+    private val firestore: Firestore
 ) : KoinComponent, OrbitStore<ProjectState>(coroutineScope, ProjectState.Loading) {
+
+    val details: Flow<Project> = stateFlow
+        .map {
+            when (it) {
+                is ProjectState.Loading -> Response.Pending
+                is ProjectState.Loaded -> Response.Ok(it.project)
+                is ProjectState.Error -> Response.Error(it.reason)
+            }
+        }
+        .map { it.getOrNull() }
+        .filterNotNull()
+        //.stateIn(viewModelScope, SharingStarted.Eagerly, Response.Pending)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun Flow<Project>.mapProject(colorPicker: InfiniteColorPicker, ownerId: String): Flow<Project> =
@@ -46,7 +63,6 @@ class ProjectEdition(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun loadFrom(
-        repository: ProjectRepository,
         colorPicker: InfiniteColorPicker,
         ownerId: String,
         projectId: String
@@ -84,7 +100,7 @@ class ProjectEdition(
             }
     }
 
-    fun followProject(db: Firestore, auth: Auth, follow: Boolean) = intent {
+    fun followProject(follow: Boolean) = intent {
         if (!auth.isUserSignedIn) {
             postSideEffect(UserSideEffects.Error(IllegalStateException("User not signed in.")))
             return@intent
@@ -92,14 +108,14 @@ class ProjectEdition(
         val project = (state as ProjectState.Loaded).project
         val userId = auth.userAccount!!.id
         val ownerId = project.createdBy
-        val profile = db.getProfile(userId)
+        val profile = firestore.getProfile(userId)
         val follower = Follower(
             uid = userId,
             name = profile?.alias ?: "${profile?.firstName} ${profile?.lastName}"
         )
 
         withContext(dispatcherIO) {
-            db.toggleFollowProject(ownerId, project.id, follower, follow)
+            firestore.toggleFollowProject(ownerId, project.id, follower, follow)
         }
 
         reduce {

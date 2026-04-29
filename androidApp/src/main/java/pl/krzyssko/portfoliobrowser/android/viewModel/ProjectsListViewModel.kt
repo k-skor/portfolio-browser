@@ -7,6 +7,8 @@ import app.cash.paging.Pager
 import app.cash.paging.PagingConfig
 import app.cash.paging.cachedIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -18,14 +20,15 @@ import org.koin.core.component.inject
 import org.koin.core.parameter.parametersOf
 import pl.krzyssko.portfoliobrowser.InfiniteColorPicker
 import pl.krzyssko.portfoliobrowser.api.paging.MyPagingSource
-import pl.krzyssko.portfoliobrowser.business.ProjectsListInteraction
+import pl.krzyssko.portfoliobrowser.business.ProjectsList
 import pl.krzyssko.portfoliobrowser.data.FilterOptions
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.SearchRepository
-import pl.krzyssko.portfoliobrowser.store.ProjectsListState
+import pl.krzyssko.portfoliobrowser.store.ProjectsQueryState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
+import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 
 class ProjectsListViewModel(
     private val savedStateHandle: SavedStateHandle,
@@ -42,22 +45,24 @@ class ProjectsListViewModel(
     private val colorPicker: InfiniteColorPicker by inject {
         parametersOf(savedStateHandle.get<StackColorMap>(COLORS_STATE_KEY))
     }
-    private val interactions: ProjectsListInteraction by inject {
+
+    private val query: ProjectsList by inject {
         parametersOf(viewModelScope)
     }
 
-    val stateFlow = interactions.stateFlow
-    val sideEffectsFlow = interactions.sideEffectFlow
+    val state: StateFlow<ProjectsQueryState>
+        get() = query.stateFlow
+    val sideEffects: Flow<UserSideEffects>
+        get() = query.sideEffectFlow
 
-    val searchPhrase = stateFlow
-        .map { (it as? ProjectsListState.FilterSelected)?.options?.query }
-        .filterNotNull()
+    val searchPhrase: Flow<String?>
+        get() = query.searchPhrase
 
     private var pagingSource: MyPagingSource<Project>? = null
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pagingFlow = interactions.stateFlow
-        .map { it as? ProjectsListState.FilterSelected }
+    val pagingFlow = query.stateFlow
+        .map { it as? ProjectsQueryState.FilterSelected }
         .filterNotNull()
         .distinctUntilChanged()
         .flatMapLatest { params ->
@@ -85,19 +90,20 @@ class ProjectsListViewModel(
     }
 
     fun clearFilters() {
-        interactions.clearFilters()
+        query.reset()
     }
 
-    fun updateSearchPhrase(searchFieldText: String) {
-        interactions.updateFilters(FilterOptions(query = searchFieldText))
+    fun search(searchFieldText: String) {
+        query.filter(FilterOptions(query = searchFieldText))
+        refreshProjectsList()
     }
 
-    fun updateSelectedCategories(selectedCategories: List<String>) {
-        interactions.updateFilters(FilterOptions(categories = selectedCategories))
+    fun selectCategories(selectedCategories: List<String>) {
+        query.filter(FilterOptions(categories = selectedCategories))
     }
 
-    fun updateOnlyFeatured(favoritesSelected: Boolean) {
-        interactions.updateFilters(FilterOptions(featured = favoritesSelected))
+    fun selectFeatured(favoritesSelected: Boolean) {
+        query.filter(FilterOptions(featured = favoritesSelected))
     }
 
     fun refreshProjectsList() {

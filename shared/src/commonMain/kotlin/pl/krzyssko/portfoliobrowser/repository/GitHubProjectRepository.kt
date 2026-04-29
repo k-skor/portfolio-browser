@@ -115,6 +115,9 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
         }
     }
 
+    override suspend fun fetchProjectsByIds(docIds: List<String>): Result<List<Project>> =
+        Result.failure(GitHubRepositoryException(throwable = NotImplementedError()))
+
     override suspend fun nextSearchPage(query: String, nextPageKey: Any?): Result<List<Project>> {
         return runCatching {
             val response = api.searchRepos(query, nextPageKey?.toString())

@@ -39,12 +39,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -63,7 +60,6 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import androidx.paging.compose.itemKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ProjectOverview
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.data.Project
@@ -220,23 +216,17 @@ fun ListContent(
 fun ListScreen(
     modifier: Modifier = Modifier,
     pagingFlow: Flow<PagingData<Project>>,
-    phraseFlow: Flow<String?>,
-    stackFlow: StateFlow<List<String>> = MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
+    initialPhrase: String,
+    stack: List<String> = listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML"),
     actions: ListScreenActions
 ) {
-    val textFieldState = rememberTextFieldState()
-    var expanded by rememberSaveable { mutableStateOf(false) }
+    val textFieldState = rememberTextFieldState(initialPhrase)
+
+    var expanded by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     var isRefreshing by remember { mutableStateOf(false) } //replace with stateFlow
     val pullToRefreshState = rememberPullToRefreshState()
     val lazyPagingItems = pagingFlow.collectAsLazyPagingItems()
-
-    val phrase by phraseFlow.collectAsState("")
-
-    LaunchedEffect(phrase) {
-        //Log.d("MainActivity", "ListScreen: refreshing list phrase=$phrase, isSignedIn=$isSignedIn, hasValidProject=$hasValidProject")
-        //lazyPagingItems.refresh()
-    }
 
     Column(
         modifier
@@ -287,9 +277,9 @@ fun ListScreen(
                 }
             }
         }
-        val categories by stackFlow.collectAsState()
+        //val categories by stackFlow.collectAsState()
         //var loadingState by remember { mutableStateOf(false) }
-        CategorySelectionBar(Modifier.padding(horizontal = 8.dp), categories)
+        CategorySelectionBar(Modifier.padding(horizontal = 8.dp), stack)
         //Column {
         //    Text("Category", fontSize = 14.sp, fontWeight = FontWeight.Bold)
         //    LazyRow(Modifier.padding(top = if (categories.isEmpty()) 0.dp else 8.dp)) {
@@ -394,7 +384,7 @@ fun DefaultPreview() {
     AppTheme {
         ListScreen(
             pagingFlow = fakeDataFlow,
-            phraseFlow = MutableStateFlow(""),
+            initialPhrase = "",
             actions = object : ListScreenActions {
                 override fun onProjectDetails(project: Project) {
                     TODO("Not yet implemented")

@@ -158,6 +158,18 @@ class AndroidFirestore: Firestore {
         )
     }
 
+    override suspend fun getSearchResults(documentIds: List<String>): List<ProjectDto> {
+        val colRef = db.collectionGroup("projects")
+        val query = colRef.whereIn("id", documentIds)
+
+        val snapshot = query.get().await()
+
+        val resultMap = snapshot.toObjects<ProjectDto>().associateBy { it.id }
+        val orderedProjects = documentIds.mapNotNull { id -> resultMap[id] }
+
+        return orderedProjects
+    }
+
     fun projectsUpdates(query: Query): Flow<List<ProjectDto>> = flow {
         query.snapshots().map { snapshots ->
             snapshots.toObjects<List<ProjectDto>>()

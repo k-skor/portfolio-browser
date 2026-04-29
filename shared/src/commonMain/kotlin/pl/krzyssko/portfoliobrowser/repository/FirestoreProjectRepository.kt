@@ -1,6 +1,5 @@
 package pl.krzyssko.portfoliobrowser.repository
 
-import pl.krzyssko.portfoliobrowser.api.PagedResponse
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
@@ -78,6 +77,17 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
                 firestorePagingState = it.getNextPage2(firestorePagingState, nextPageKey)
 
             }.value.map {
+                it.toProject()
+            }
+        }
+    }
+
+    override suspend fun fetchProjectsByIds(docIds: List<String>): Result<List<Project>> {
+        if (!auth.isUserSignedIn) {
+            return Result.failure(FirestoreException("User not logged in."))
+        }
+        return runCatching {
+            firestore.getSearchResults(docIds).map {
                 it.toProject()
             }
         }

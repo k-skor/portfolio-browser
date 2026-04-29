@@ -26,7 +26,7 @@ import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 import org.orbitmvi.orbit.annotation.OrbitExperimental
 import pl.krzyssko.portfoliobrowser.auth.Auth
-import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.Profile.Companion.DefaultProfile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.db.Firestore
@@ -143,7 +143,7 @@ class Onboarding(
             profileExists(it).await()
         } ?: false
         if (!hasUser) {
-            val profile = Profile.DEFAULT.copy(
+            val profile = DefaultProfile.copy(
                 alias = alias,
                 avatarUrl = avatarUrl
             )

@@ -3,11 +3,15 @@ package pl.krzyssko.portfoliobrowser.di
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpResponseValidator
+import io.ktor.client.plugins.auth.Auth
+import io.ktor.client.plugins.auth.providers.BearerTokens
+import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.koin.core.qualifier.named
 import org.koin.dsl.bind
@@ -17,18 +21,20 @@ import pl.krzyssko.portfoliobrowser.api.Api
 import pl.krzyssko.portfoliobrowser.api.ApiRequestException
 import pl.krzyssko.portfoliobrowser.api.AzureApi
 import pl.krzyssko.portfoliobrowser.api.AzureSearchApi
+import pl.krzyssko.portfoliobrowser.api.AzureTokenProvider
 import pl.krzyssko.portfoliobrowser.api.GitHubApi
-import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.api.getAzureTokenProvider
 import pl.krzyssko.portfoliobrowser.auth.getPlatformAuth
 import pl.krzyssko.portfoliobrowser.business.Login
 import pl.krzyssko.portfoliobrowser.business.Onboarding
-import pl.krzyssko.portfoliobrowser.business.ProjectEdition
-import pl.krzyssko.portfoliobrowser.business.ProjectsListInteraction
+import pl.krzyssko.portfoliobrowser.business.ProjectDetails
+import pl.krzyssko.portfoliobrowser.business.ProjectsList
 import pl.krzyssko.portfoliobrowser.business.UserProfile
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
 import pl.krzyssko.portfoliobrowser.platform.getLogging
+import pl.krzyssko.portfoliobrowser.repository.AzureSearchRepository
 import pl.krzyssko.portfoliobrowser.repository.CategoriesRepository
 import pl.krzyssko.portfoliobrowser.repository.FirestoreProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
@@ -36,14 +42,16 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.SearchRepository
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
+import pl.krzyssko.portfoliobrowser.auth.Auth as PlatformAuth
 
 val NAMED_GITHUB = named("github")
 val NAMED_FIRESTORE = named("firestore")
+val NAMED_AZURE = named("azure")
 
 fun sharedAppModule() = module {
 
-    single<Api> { GitHubApi(get(), get()) }
-    single<AzureApi> { AzureSearchApi(get(), get()) }
+    single<Api> { GitHubApi(get(qualifier = NAMED_GITHUB), get()) }
+    single<AzureApi> { AzureSearchApi(get(qualifier = NAMED_AZURE), get()) }
 
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind ProjectRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind SearchRepository::class
@@ -54,7 +62,46 @@ fun sharedAppModule() = module {
     
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind ProjectRepository::class
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind CategoriesRepository::class
-    single<HttpClient> {
+    factory<SearchRepository>(NAMED_AZURE) { AzureSearchRepository(get(), get(qualifier = NAMED_FIRESTORE)) }
+
+    single<AzureTokenProvider> {
+        val authClient = HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(Json { ignoreUnknownKeys = true })
+            }
+        }
+        getAzureTokenProvider(authClient, get())
+    }
+    
+    single(NAMED_AZURE) {
+        HttpClient(CIO) {
+            install(ContentNegotiation) {
+                json(Json {
+                    ignoreUnknownKeys = true
+                    isLenient = true
+                })
+            }
+            install(Auth) {
+                bearer {
+                    loadTokens {
+                        val provider = get<AzureTokenProvider>()
+                        //provider.initialize()
+                        BearerTokens(provider.token, provider.refreshToken)
+                    }
+                    refreshTokens {
+                        withContext(Dispatchers.IO) {
+                            val provider = get<AzureTokenProvider>()
+                            provider.refreshToken(oldTokens) {
+                                markAsRefreshTokenRequest()
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    single(NAMED_GITHUB) {
         HttpClient(CIO) {
             install(ContentNegotiation) {
                 json(Json {
@@ -69,19 +116,24 @@ fun sharedAppModule() = module {
             }
         }
     }
+
     factory<Logging> { getLogging() }
-    single<Auth> { getPlatformAuth(get()) }
+    single<PlatformAuth> { getPlatformAuth(get()) }
     single<Firestore> { getFirestore() }
     single<InfiniteColorPicker> { (colorMap: StackColorMap?) -> InfiniteColorPicker(colorMap ?: emptyMap()) }
-    factory<ProjectsListInteraction> { (coroutineScope: CoroutineScope) ->
-        ProjectsListInteraction(
-            coroutineScope
+    factory<ProjectsList> { (coroutineScope: CoroutineScope) ->
+        ProjectsList(
+            coroutineScope,
+            get()
         )
     }
-    factory<ProjectEdition> { (coroutineScope: CoroutineScope) ->
-        ProjectEdition(
+    factory<ProjectDetails> { (coroutineScope: CoroutineScope) ->
+        ProjectDetails(
             coroutineScope,
-            Dispatchers.IO
+            Dispatchers.IO,
+            get(qualifier = NAMED_FIRESTORE),
+            get(),
+            get()
         )
     }
     single<Onboarding> { (coroutineScope: CoroutineScope) ->

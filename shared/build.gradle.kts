@@ -30,6 +30,7 @@ kotlin {
             implementation(libs.ktor.cio)
             implementation(libs.ktor.content.negotiation)
             implementation(libs.ktor.json.serialization)
+            implementation(libs.ktor.auth)
             implementation(libs.kotlinx.serialization)
             implementation(libs.orbitmvi.core)
             implementation(libs.appcash.paging.common)
@@ -39,6 +40,8 @@ kotlin {
         androidMain.dependencies {
             // Logging
             implementation(libs.kotlin.logging)
+            // MSAL
+            implementation(libs.msal)
             // Firebase
             implementation(project.dependencies.platform(libs.firebase.bom))
             implementation(libs.firebase.auth)

@@ -9,6 +9,7 @@ import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.ProfileRole
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Resource
+import pl.krzyssko.portfoliobrowser.data.SearchDoc
 import pl.krzyssko.portfoliobrowser.data.SocialMediaType
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.Stack
@@ -149,12 +150,12 @@ val profileDtoValidation = Validation<ProfileDto> {
     ProfileDto::experience required {}
 }
 
-fun ProfileDto.toProfile(): Profile.Created {
+fun ProfileDto.toProfile(): Profile {
     val validationResult = profileDtoValidation(this)
     if (validationResult.errors.isNotEmpty()) {
         throw IllegalArgumentException("Invalid ProfileDto: ${validationResult.errors}")
     }
-    return Profile.Created(
+    return Profile(
         firstName = this.firstName ?: throw IllegalArgumentException("firstName is required"),
         lastName = this.lastName ?: throw IllegalArgumentException("lastName is required"),
         alias = this.alias,
@@ -178,7 +179,7 @@ fun ProfileDto.toProfile(): Profile.Created {
     )
 }
 
-fun Profile.Created.toDto(): ProfileDto {
+fun Profile.toDto(): ProfileDto {
     return ProfileDto(
         firstName = this.firstName,
         lastName = this.lastName,
@@ -202,5 +203,13 @@ fun Profile.Created.toDto(): ProfileDto {
                 is Contact.CustomLink -> contact.title to contact.link
             }
         }
+    )
+}
+
+fun SearchDocDto.toSearchDoc(): SearchDoc {
+    return SearchDoc(
+        id = this.id,
+        name = this.name,
+        description = this.descriptionPl ?: this.descriptionEn
     )
 }

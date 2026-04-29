@@ -44,7 +44,8 @@ import androidx.navigation.compose.dialog
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
@@ -75,7 +76,6 @@ import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectsListViewModel
 import pl.krzyssko.portfoliobrowser.data.Profile
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Source
-import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.platform.getLogging
@@ -111,14 +111,12 @@ class MainActivity : ComponentActivity() {
         getLogging().debug("HELLLOOOOOO!!!!")
         setContent {
             AppTheme {
-                PortfolioApp(
+                AppContent(
                     modifier = Modifier.fillMaxSize(),
                     context = this,
-                    lifecycle = lifecycle,
                     listViewModel = projectsListViewModel,
                     detailsViewModel = projectDetailsViewModel,
-                    profileViewModel = profileViewModel,
-                    navController = rememberNavController()
+                    profileViewModel = profileViewModel
                 )
             }
         }
@@ -148,14 +146,11 @@ class MainActivity : ComponentActivity() {
 
 @ExperimentalMaterial3Api
 @Composable
-fun PortfolioApp(
+fun HomeScaffold(
     modifier: Modifier = Modifier,
-    context: Context,
-    lifecycle: Lifecycle,
-    listViewModel: ProjectsListViewModel,
-    detailsViewModel: ProjectDetailsViewModel,
     profileViewModel: ProfileViewModel,
-    navController: NavHostController
+    navController: NavHostController,
+    content: @Composable (PaddingValues) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(rememberTopAppBarState())
     var showSearchBarState by remember { mutableStateOf(false) }
@@ -170,85 +165,79 @@ fun PortfolioApp(
             //    scrollBehavior = scrollBehavior
             //)
         },
-        bottomBar =
-            {
-            val userState by profileViewModel.login.stateFlow.collectAsState()
+        bottomBar = {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
             val currentDestination = navBackStackEntry?.destination
-            if (userState is LoginState.Authenticated) {
-                NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
-                    topLevelRoutes.forEach { topLevelRoute ->
-                        NavigationBarItem(
-                            icon = {
-                                val defaultIcon: @Composable () -> Unit = {
-                                    Icon(
-                                        topLevelRoute.icon,
-                                        topLevelRoute.name,
-                                        tint = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                when (topLevelRoute.route) {
-                                    Route.Profile -> {
-                                        val profile by profileViewModel.profileState.collectAsState()
-                                        (profile as? Profile.Created)?.avatarUrl?.let {
-                                            Avatar(
-                                                Modifier.size(30.dp),
-                                                it
-                                            )
-                                        } ?: defaultIcon()
-                                    }
-
-                                    else -> defaultIcon()
-                                }
-                            },
-                            label = { Text(topLevelRoute.name) },
-                            selected = currentDestination?.hasRoute(topLevelRoute.route::class) == true,
-                            //selected = currentDestination?.hierarchy?.any {
-                            //    it.route == topLevelRoute.route::class.qualifiedName
-                            //} == true,
-                            onClick = {
-                                Log.d(TAG, "PortfolioApp: navigate to route=${topLevelRoute.route}")
-                                navController.navigate(topLevelRoute.route) {
-                                    //popUpTo(Route.Home) {
-                                    //    saveState = true
-                                    //}
-                                    launchSingleTop = true
-                                    //restoreState = true
-                                }
+            NavigationBar(windowInsets = NavigationBarDefaults.windowInsets) {
+                topLevelRoutes.forEach { topLevelRoute ->
+                    NavigationBarItem(
+                        icon = {
+                            val defaultIcon: @Composable () -> Unit = {
+                                Icon(
+                                    topLevelRoute.icon,
+                                    topLevelRoute.name,
+                                    tint = MaterialTheme.colorScheme.onSurface
+                                )
                             }
-                        )
-                    }
+                            when (topLevelRoute.route) {
+                                Route.Profile -> {
+                                    val profile by profileViewModel.profile.collectAsState(null)
+                                    profile?.avatarUrl?.let {
+                                        Avatar(
+                                            Modifier.size(30.dp),
+                                            it
+                                        )
+                                    } ?: defaultIcon()
+                                }
+
+                                else -> defaultIcon()
+                            }
+                        },
+                        label = { Text(topLevelRoute.name) },
+                        selected = currentDestination?.hasRoute(topLevelRoute.route::class) == true,
+                        onClick = {
+                            Log.d(TAG, "PortfolioApp: navigate to route=${topLevelRoute.route}")
+                            navController.navigate(topLevelRoute.route) {
+                                //popUpTo(Route.Home) {
+                                //    saveState = true
+                                //}
+                                launchSingleTop = true
+                                //restoreState = true
+                            }
+                        }
+                    )
                 }
             }
         },
-        content = {
-            AppContent(
-                modifier,
-                context,
-                lifecycle,
-                navController,
-                listViewModel,
-                detailsViewModel,
-                profileViewModel,
-                it
-            )
-        }
+        content = content
     )
 }
 
-fun handleSideEffects(effect: UserSideEffects, navController: NavHostController, context: Context) {
+fun handleSideEffects(
+    effect: UserSideEffects,
+    parentNavController: NavHostController? = null,
+    navController: NavHostController? = null,
+    context: Context? = null) {
     when (effect) {
         is UserSideEffects.NavigateTo -> {
-            navController.navigate(effect.route) {
-                when (effect.route) {
-                    is Route.Home -> {
-                        popUpTo(Route.Welcome) { inclusive = true }
-                        launchSingleTop = true
+            if (effect.route in topLevelRoutes.map { it.route }) {
+                parentNavController?.navigate(effect.route) {
+                    when (effect.route) {
+                        is Route.Home -> {
+                            popUpTo(Route.Welcome) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                        else -> {}
                     }
-                    is Route.Welcome -> {
-                        popUpTo(Route.Home) { inclusive = true }
+                }
+            } else {
+                navController?.navigate(effect.route) {
+                    when (effect.route) {
+                        is Route.Welcome -> {
+                            popUpTo(Route.HomeScaffold) { inclusive = true }
+                        }
+                        else -> {}
                     }
-                    else -> {}
                 }
             }
         }
@@ -263,58 +252,53 @@ fun handleSideEffects(effect: UserSideEffects, navController: NavHostController,
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppContent(modifier: Modifier = Modifier,
-               context: Context,
-               lifecycle: Lifecycle,
-               navController: NavHostController,
-               listViewModel: ProjectsListViewModel,
-               detailsViewModel: ProjectDetailsViewModel,
-               profileViewModel: ProfileViewModel,
-               contentPaddingValues: PaddingValues
+fun AppContent(
+    modifier: Modifier = Modifier,
+    context: Context,
+    navController: NavHostController = rememberNavController(),
+    listViewModel: ProjectsListViewModel,
+    detailsViewModel: ProjectDetailsViewModel,
+    profileViewModel: ProfileViewModel
 ) {
-    val userState by profileViewModel.userState.collectAsState()
-    val isSignedIn = userState is User.Authenticated
-    Column(
-        modifier.padding(
-            top = contentPaddingValues.calculateTopPadding(),
-            bottom = contentPaddingValues.calculateBottomPadding()
-        )
+    NavHost(
+        navController = navController,
+        startDestination = Route.HomeScaffold,
+        modifier = modifier
     ) {
-        val startScreen = if (isSignedIn) Route.Home else Route.Welcome
-        NavHost(
-            navController = navController,
-            startDestination = startScreen,
-            modifier = modifier
-        ) {
-            composable<Route.Welcome> {
-                WelcomeScreen(modifier, object : WelcomeActions {
-                    override fun onLogin() {
-                        navController.navigate(Route.Login(ViewType.Login))
-                    }
-
-                    override fun onRegister() {
-                        navController.navigate(Route.Login(ViewType.Register))
-                    }
-
-                    override fun onGuestSignIn() {
-                        profileViewModel.authenticateGuest()
-                    }
-                })
-            }
-            composable<Route.Login> { backStackEntry ->
-                val effect by profileViewModel.login.sideEffectFlow.collectAsStateWithLifecycle(
-                    initialValue = UserSideEffects.None,
-                    minActiveState = Lifecycle.State.STARTED
-                )
-                LaunchedEffect(effect) {
-                    handleSideEffects(effect, navController, context)
+        composable<Route.Welcome> {
+            WelcomeScreen(modifier, object : WelcomeActions {
+                override fun onLogin() {
+                    navController.navigate(Route.Login(ViewType.Login))
                 }
-                val route: Route.Login = backStackEntry.toRoute()
-                LoginScreen(
-                    modifier,
-                    route.viewType,
-                    profileViewModel.userState,
-                    object : LoginActions {
+
+                override fun onRegister() {
+                    navController.navigate(Route.Login(ViewType.Register))
+                }
+
+                override fun onGuestSignIn() {
+                    profileViewModel.authenticateGuest()
+                }
+            })
+        }
+        composable<Route.Login> { backStackEntry ->
+            val effect by profileViewModel.loginSideEffects.collectAsStateWithLifecycle(
+                initialValue = UserSideEffects.None,
+                minActiveState = Lifecycle.State.STARTED
+            )
+            LaunchedEffect(effect) {
+                handleSideEffects(
+                    effect,
+                    navController,
+                    context = context
+                )
+            }
+            val route: Route.Login = backStackEntry.toRoute()
+            val isSignedIn by profileViewModel.isSignedIn.collectAsState(false)
+            LoginScreen(
+                modifier,
+                route.viewType,
+                isSignedIn,
+                object : LoginActions {
                     override fun onGitHubSignIn() {
                         profileViewModel.authenticateUser(context)
                     }
@@ -360,45 +344,201 @@ fun AppContent(modifier: Modifier = Modifier,
                         navController.popBackStack()
                     }
                 })
-            }
-            navigation<Route.Home>(startDestination = Route.List) {
-                composable<Route.List> {
-                    val effect by profileViewModel.onboarding.sideEffectFlow.collectAsStateWithLifecycle(
-                        initialValue = UserSideEffects.None,
-                        minActiveState = Lifecycle.State.STARTED
-                    )
-                    LaunchedEffect(effect) {
-                        handleSideEffects(effect, navController, context)
+        }
+        composable<Route.HomeScaffold> {
+            val homeNavController = rememberNavController()
+            HomeScaffold(
+                modifier = modifier,
+                profileViewModel = profileViewModel,
+                navController = homeNavController
+            ) { contentPadding ->
+                val loginState by profileViewModel.loginState.collectAsState()
+                if (loginState is LoginState.Initialized) {
+                    profileViewModel.welcomeUser()
+                } else {
+                    Column(
+                        modifier.padding(
+                            top = contentPadding.calculateTopPadding(),
+                            bottom = contentPadding.calculateBottomPadding()
+                        )
+                    ) {
+                        HomeContent(
+                            modifier = modifier,
+                            context = context,
+                            parentNavController = navController,
+                            navController = homeNavController,
+                            listViewModel = listViewModel,
+                            detailsViewModel = detailsViewModel,
+                            profileViewModel = profileViewModel
+                        )
                     }
-                    LaunchedEffect(Unit) {
-                        listViewModel.clearFilters()
-                    }
-                    ListScreen(
-                        modifier,
-                        listViewModel.pagingFlow,
-                        listViewModel.searchPhrase,
-                        MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
-                        object : ListScreenActions {
-                            override fun onProjectDetails(project: Project) {
-                                detailsViewModel.getProjectDetails(project)
-                            }
-
-                            override fun onSearch(phrase: String) {
-                                listViewModel.updateSearchPhrase(phrase)
-                            }
-
-                            override fun onClear() {
-                                //listViewModel.clearProjects()
-                            }
-
-                            override fun onAvatarClicked() {
-                                navController.navigate(Route.Profile)
-                            }
-                        })
                 }
-                composable<Route.Details> {
-                    DetailsScreen(modifier, detailsViewModel.stateFlow, isSignedIn, object : DetailsActions {
-                        override fun onFavorite(project: Project, favorite: Boolean) {
+            }
+        }
+        dialog<Route.AccountsMerge> {
+            AccountsMergeDialog(
+                title = "Accounts Merge",
+                description = "New account will be override existing state. Continue?",
+                onConfirm = {
+                    profileViewModel.linkUser(context)
+                    navController.popBackStack()
+                },
+                onDismiss = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        dialog<Route.ProviderImport> {
+            ProviderImportDialog(
+                title = "Import Projects",
+                description = "Import projects from a provider?",
+                onConfirm = {
+                    navController.popBackStack()
+                    profileViewModel.openImportPage()
+                },
+                onDismiss = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        dialog<Route.ProviderImportOngoing> {
+            ImportDialog(
+                title = "Importing Projects",
+                importState = profileViewModel.onboardingState,
+                onCancel = {
+                    profileViewModel.cancelImport()
+                    navController.popBackStack()
+                },
+                onComplete = {
+                    listViewModel.refreshProjectsList()
+                    navController.popBackStack()
+                }
+            )
+        }
+        dialog<Route.Error> { backStackEntry ->
+            val route: Route.Error = backStackEntry.toRoute()
+            ErrorDialog(route.title, route.message) {
+                navController.popBackStack()
+            }
+        }
+        dialog<Route.PrepareProfile> {
+            PrepareProfile(
+                title = "Preparing Profile",
+                profileState = profileViewModel.onboardingState,
+                onComplete = {
+                    //profileViewModel.profileCreated()
+                    navController.popBackStack()
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeContent(
+    modifier: Modifier = Modifier,
+    context: Context,
+    parentNavController: NavHostController,
+    navController: NavHostController,
+    listViewModel: ProjectsListViewModel,
+    detailsViewModel: ProjectDetailsViewModel,
+    profileViewModel: ProfileViewModel
+) {
+    val effect by profileViewModel.onboardingSideEffects.collectAsStateWithLifecycle(
+        initialValue = UserSideEffects.None,
+        minActiveState = Lifecycle.State.STARTED
+    )
+    LaunchedEffect(effect) {
+        handleSideEffects(
+            effect,
+            parentNavController = parentNavController,
+            navController = navController,
+            context = context
+        )
+    }
+    NavHost(
+        navController = navController,
+        startDestination = Route.Home,
+        modifier = modifier
+    ) {
+        navigation<Route.Home>(Route.List) {
+            composable<Route.List> {
+                val searchPhrase by listViewModel.searchPhrase.filterNotNull().collectAsState("")
+                LaunchedEffect(Unit) {
+                    listViewModel.clearFilters()
+                }
+                //val filterState by listViewModel.filterState.collectAsState()
+                //LaunchedEffect(filterState) {
+                //    listViewModel.refreshProjectsList()
+                //}
+                val effect by merge(
+                listViewModel.sideEffects,
+                    detailsViewModel.sideEffects
+                ).collectAsStateWithLifecycle(
+                    initialValue = UserSideEffects.None,
+                    minActiveState = Lifecycle.State.STARTED
+                )
+                LaunchedEffect(effect) {
+                    handleSideEffects(
+                        effect,
+                        parentNavController = parentNavController,
+                        navController = navController,
+                        context = context
+                    )
+                }
+                ListScreen(
+                    modifier,
+                    listViewModel.pagingFlow,
+                    searchPhrase,
+                    listOf(
+                        "Kotlin",
+                        "Java",
+                        "TypeScript",
+                        "Bash",
+                        "HTML"
+                    ),
+                    object : ListScreenActions {
+                        override fun onProjectDetails(project: Project) {
+                            detailsViewModel.loadDetails(project)
+                        }
+
+                        override fun onSearch(phrase: String) {
+                            listViewModel.search(phrase)
+                        }
+
+                        override fun onClear() {
+                            //listViewModel.clearProjects()
+                        }
+
+                        override fun onAvatarClicked() {
+                            navController.navigate(Route.Profile)
+                        }
+                    })
+            }
+            composable<Route.Details> {
+                val isSignedIn by profileViewModel.isSignedIn.collectAsState(false)
+                val effect by detailsViewModel.sideEffects.collectAsStateWithLifecycle(
+                    initialValue = UserSideEffects.None,
+                    minActiveState = Lifecycle.State.STARTED
+                )
+                LaunchedEffect(effect) {
+                    handleSideEffects(
+                        effect,
+                        parentNavController = parentNavController,
+                        navController = navController,
+                        context = context
+                    )
+                }
+                DetailsScreen(
+                    modifier,
+                    detailsViewModel.state,
+                    isSignedIn,
+                    object : DetailsActions {
+                        override fun onFavorite(
+                            project: Project,
+                            favorite: Boolean
+                        ) {
                             detailsViewModel.toggleFavorite(favorite)
                         }
 
@@ -418,124 +558,87 @@ fun AppContent(modifier: Modifier = Modifier,
                             navController.popBackStack()
                         }
                     })
-                }
-                composable<Route.Profile> {
-                    val effect by profileViewModel.profile.sideEffectFlow.collectAsStateWithLifecycle(
-                        initialValue = UserSideEffects.None,
-                        minActiveState = Lifecycle.State.STARTED
-                    )
-                    LaunchedEffect(effect) {
-                        handleSideEffects(effect, navController, context)
+            }
+        }
+        composable<Route.Profile> {
+            val effect by profileViewModel.profileSideEffects.collectAsStateWithLifecycle(
+                initialValue = UserSideEffects.None,
+                minActiveState = Lifecycle.State.STARTED
+            )
+            LaunchedEffect(effect) {
+                handleSideEffects(
+                    effect,
+                    parentNavController = parentNavController,
+                    navController = navController,
+                    context = context
+                )
+            }
+            ProfileScreen(
+                Modifier,
+                profileViewModel.profileState,
+                portfolio = emptyList(),
+                object : ProfileActions {
+                    override fun onLogin() {
+                        parentNavController.navigate(Route.Login(ViewType.Login))
                     }
-                    ProfileScreen(Modifier, profileViewModel.profile.stateFlow, portfolio = emptyList(), object : ProfileActions {
-                        override fun onLogin() {
-                            navController.navigate(Route.Login(ViewType.Login))
-                        }
 
-                        override fun onProjectDetails(project: Project) {
-                            detailsViewModel.getProjectDetails(project)
-                        }
-
-                        override fun onSaveProfile(profile: Profile) {
-
-                        }
-
-                        override fun onNavigateBack() {
-                            navController.popBackStack()
-                        }
-                    })
-                }
-                composable<Route.Favorites> {
-                    LaunchedEffect(Unit) {
-                        listViewModel.updateOnlyFeatured(true)
+                    override fun onProjectDetails(project: Project) {
+                        detailsViewModel.loadDetails(project)
                     }
-                    ListScreen(
-                        modifier,
-                        listViewModel.pagingFlow,
-                        listViewModel.searchPhrase,
-                        MutableStateFlow(listOf("Kotlin", "Java", "TypeScript", "Bash", "HTML")),
-                        object : ListScreenActions {
-                            override fun onProjectDetails(project: Project) {
-                                detailsViewModel.getProjectDetails(project)
-                            }
 
-                            override fun onSearch(phrase: String) {
-                                listViewModel.updateSearchPhrase(phrase)
-                            }
+                    override fun onSaveProfile(profile: Profile) {
 
-                            override fun onClear() {
-                                //listViewModel.clearProjects()
-                            }
+                    }
 
-                            override fun onAvatarClicked() {
-                                navController.navigate(Route.Profile)
-                            }
-                        })
-                }
-                composable<Route.Settings> {
-                    SettingsScreen(modifier, profileViewModel.userState, object : SettingsActions {
-                        override fun onLogin() {
-                            navController.navigate(Route.Login(ViewType.Login))
-                        }
-                    })
-                }
-                dialog<Route.AccountsMerge> {
-                    AccountsMergeDialog(
-                        title = "Accounts Merge",
-                        description = "New account will be override existing state. Continue?",
-                        onConfirm = {
-                            profileViewModel.linkUser(context)
-                            navController.popBackStack()
-                        },
-                        onDismiss = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
-                dialog<Route.ProviderImport> {
-                    ProviderImportDialog(
-                        title = "Import Projects",
-                        description = "Import projects from a provider?",
-                        onConfirm = {
-                            navController.popBackStack()
-                            profileViewModel.openImportPage()
-                        },
-                        onDismiss = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
-                dialog<Route.ProviderImportOngoing> {
-                    ImportDialog(
-                        title = "Importing Projects",
-                        importState = profileViewModel.onboarding.stateFlow,
-                        onCancel = {
-                            profileViewModel.cancelImport()
-                            navController.popBackStack()
-                        },
-                        onComplete = {
-                            listViewModel.refreshProjectsList()
-                            navController.popBackStack()
-                        }
-                    )
-                }
-                dialog<Route.Error> { backStackEntry ->
-                    val route: Route.Error = backStackEntry.toRoute()
-                    ErrorDialog(route.title, route.message) {
+                    override fun onNavigateBack() {
                         navController.popBackStack()
                     }
-                }
-                dialog<Route.PrepareProfile> {
-                    PrepareProfile(
-                        title = "Preparing Profile",
-                        profileState = profileViewModel.onboarding.stateFlow,
-                        onComplete = {
-                            //profileViewModel.profileCreated()
-                            navController.popBackStack()
-                        }
-                    )
-                }
+                })
+        }
+        composable<Route.Favorites> {
+            val searchPhrase by listViewModel.searchPhrase.collectAsState(null)
+            LaunchedEffect(Unit) {
+                listViewModel.selectFeatured(true)
             }
+            ListScreen(
+                modifier,
+                listViewModel.pagingFlow,
+                initialPhrase = searchPhrase ?: "",
+                listOf(
+                        "Kotlin",
+                        "Java",
+                        "TypeScript",
+                        "Bash",
+                        "HTML"
+                    ),
+                object : ListScreenActions {
+                    override fun onProjectDetails(project: Project) {
+                        detailsViewModel.loadDetails(project)
+                    }
+
+                    override fun onSearch(phrase: String) {
+                        listViewModel.search(phrase)
+                    }
+
+                    override fun onClear() {
+                        //listViewModel.clearProjects()
+                    }
+
+                    override fun onAvatarClicked() {
+                        navController.navigate(Route.Profile)
+                    }
+                })
+        }
+        composable<Route.Settings> {
+            val isSignedIn by profileViewModel.isSignedIn.collectAsState(false)
+            SettingsScreen(
+                modifier,
+                isSignedIn,
+                object : SettingsActions {
+                    override fun onLogin() {
+                        parentNavController.navigate(Route.Login(ViewType.Login))
+                    }
+                })
         }
     }
 }

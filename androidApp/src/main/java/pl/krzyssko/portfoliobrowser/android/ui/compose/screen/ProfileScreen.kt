@@ -60,7 +60,7 @@ fun ProfileEmpty(modifier: Modifier = Modifier, actions: ProfileActions) {
 }
 
 @Composable
-fun ProfileContent(modifier: Modifier = Modifier, profile: Profile.Created, portfolio: List<Project>, actions: ProfileActions) {
+fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: List<Project>, actions: ProfileActions) {
     Box {
         Column(
             modifier = modifier
@@ -147,7 +147,7 @@ fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileSta
 //    account = Account("1", "Krzysztof", "krzy.skorcz@gmail.com", "https://avatars.githubusercontent.com/u/1025101?v=4", true, false),
 //)
 private val fakeUser = User.Guest
-val fakeProfile = Profile.Created(
+val fakeProfile = Profile(
     firstName = "Krzysztof",
     lastName = "Skorcz",
     alias = "k-skor",

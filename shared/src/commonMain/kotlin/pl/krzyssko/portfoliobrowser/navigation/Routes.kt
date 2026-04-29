@@ -17,6 +17,8 @@ sealed class Route {
     @Serializable
     data object Home: Route()
     @Serializable
+    data object HomeScaffold: Route()
+    @Serializable
     data object List: Route()
     @Serializable
     data class Details(val userId: String, val projectId: String): Route()

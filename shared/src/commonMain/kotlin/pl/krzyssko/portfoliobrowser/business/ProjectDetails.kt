@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
@@ -25,26 +26,22 @@ import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
+import kotlin.random.Random
 
 class ProjectDetails(
     coroutineScope: CoroutineScope,
     private val dispatcherIO: CoroutineDispatcher,
     private val repository: ProjectRepository,
+    private val colorPicker: InfiniteColorPicker,
     private val auth: Auth,
-    private val firestore: Firestore
+    private val firestore: Firestore,
+    private val projectId: String,
+    private val ownerId: String
 ) : KoinComponent, OrbitStore<ProjectState>(coroutineScope, ProjectState.Loading) {
 
-    val details: Flow<Project> = stateFlow
-        .map {
-            when (it) {
-                is ProjectState.Loading -> Response.Pending
-                is ProjectState.Loaded -> Response.Ok(it.project)
-                is ProjectState.Error -> Response.Error(it.reason)
-            }
-        }
-        .map { it.getOrNull() }
-        .filterNotNull()
-        //.stateIn(viewModelScope, SharingStarted.Eagerly, Response.Pending)
+    init {
+        loadFrom()
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private fun Flow<Project>.mapProject(colorPicker: InfiniteColorPicker, ownerId: String): Flow<Project> =
@@ -62,11 +59,7 @@ class ProjectDetails(
         }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    fun loadFrom(
-        colorPicker: InfiniteColorPicker,
-        ownerId: String,
-        projectId: String
-    ) = intent {
+    fun loadFrom() = intent {
         postSideEffect(UserSideEffects.Toast("Loading project $ownerId:$projectId details"))
 
         flow {
@@ -111,7 +104,8 @@ class ProjectDetails(
         val profile = firestore.getProfile(userId)
         val follower = Follower(
             uid = userId,
-            name = profile?.alias ?: "${profile?.firstName} ${profile?.lastName}"
+            name = profile?.let { it.alias ?: "${it.firstName} ${it.lastName}" }
+                ?: "User${Random.nextInt().toString().take(6)}"
         )
 
         withContext(dispatcherIO) {
@@ -155,3 +149,13 @@ class ProjectDetails(
         }
     }
 }
+
+fun StateFlow<ProjectState>.toDetails() =
+    map {
+        when (it) {
+            is ProjectState.Loading -> Response.Pending
+            is ProjectState.Loaded -> Response.Ok(it.project)
+            is ProjectState.Error -> Response.Error(it.reason)
+        }
+    }
+        .map { it.getOrNull() }

@@ -3,7 +3,7 @@ package pl.krzyssko.portfoliobrowser.business
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -39,19 +39,19 @@ class Login(
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
 
-    val user: Flow<User>
-        get() = stateFlow
-            .map {
-                when (it) {
-                    is LoginState.LinkInProgress,
-                    is LoginState.Initialized -> Response.Pending
-                    is LoginState.Authenticated -> Response.Ok(it.user)
-                    is LoginState.Error -> Response.Error(it.reason)
-                }
-            }
-            .map { it.getOrNull() }
-            .filterNotNull()
-            //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
+    //val user: Flow<User>
+    //    get() = stateFlow
+    //        .map {
+    //            when (it) {
+    //                is LoginState.LinkInProgress,
+    //                is LoginState.Initialized -> Response.Pending
+    //                is LoginState.Authenticated -> Response.Ok(it.user)
+    //                is LoginState.Error -> Response.Error(it.reason)
+    //            }
+    //        }
+    //        .map { it.getOrNull() }
+    //        .filterNotNull()
+    //        //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
 
     init {
         initialize()
@@ -75,10 +75,6 @@ class Login(
             // TODO: zamiast side effect sprawdzić stan przy inicjalizacji UI
             postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
         }
-    }
-
-    fun welcome() = intent {
-        postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
     }
 
     fun login() = intent {
@@ -326,3 +322,14 @@ class Login(
     //    postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
     //}
 }
+
+fun StateFlow<LoginState>.toUser() =
+    map {
+        when (it) {
+            is LoginState.LinkInProgress,
+            is LoginState.Initialized -> Response.Pending
+            is LoginState.Authenticated -> Response.Ok(it.user)
+            is LoginState.Error -> Response.Error(it.reason)
+        }
+    }
+        .map { it.getOrNull() }

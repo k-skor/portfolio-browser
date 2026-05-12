@@ -4,14 +4,12 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
-import pl.krzyssko.portfoliobrowser.auth.Auth
-import pl.krzyssko.portfoliobrowser.data.Profile
+import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.transfer.toProfile
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
@@ -25,28 +23,19 @@ class UserProfile(
     coroutineScope: CoroutineScope,
     private val dispatcherIO: CoroutineDispatcher,
     private val firestore: Firestore,
-    private val auth: Auth
+    private val userAccount: Account
 ) : KoinComponent, OrbitStore<ProfileState>(coroutineScope, ProfileState.Initialized) {
 
     private var fetchJob: Job? = null
 
-    val profile: Flow<Profile>
-        get() = stateFlow
-            .map {
-                when (it) {
-                    is ProfileState.Initialized -> Response.Pending
-                    is ProfileState.Completed -> Response.Ok(it.profile)
-                    is ProfileState.Error -> Response.Error(it.reason)
-                }
-            }
-            .map { it.getOrNull() }
-            .filterNotNull()
-            //.stateIn(coroutineScope, SharingStarted.Eagerly, Profile.Stub)
+    init {
+        fetch()
+    }
 
     fun fetch() = intent {
         fetchJob?.cancel()
         fetchJob = coroutineScope {
-            val userId = auth.userAccount?.id.orEmpty()
+            val userId = userAccount.id
             val result = runCatching {
                 withContext(dispatcherIO) {
                     firestore.getProfile(userId)?.toProfile() ?: throw Exception("Profile not found.")
@@ -73,3 +62,13 @@ class UserProfile(
         }
     }
 }
+
+fun StateFlow<ProfileState>.toProfile() =
+    map {
+        when (it) {
+            is ProfileState.Initialized -> Response.Pending
+            is ProfileState.Completed -> Response.Ok(it.profile)
+            is ProfileState.Error -> Response.Error(it.reason)
+        }
+    }
+        .map { it.getOrNull() }

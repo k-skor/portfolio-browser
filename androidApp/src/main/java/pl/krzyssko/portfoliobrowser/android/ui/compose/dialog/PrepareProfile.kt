@@ -16,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.theme.AppTheme
 import pl.krzyssko.portfoliobrowser.store.OnboardingState
 
@@ -25,10 +25,10 @@ import pl.krzyssko.portfoliobrowser.store.OnboardingState
 fun PrepareProfile(
     modifier: Modifier = Modifier,
     title: String,
-    profileState: StateFlow<OnboardingState>,
+    profileState: Flow<OnboardingState>,
     onComplete: () -> Unit
 ) {
-    val state by profileState.collectAsState()
+    val state by profileState.collectAsState(OnboardingState.Initialized)
     val isDone = state is OnboardingState.FirstTimeSignUpCompleted
     Dialog({}) {
         Card(shape = MaterialTheme.shapes.medium) {

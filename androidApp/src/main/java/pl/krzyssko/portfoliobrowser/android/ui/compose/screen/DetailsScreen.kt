@@ -51,7 +51,7 @@ interface DetailsEditActions {
 }
 
 interface DetailsActions {
-    fun onFavorite(project: Project, favorite: Boolean)
+    fun onFavorite(favorite: Boolean)
     fun onShare(project: Project)
     fun onNavigate(url: String)
     fun onNavigateBack()
@@ -82,7 +82,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Bo
                 if (isSignedIn) {
                     IconButton(onClick = {
                         favoriteState = !favoriteState
-                        actions.onFavorite(project, favoriteState)
+                        actions.onFavorite(favoriteState)
                     }) {
                         Icon(if (favoriteState) Icons.Default.Favorite else Icons.Default.FavoriteBorder, contentDescription = "Add to favorites")
                     }
@@ -207,7 +207,7 @@ val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 fun DetailsPreview() {
     AppTheme {
         DetailsScreen(stateFlow = fakeDetailsFlow, isSignedIn = true, actions = object : DetailsActions {
-            override fun onFavorite(project: Project, favorite: Boolean) {
+            override fun onFavorite(favorite: Boolean) {
                 TODO("Not yet implemented")
             }
 

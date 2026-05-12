@@ -30,6 +30,7 @@ import pl.krzyssko.portfoliobrowser.business.Onboarding
 import pl.krzyssko.portfoliobrowser.business.ProjectDetails
 import pl.krzyssko.portfoliobrowser.business.ProjectsList
 import pl.krzyssko.portfoliobrowser.business.UserProfile
+import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.getFirestore
 import pl.krzyssko.portfoliobrowser.platform.Logging
@@ -127,16 +128,19 @@ fun sharedAppModule() = module {
             get()
         )
     }
-    factory<ProjectDetails> { (coroutineScope: CoroutineScope) ->
+    factory<ProjectDetails> { (coroutineScope: CoroutineScope, projectId: String, ownerId: String) ->
         ProjectDetails(
             coroutineScope,
             Dispatchers.IO,
             get(qualifier = NAMED_FIRESTORE),
             get(),
-            get()
+            get(),
+            get(),
+            projectId,
+            ownerId
         )
     }
-    single<Onboarding> { (coroutineScope: CoroutineScope) ->
+    factory<Onboarding> { (coroutineScope: CoroutineScope) ->
         Onboarding(
             coroutineScope,
             Dispatchers.IO,
@@ -153,12 +157,12 @@ fun sharedAppModule() = module {
             get()
         )
     }
-    factory<UserProfile> { (coroutineScope: CoroutineScope) ->
+    factory<UserProfile> { (coroutineScope: CoroutineScope, userAccount: Account) ->
         UserProfile(
             coroutineScope,
             Dispatchers.IO,
             get(),
-            get()
+            userAccount
         )
     }
 }

@@ -62,6 +62,12 @@ abstract class Configuration {
         vault.clear()
     }
 
+    private fun <T> setOrDelete(key: String, value: T?, block: KVault.(String, T) -> Unit) {
+        value?.let {
+            vault.block(key, it)
+        } ?: vault.deleteObject(key)
+    }
+
     companion object {
         const val KEY_CONFIG = "configuration.key"
     }

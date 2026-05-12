@@ -25,8 +25,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.CategoryList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ContactList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.FloatingBackButton
@@ -132,8 +132,8 @@ fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: L
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
-    val state by stateFlow.collectAsState()
+fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: Flow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
+    val state by stateFlow.collectAsState(ProfileState.Initialized)
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         when (state) {
             is ProfileState.Initialized -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)

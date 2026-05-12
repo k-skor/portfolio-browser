@@ -19,6 +19,7 @@ sealed class ProjectState {
 
 sealed class ProjectsQueryState {
     data object Initialized : ProjectsQueryState()
+    data class DetailsSelected(val projectId: String, val createdBy: String) : ProjectsQueryState()
     data class FilterSelected(val options: FilterOptions) : ProjectsQueryState()
 }
 
@@ -40,7 +41,6 @@ sealed class ProfileState {
 
 sealed class OnboardingState {
     data object Initialized : OnboardingState()
-    data object ProfileNotCreated : OnboardingState()
     data object FirstTimeSignUp : OnboardingState()
     data object ProfileExists: OnboardingState()
     data class FirstTimeSignUpCompleted(val userName: String): OnboardingState()

@@ -81,9 +81,9 @@ class Onboarding(
     init {
         stateFlow.onEach {
             when (it) {
-                is OnboardingState.ProfileNotCreated -> {
-                    check()
-                }
+                //is OnboardingState.ProfileNotCreated -> {
+                //    check()
+                //}
 
                 is OnboardingState.FirstTimeSignUp -> {
                     create()
@@ -102,12 +102,8 @@ class Onboarding(
             }
         }
             .launchIn(coroutineScope)
-    }
 
-    fun initialize() = intent {
-        reduce {
-            OnboardingState.ProfileNotCreated
-        }
+        check()
     }
 
     fun check() = intent {
@@ -215,7 +211,7 @@ class Onboarding(
         saveJob?.join()
         importJob?.cancel()
         reduce {
-            OnboardingState.ProfileNotCreated
+            OnboardingState.Initialized
         }
     }
 

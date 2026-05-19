@@ -11,10 +11,10 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onEach
@@ -65,6 +65,7 @@ class GitHubSource(private val repository: ProjectRepository, categoriesReposito
     }
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class Onboarding(
     coroutineScope: CoroutineScope,
     private val dispatcherIO: CoroutineDispatcher,
@@ -79,60 +80,69 @@ class Onboarding(
     private var saveJob: Job? = null
 
     init {
-        stateFlow.onEach {
-            when (it) {
-                //is OnboardingState.ProfileNotCreated -> {
-                //    check()
-                //}
+        doOnCreate {
+            repeatOnSubscription {
+                coroutineScope {
+                    launch {
+                        auth.userFlow()
+                            .map {
+                                if (it != null && !it.isAnonymous) {
+                                    it.uid
+                                } else {
+                                    null
+                                }
+                            }
+                            .collectLatest {
+                                if (it != null) {
+                                    check(it)
+                                } else {
+                                    reduce {
+                                        OnboardingState.Initialized
+                                    }
+                                }
+                            }
+                    }
+                    launch {
+                        stateFlow.collect {
+                            when (it) {
+                                is OnboardingState.FirstTimeSignUp -> {
+                                    create()
+                                }
 
-                is OnboardingState.FirstTimeSignUp -> {
-                    create()
+                                is OnboardingState.FirstTimeSignUpCompleted,
+                                is OnboardingState.ProfileExists -> {
+                                    start()
+                                }
+
+                                else -> {}
+                            }
+                        }
+                    }
                 }
-
-                is OnboardingState.FirstTimeSignUpCompleted,
-                is OnboardingState.ProfileExists -> {
-                    start()
-                }
-
-                //is OnboardingState.OnboardingCompleted -> {
-                //    fetch(auth.userAccount!!)
-                //}
-
-                else -> {}
             }
         }
-            .launchIn(coroutineScope)
-
-        check()
     }
 
-    fun check() = intent {
-        checkJob?.cancel()
-        //val userId = user.account.id
-        checkJob = coroutineScope {
-            val hasUser = auth.userAccount?.id?.let {
-                profileExists(it).await()
-            } ?: false
-            launch {
-                if (!hasUser) {
-                    reduce {
-                        OnboardingState.FirstTimeSignUp
-                    }
-                    postSideEffect(UserSideEffects.NavigateTo(Route.PrepareProfile))
-                } else {
-                    reduce {
-                        OnboardingState.ProfileExists
-                    }
-                }
+    @OptIn(OrbitExperimental::class)
+    suspend fun check(userId: String) = subIntent {
+        //checkJob?.cancel()
+        //checkJob = coroutineScope {
+        //}
+        val hasUser = profileExists(userId).await()
+        if (!hasUser) {
+            reduce {
+                OnboardingState.FirstTimeSignUp
+            }
+            postSideEffect(UserSideEffects.NavigateTo(Route.Onboarding))
+        } else {
+            reduce {
+                OnboardingState.ProfileExists
             }
         }
     }
 
     fun create() = intent {
-        //val userId = user.account.id
         val userId = auth.userAccount?.id.orEmpty()
-        //val alias = user.identityProviders.firstNotNullOfOrNull { it.name }
-        //val avatarUrl = user.identityProviders.firstNotNullOfOrNull { it.photoUrl }
         val alias = auth.providerData?.firstNotNullOfOrNull { it.name }
         val avatarUrl = auth.providerData?.firstNotNullOfOrNull { it.photoUrl }
         val hasUser = auth.userAccount?.id?.let {
@@ -197,15 +207,6 @@ class Onboarding(
         }
         postSideEffect(UserSideEffects.NavigateTo(Route.Login(ViewType.SourceSelection)))
     }
-
-    //fun import(uiHandler: Any?, source: Source) = intent {
-    //    postSideEffect(UserSideEffects.NavigateTo(Route.ProviderImportOngoing))
-    //    importProjects(uiHandler)
-    //    importJob?.join()
-    //    if (state !is OnboardingState.Error) {
-    //        saveProjects(projectsList, source)
-    //    }
-    //}
 
     fun cancel() = intent {
         saveJob?.join()
@@ -279,46 +280,8 @@ class Onboarding(
                             saveJob = null
                         }
                         .collect()
+                }
             }
-        }
-            //importJob = importFlow()
-            //    .onStart {
-            //        reduce {
-            //            OnboardingState.ImportStarted
-            //        }
-            //        auth.startSignInFlow(
-            //            uiHandler = uiHandler,
-            //            providerType = Auth.LoginMethod.GitHub,
-            //            refresh = true
-            //        )
-            //        projectsList.clear()
-            //        totalItems()
-            //            .onEach {
-            //                reduce {
-            //                    OnboardingState.ImportProgress(0, it, null)
-            //                }
-            //            }
-            //            .collect()
-            //    }
-            //    .map { it.toDto() }
-            //    .onEach {
-            //        projectsList += it
-            //        reduce {
-            //            (state as OnboardingState.ImportProgress).copy(
-            //                progress = projectsList.size,
-            //                displayName = it.name
-            //            )
-            //        }
-            //    }
-            //    .catch {
-            //        reduce {
-            //            OnboardingState.Error(it)
-            //        }
-            //        postSideEffect(UserSideEffects.NavigateTo(it.toRoute()))
-            //        postSideEffect(UserSideEffects.Error(it))
-            //    }
-            //    .flowOn(dispatcherIO)
-            //    .launchIn(coroutineScope)
         }
     }
 

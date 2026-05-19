@@ -86,6 +86,8 @@ data class Provider(
     val photoUrl: String?
 )
 
+data class UserInfo(val uid: String, val isAnonymous: Boolean)
+
 sealed class User {
     data object Guest : User()
     data class Authenticated(

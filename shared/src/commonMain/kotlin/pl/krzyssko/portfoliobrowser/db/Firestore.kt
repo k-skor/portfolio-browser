@@ -10,11 +10,13 @@ import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
 interface Firestore {
     suspend fun hasUser(uid: String): Boolean
     suspend fun getProfile(uid: String): ProfileDto?
+    fun observeProfile(uid: String): Flow<ProfileDto?>
     suspend fun createProfile(uid: String, profile: ProfileDto)
     suspend fun createProjects(): String
     suspend fun syncProjects(uid: String, projectsList: List<ProjectDto>, source: Source)
     suspend fun getProjects(cursor: Any?, uid: String, category: String? = null): QueryPagedResult<ProjectDto>
     suspend fun getProject(uid: String, ownerId: String, projectId: String): ProjectDto?
+    fun observeProject(uid: String, ownerId: String, projectId: String): Flow<ProjectDto?>
     suspend fun updateProject(uid: String, id: String?, project: ProjectDto)
     suspend fun toggleFollowProject(uid: String, id: String, follower: Follower, toggle: Boolean)
     suspend fun getFavoriteProjects(cursor: Any?, uid: String): QueryPagedResult<ProjectDto>

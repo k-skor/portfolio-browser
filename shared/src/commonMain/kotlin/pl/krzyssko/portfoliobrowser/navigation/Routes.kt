@@ -13,25 +13,33 @@ sealed class Route {
     @Serializable
     data object Welcome: Route()
     @Serializable
+    data object LoginRoot: Route()
+    @Serializable
     data class Login(val viewType: ViewType): Route()
     @Serializable
-    data object Home: Route()
+    data object HomeRoot: Route()
     @Serializable
     data object HomeScaffold: Route()
+    sealed class HomeRoute: Route()
     @Serializable
-    data object List: Route()
+    data object Home: HomeRoute() {
+    }
     @Serializable
-    data class Details(val userId: String, val projectId: String): Route()
+    data object List: HomeRoute()
     @Serializable
-    data object Profile: Route()
+    data class Details(val userId: String, val projectId: String): HomeRoute()
     @Serializable
-    data object Favorites: Route()
+    data object Profile: HomeRoute()
     @Serializable
-    data object Settings: Route()
+    data object Favorites: HomeRoute()
+    @Serializable
+    data object Settings: HomeRoute()
     @Serializable
     data class Error(val title: String, val message: String): Route()
     @Serializable
     data object AccountsMerge: Route()
+    @Serializable
+    data object Onboarding: Route()
     @Serializable
     data object PrepareProfile: Route()
     @Serializable

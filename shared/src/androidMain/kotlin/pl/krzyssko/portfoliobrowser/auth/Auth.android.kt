@@ -15,10 +15,19 @@ import com.google.firebase.auth.OAuthCredential
 import com.google.firebase.auth.OAuthProvider
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
+import pl.krzyssko.portfoliobrowser.data.UserInfo
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.platform.isEmulator
@@ -43,6 +52,9 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
     override val userAccount: Account?
         get() = auth.currentUser?.toAccount()
 
+    override val userInfo: UserInfo?
+        get() = auth.currentUser?.toBase()
+
     override val providerData: List<Provider>?
         get() = auth.currentUser?.toProviderData()
 
@@ -55,6 +67,24 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
         get() = providerData?.any {
             it.providerId == EmailAuthProvider.PROVIDER_ID
         } ?: false
+
+    override val userState: StateFlow<UserInfo?> = userFlow().stateIn(
+        CoroutineScope(Job()),
+        SharingStarted.WhileSubscribed(),
+        null
+    )
+
+    override fun userFlow(): Flow<UserInfo?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            trySend(auth.currentUser?.toBase())
+        }
+
+        auth.addAuthStateListener(listener)
+
+        awaitClose {
+            auth.removeAuthStateListener(listener)
+        }
+    }
 
     override suspend fun startSignInFlow(
         uiHandler: Any?,
@@ -204,6 +234,8 @@ fun FirebaseUser.toProviderData(): List<Provider> =
             it.photoUrl?.toString()
         )
     }
+
+fun FirebaseUser.toBase(): UserInfo = UserInfo(this.uid, this.isAnonymous)
 
 fun AuthResult.toUser(): User.Authenticated? {
     // User is signed in.

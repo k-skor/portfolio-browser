@@ -1,5 +1,8 @@
 package pl.krzyssko.portfoliobrowser.repository
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
@@ -45,6 +48,15 @@ class FirestoreProjectRepository(private val firestore: Firestore, private val a
         return runCatching {
             firestore.getProject(auth.userAccount?.id!!, uid, id)?.toProject()
                 ?: throw FirestoreException("Project not found.")
+        }
+    }
+
+    override fun observeProjectDetails(ownerId: String, projectId: String): Flow<Project?> {
+        if (!auth.isUserSignedIn) {
+            return emptyFlow()
+        }
+        return firestore.observeProject(auth.userAccount?.id!!, ownerId, projectId).map {
+            it?.toProject()
         }
     }
 

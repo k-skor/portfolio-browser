@@ -22,7 +22,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,8 +34,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.tooling.preview.datasource.LoremIpsum
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.R
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.AppImage
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.CategoryList
@@ -164,8 +161,7 @@ fun DetailsReady(modifier: Modifier = Modifier, project: Project, isSignedIn: Bo
 }
 
 @Composable
-fun DetailsScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProjectState>, isSignedIn: Boolean, actions: DetailsActions) {
-    val state by stateFlow.collectAsState()
+fun DetailsScreen(modifier: Modifier = Modifier, state: ProjectState, isSignedIn: Boolean, actions: DetailsActions) {
     Column(
         modifier
             .fillMaxSize()
@@ -174,9 +170,10 @@ fun DetailsScreen(modifier: Modifier = Modifier, stateFlow: StateFlow<ProjectSta
     ) {
         Box {
             when (state) {
+                is ProjectState.Initialized,
                 is ProjectState.Loading -> Loading()
-                is ProjectState.Loaded -> DetailsReady(modifier = Modifier.padding(horizontal = 8.dp), project = (state as ProjectState.Loaded).project, isSignedIn = isSignedIn, actions = actions)
-                is ProjectState.Error -> LoadingError((state as ProjectState.Error).reason)
+                is ProjectState.Loaded -> DetailsReady(modifier = Modifier.padding(horizontal = 8.dp), project = state.project, isSignedIn = isSignedIn, actions = actions)
+                is ProjectState.Error -> LoadingError(state.reason)
             }
             FloatingBackButton(Modifier.padding(top = 8.dp, start = 8.dp)) { actions.onNavigateBack() }
         }
@@ -200,13 +197,15 @@ val fakeProject = Project(
 )
 
 val fakeDetails = ProjectState.Loaded(fakeProject)
-val fakeDetailsFlow = MutableStateFlow(fakeDetails)
 
 @Preview(widthDp = 320)
 @Composable
 fun DetailsPreview() {
     AppTheme {
-        DetailsScreen(stateFlow = fakeDetailsFlow, isSignedIn = true, actions = object : DetailsActions {
+        DetailsScreen(
+            state = fakeDetails,
+            isSignedIn = true,
+            actions = object : DetailsActions {
             override fun onFavorite(favorite: Boolean) {
                 TODO("Not yet implemented")
             }

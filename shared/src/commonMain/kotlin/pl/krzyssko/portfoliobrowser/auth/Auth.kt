@@ -1,8 +1,11 @@
 package pl.krzyssko.portfoliobrowser.auth
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
+import pl.krzyssko.portfoliobrowser.data.UserInfo
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 
 class AuthInvalidUserException(throwable: Throwable?) : Exception("Invalid user.", throwable)
@@ -60,11 +63,14 @@ abstract class Auth(protected val config: Configuration) {
 
     abstract val isUserSignedIn: Boolean
     abstract val userAccount: Account?
+    abstract val userInfo: UserInfo?
     abstract val providerData: List<Provider>?
     //abstract var accessToken: String?
     abstract val hasGitHubProvider: Boolean
     abstract val hasEmailProvider: Boolean
+    abstract val userState: StateFlow<UserInfo?>
 
+    abstract fun userFlow(): Flow<UserInfo?>
     protected abstract suspend fun signInAnonymous(): User?
     protected abstract suspend fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false): User?
     protected abstract suspend fun signInLinkWithGitHub(uiHandler: Any?): User?

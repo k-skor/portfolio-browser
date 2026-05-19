@@ -8,17 +8,15 @@ import org.koin.core.component.KoinComponent
 import pl.krzyssko.portfoliobrowser.api.AzureTokenProvider
 import pl.krzyssko.portfoliobrowser.data.FilterOptions
 import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectsQueryState
+import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 
 class ProjectsList(
     coroutineScope: CoroutineScope,
     private val azureAuth: AzureTokenProvider
 ) : KoinComponent, OrbitStore<ProjectsQueryState>(coroutineScope, ProjectsQueryState.Initialized) {
-
-    //val searchPhrase: Flow<String?>
-    //    get() = stateFlow
-    //        .map { (it as? ProjectsQueryState.FilterSelected)?.options?.query }
 
     init {
         coroutineScope.launch {
@@ -30,6 +28,7 @@ class ProjectsList(
         reduce {
             ProjectsQueryState.DetailsSelected(project.id, project.createdBy)
         }
+        postSideEffect(UserSideEffects.NavigateTo(Route.Details(project.createdBy, project.id)))
     }
 
     fun filter(filterOptions: FilterOptions) = intent {
@@ -47,3 +46,6 @@ class ProjectsList(
 
 fun StateFlow<ProjectsQueryState>.toSearchPhrase() =
     map { (it as? ProjectsQueryState.FilterSelected)?.options?.query }
+
+fun StateFlow<ProjectsQueryState>.toSelected() =
+    map { (it as? ProjectsQueryState.DetailsSelected) }

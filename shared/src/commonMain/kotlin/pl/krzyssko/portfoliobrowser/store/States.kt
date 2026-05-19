@@ -12,6 +12,7 @@ typealias PagedProjectsList = Map<String?, List<Project>>
 class UserFetchException(reason: Throwable?) : Exception("Failed to fetch user.", reason)
 
 sealed class ProjectState {
+    data object Initialized: ProjectState()
     data object Loading: ProjectState()
     data class Error(val reason: Throwable?): ProjectState()
     data class Loaded(val project: Project): ProjectState()

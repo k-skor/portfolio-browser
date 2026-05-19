@@ -2,18 +2,31 @@ package pl.krzyssko.portfoliobrowser.store
 
 import kotlinx.coroutines.CoroutineScope
 import org.koin.core.component.KoinComponent
+import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.container
 import org.orbitmvi.orbit.syntax.Syntax
 
+typealias OrbitStoreOnCreate<TState> = suspend Syntax<TState, UserSideEffects>.() -> Unit
+
 open class OrbitStore<TState : Any>(
     coroutineScope: CoroutineScope,
-    initialState: TState,
-    onCreate: (suspend Syntax<TState, UserSideEffects>.() -> Unit)? = null
+    initialState: TState
 ) : ContainerHost<TState, UserSideEffects>, KoinComponent {
-    override val container = coroutineScope.container<TState, UserSideEffects>(
-        initialState,
-    )
-    val stateFlow = container.stateFlow
-    val sideEffectFlow = container.sideEffectFlow
+
+    private var onCreate: OrbitStoreOnCreate<TState>? = null
+
+    override val container: Container<TState, UserSideEffects> by lazy {
+        coroutineScope.container(
+            initialState = initialState,
+            onCreate = onCreate
+        )
+    }
+
+    val stateFlow by lazy { container.stateFlow }
+    val sideEffectFlow by lazy { container.sideEffectFlow }
+
+    protected fun doOnCreate(block: OrbitStoreOnCreate<TState>) {
+        onCreate = block
+    }
 }

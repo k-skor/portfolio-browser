@@ -24,7 +24,7 @@ class AndroidConfiguration(private val appContextHandle: Any?): Configuration() 
             azureClientSecret = restored.azureClientSecret.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureClientSecret,
             azureSearchEndpoint = restored.azureSearchEndpoint.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchEndpoint,
             azureSearchIndex = restored.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchIndex,
-            azureScope = restored.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureScope,
+            azureScope = restored.azureScope.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureScope,
         )
     }
 }

@@ -39,22 +39,14 @@ class Login(
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
 
-    //val user: Flow<User>
-    //    get() = stateFlow
-    //        .map {
-    //            when (it) {
-    //                is LoginState.LinkInProgress,
-    //                is LoginState.Initialized -> Response.Pending
-    //                is LoginState.Authenticated -> Response.Ok(it.user)
-    //                is LoginState.Error -> Response.Error(it.reason)
-    //            }
-    //        }
-    //        .map { it.getOrNull() }
-    //        .filterNotNull()
-    //        //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
-
     init {
         initialize()
+    }
+
+    fun welcome() = intent {
+        if (state is LoginState.Initialized) {
+            postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+        }
     }
 
     fun initialize() = intent {
@@ -73,7 +65,7 @@ class Login(
                 LoginState.Initialized
             }
             // TODO: zamiast side effect sprawdzić stan przy inicjalizacji UI
-            postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+            //postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
         }
     }
 
@@ -82,9 +74,7 @@ class Login(
             .catch { handleException(it) }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
+                if (it != null) {
                     resetAuthSub()
                 }
             }
@@ -92,6 +82,7 @@ class Login(
                 reduce {
                     LoginState.Authenticated(user = User.Guest)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -104,26 +95,30 @@ class Login(
                     else -> handleException(it)
                 }
             }
-            .flatMapLatest {
-                fetchGitHubUserFlow(it)
-            }
-            .catch {
-                handleException(UserFetchException(it))
+            .flatMapLatest { user ->
+                fetchGitHubUserFlow(user)
+                    .map { userName ->
+                        user.copy(
+                            account = user.account.copy(
+                                name = userName
+                            )
+                        )
+                    }
+                    .catch {
+                        handleException(UserFetchException(it))
+                    }
             }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
-                    if (it !is AuthAccountExistsException) {
-                        resetAuthSub()
-                    }
+                if (it != null && it !is AuthAccountExistsException) {
+                    resetAuthSub()
                 }
             }
             .collect {
                 reduce {
                     LoginState.Authenticated(it)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -132,9 +127,7 @@ class Login(
             .catch { handleException(it) }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
+                if (it != null) {
                     resetAuthSub()
                 }
             }
@@ -142,6 +135,7 @@ class Login(
                 reduce {
                     LoginState.Authenticated(user = it)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -198,11 +192,18 @@ class Login(
     fun link(uiHandler: Any?) = intent {
         linkProvider(uiHandler)
             .catch { handleException(it) }
-            .flatMapLatest {
-                fetchGitHubUserFlow(it)
-            }
-            .catch {
-                handleException(UserFetchException(it))
+            .flatMapLatest { user ->
+                fetchGitHubUserFlow(user)
+                    .map { userName ->
+                        user.copy(
+                            account = user.account.copy(
+                                name = userName
+                            )
+                        )
+                    }
+                    .catch {
+                        handleException(UserFetchException(it))
+                    }
             }
             .onStart {
                 postSideEffect(UserSideEffects.Toast("Linking user account..."))
@@ -297,20 +298,14 @@ class Login(
         .filterNotNull()
 
     private fun fetchGitHubUserFlow(user: User.Authenticated) = flow {
-        emit(userRepository.fetchUser().getOrThrow())
+        //emit(userRepository.fetchUser().getOrThrow())
+        emit("k-skor")
     }
         .onStart {
             config.update(Config(gitHubApiToken = user.oauthAccessToken.orEmpty()))
         }
         .onEach {
             config.update(config.config.copy(gitHubApiUser = it, lastSignInMethod = user.signInMethod.orEmpty()))
-        }
-        .map {
-            user.copy(
-                account = user.account.copy(
-                    name = it
-                )
-            )
         }
 
     //@OptIn(OrbitExperimental::class)

@@ -16,8 +16,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -25,8 +23,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.CategoryList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.ContactList
 import pl.krzyssko.portfoliobrowser.android.ui.compose.widget.FloatingBackButton
@@ -132,12 +128,11 @@ fun ProfileContent(modifier: Modifier = Modifier, profile: Profile, portfolio: L
 }
 
 @Composable
-fun ProfileScreen(modifier: Modifier = Modifier, stateFlow: Flow<ProfileState>, portfolio: List<Project>, actions: ProfileActions) {
-    val state by stateFlow.collectAsState(ProfileState.Initialized)
+fun ProfileScreen(modifier: Modifier = Modifier, state: ProfileState, portfolio: List<Project>, actions: ProfileActions) {
     Column(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)) {
         when (state) {
             is ProfileState.Initialized -> ProfileEmpty(modifier.fillMaxSize().padding(horizontal = 8.dp), actions)
-            is ProfileState.Completed -> ProfileContent(modifier.padding(horizontal = 8.dp), (state as ProfileState.Completed).profile, portfolio, actions)
+            is ProfileState.Completed -> ProfileContent(modifier.padding(horizontal = 8.dp), state.profile, portfolio, actions)
             is ProfileState.Error -> LoadingError()
         }
     }
@@ -162,7 +157,7 @@ val fakeProfile = Profile(
 fun ProfilePreview() {
     AppTheme {
         ProfileScreen(
-            stateFlow = MutableStateFlow(ProfileState.Completed(fakeProfile)),
+            state = ProfileState.Completed(fakeProfile),
             portfolio = emptyList(),
             actions = object : ProfileActions {
                 override fun onLogin() {

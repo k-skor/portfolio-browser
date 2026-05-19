@@ -84,7 +84,7 @@ class Onboarding(
             repeatOnSubscription {
                 coroutineScope {
                     launch {
-                        auth.userFlow()
+                        auth.userState
                             .map {
                                 if (it != null && !it.isAnonymous) {
                                     it.uid

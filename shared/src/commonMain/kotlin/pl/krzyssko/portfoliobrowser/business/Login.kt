@@ -298,8 +298,7 @@ class Login(
         .filterNotNull()
 
     private fun fetchGitHubUserFlow(user: User.Authenticated) = flow {
-        //emit(userRepository.fetchUser().getOrThrow())
-        emit("k-skor")
+        emit(userRepository.fetchUser().getOrThrow())
     }
         .onStart {
             config.update(Config(gitHubApiToken = user.oauthAccessToken.orEmpty()))

@@ -3,7 +3,7 @@ package pl.krzyssko.portfoliobrowser.business
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
@@ -39,22 +39,14 @@ class Login(
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
 
-    val user: Flow<User>
-        get() = stateFlow
-            .map {
-                when (it) {
-                    is LoginState.LinkInProgress,
-                    is LoginState.Initialized -> Response.Pending
-                    is LoginState.Authenticated -> Response.Ok(it.user)
-                    is LoginState.Error -> Response.Error(it.reason)
-                }
-            }
-            .map { it.getOrNull() }
-            .filterNotNull()
-            //.stateIn(coroutineScope, SharingStarted.Lazily, User.Guest)
-
     init {
         initialize()
+    }
+
+    fun welcome() = intent {
+        if (state is LoginState.Initialized) {
+            postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+        }
     }
 
     fun initialize() = intent {
@@ -73,12 +65,8 @@ class Login(
                 LoginState.Initialized
             }
             // TODO: zamiast side effect sprawdzić stan przy inicjalizacji UI
-            postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+            //postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
         }
-    }
-
-    fun welcome() = intent {
-        postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
     }
 
     fun login() = intent {
@@ -86,9 +74,7 @@ class Login(
             .catch { handleException(it) }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
+                if (it != null) {
                     resetAuthSub()
                 }
             }
@@ -96,6 +82,7 @@ class Login(
                 reduce {
                     LoginState.Authenticated(user = User.Guest)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -108,26 +95,30 @@ class Login(
                     else -> handleException(it)
                 }
             }
-            .flatMapLatest {
-                fetchGitHubUserFlow(it)
-            }
-            .catch {
-                handleException(UserFetchException(it))
+            .flatMapLatest { user ->
+                fetchGitHubUserFlow(user)
+                    .map { userName ->
+                        user.copy(
+                            account = user.account.copy(
+                                name = userName
+                            )
+                        )
+                    }
+                    .catch {
+                        handleException(UserFetchException(it))
+                    }
             }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
-                    if (it !is AuthAccountExistsException) {
-                        resetAuthSub()
-                    }
+                if (it != null && it !is AuthAccountExistsException) {
+                    resetAuthSub()
                 }
             }
             .collect {
                 reduce {
                     LoginState.Authenticated(it)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -136,9 +127,7 @@ class Login(
             .catch { handleException(it) }
             .flowOn(dispatcherIO)
             .onCompletion {
-                if (it == null) {
-                    postSideEffect(UserSideEffects.NavigateTo(Route.HomeScaffold))
-                } else {
+                if (it != null) {
                     resetAuthSub()
                 }
             }
@@ -146,6 +135,7 @@ class Login(
                 reduce {
                     LoginState.Authenticated(user = it)
                 }
+                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
     }
 
@@ -202,11 +192,18 @@ class Login(
     fun link(uiHandler: Any?) = intent {
         linkProvider(uiHandler)
             .catch { handleException(it) }
-            .flatMapLatest {
-                fetchGitHubUserFlow(it)
-            }
-            .catch {
-                handleException(UserFetchException(it))
+            .flatMapLatest { user ->
+                fetchGitHubUserFlow(user)
+                    .map { userName ->
+                        user.copy(
+                            account = user.account.copy(
+                                name = userName
+                            )
+                        )
+                    }
+                    .catch {
+                        handleException(UserFetchException(it))
+                    }
             }
             .onStart {
                 postSideEffect(UserSideEffects.Toast("Linking user account..."))
@@ -309,13 +306,6 @@ class Login(
         .onEach {
             config.update(config.config.copy(gitHubApiUser = it, lastSignInMethod = user.signInMethod.orEmpty()))
         }
-        .map {
-            user.copy(
-                account = user.account.copy(
-                    name = it
-                )
-            )
-        }
 
     //@OptIn(OrbitExperimental::class)
     //private suspend fun handleException(exception: Throwable?) = subIntent {
@@ -326,3 +316,14 @@ class Login(
     //    postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
     //}
 }
+
+fun StateFlow<LoginState>.toUser() =
+    map {
+        when (it) {
+            is LoginState.LinkInProgress,
+            is LoginState.Initialized -> Response.Pending
+            is LoginState.Authenticated -> Response.Ok(it.user)
+            is LoginState.Error -> Response.Error(it.reason)
+        }
+    }
+        .map { it.getOrNull() }

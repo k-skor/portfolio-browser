@@ -11,6 +11,7 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import org.koin.core.qualifier.named
@@ -41,6 +42,7 @@ import pl.krzyssko.portfoliobrowser.repository.GitHubProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.repository.SearchRepository
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
+import pl.krzyssko.portfoliobrowser.store.ProjectsQueryState
 import pl.krzyssko.portfoliobrowser.store.StackColorMap
 import pl.krzyssko.portfoliobrowser.auth.Auth as PlatformAuth
 
@@ -65,12 +67,8 @@ fun sharedAppModule() = module {
     factory<SearchRepository>(NAMED_AZURE) { AzureSearchRepository(get(), get(qualifier = NAMED_FIRESTORE)) }
 
     single<AzureTokenProvider> {
-        val authClient = HttpClient(CIO) {
-            install(ContentNegotiation) {
-                json(Json { ignoreUnknownKeys = true })
-            }
-        }
-        getAzureTokenProvider(authClient, get())
+        val azureHttpClient = get<HttpClient> (qualifier = NAMED_AZURE)
+        getAzureTokenProvider(azureHttpClient, get())
     }
     
     single(NAMED_AZURE) {
@@ -81,11 +79,11 @@ fun sharedAppModule() = module {
                     isLenient = true
                 })
             }
+            expectSuccess = true
             install(Auth) {
                 bearer {
                     loadTokens {
                         val provider = get<AzureTokenProvider>()
-                        //provider.initialize()
                         BearerTokens(provider.token, provider.refreshToken)
                     }
                     refreshTokens {
@@ -127,16 +125,18 @@ fun sharedAppModule() = module {
             get()
         )
     }
-    factory<ProjectDetails> { (coroutineScope: CoroutineScope) ->
+    factory<ProjectDetails> { (coroutineScope: CoroutineScope, selected: Flow<ProjectsQueryState.DetailsSelected?>) ->
         ProjectDetails(
             coroutineScope,
             Dispatchers.IO,
             get(qualifier = NAMED_FIRESTORE),
             get(),
-            get()
+            get(),
+            get(),
+            selected
         )
     }
-    single<Onboarding> { (coroutineScope: CoroutineScope) ->
+    factory<Onboarding> { (coroutineScope: CoroutineScope) ->
         Onboarding(
             coroutineScope,
             Dispatchers.IO,

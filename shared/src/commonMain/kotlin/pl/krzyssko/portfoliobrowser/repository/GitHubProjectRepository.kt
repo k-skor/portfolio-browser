@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.repository
 
+import kotlinx.coroutines.flow.Flow
 import pl.krzyssko.portfoliobrowser.api.Api
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Project
@@ -84,6 +85,13 @@ class GitHubProjectRepository(private val api: Api, private val auth: Auth) : Pr
                 )
             } ?: throw GitHubRepositoryException("Project not found.")
         }
+    }
+
+    override fun observeProjectDetails(
+        ownerId: String,
+        projectId: String
+    ): Flow<Project?> {
+        throw GitHubRepositoryException(throwable = NotImplementedError())
     }
 
     override suspend fun nextPage(nextPageKey: Any?, category: String?): Result<List<Project>> {

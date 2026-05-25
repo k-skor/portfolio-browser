@@ -65,11 +65,11 @@ This project is a **Mobile Multiplatform GitHub Project Browser**, built using K
 
 ### MVI & Business Logic
 - **Encapsulation:** ViewModels MUST NOT have direct references to OrbitMVI (e.g., `intent`, `reduce`, `subIntent`).
-- **OrbitStore as Foundation:** `OrbitStore` is the base class for specialized business logic classes (e.g., `ProjectsListInteractions`, `ProjectEdition`, `AccountMerger`). These classes encapsulate all state transitions and business rules.
-- **ViewModel as Coordinator (Checkpoint):** ViewModels act as high-level flow controllers. They observe state changes from one or more `OrbitStore` implementations and decide when to hand off logic to other specialized components based on specific events or exceptions.
+- **OrbitStore as Foundation:** `OrbitStore` is the base class for specialized business logic classes (e.g., `ProjectsList`, `ProjectDetails`, `Login`, `Onboarding`). These classes encapsulate all state transitions and business rules.
+- **ViewModel as Coordinator:** ViewModels act as high-level flow controllers. They observe state changes from one or more `OrbitStore` implementations and decide when to hand off logic to other specialized components based on specific events or exceptions.
 - **Specialized Business Classes:** These classes (extending `OrbitStore`) have a single responsibility and a clear intent. They manage their own narrow state and provide a simple API for the ViewModel to trigger actions.
-- **State Synchronization:** When a specialized flow completes, the ViewModel is responsible for synchronizing the result (e.g., `AccountMergeState.Success`) back to the main state (e.g., calling `loginStore.loginAs(user)`).
-- **State Flow Observation:** UI (Compose/SwiftUI) should observe `stateFlow` and `sideEffectFlow` only from the ViewModel. The ViewModel bridges flows from multiple stores/business classes.
+- **State Synchronization:** Synchronization between specialized stores is achieved by passing `StateFlow` or derived `Flow` from one store to another (typically via constructor injection or Koin parameters). This allows stores to reactively update their state based on changes in other parts of the system (e.g., `ProjectDetails` observing selections from `ProjectsList`).
+- **State Flow Observation:** UI (Compose/SwiftUI) observes `stateFlow` and `sideEffectFlow` from the specialized stores exposed by the ViewModel. The ViewModel acts as a bridge, ensuring that the UI layer only interacts with the relevant business logic flows.
 
 ### Infrastructure & Dependencies
 - **Dependency Injection:** Register all shared components in `SharedAppModule.kt`. Platform-specific implementations use `expected`/`actual` patterns or platform-specific factory functions (e.g., `getPlatformAuth()`).
@@ -82,4 +82,3 @@ This project is a **Mobile Multiplatform GitHub Project Browser**, built using K
 The project is currently transitioning to **Milestone 2**, focusing on:
 -   Refactoring repositories into intent-based classes (e.g., `PagedSearch`).
 -   Moving complex user flows from `OrbitStore` into dedicated flow classes (e.g., `AccountMerger`).
--   Extending external provider support.

@@ -47,6 +47,12 @@ class AndroidFirestore: Firestore {
         return result?.toObject<ProfileDto>()
     }
 
+    override fun observeProfile(uid: String): Flow<ProfileDto?> {
+        return db.collection("users").document(uid).snapshots().map { snapshot ->
+            snapshot.toObject<ProfileDto>()
+        }
+    }
+
     override suspend fun createProfile(uid: String, profile: ProfileDto) {
         db.collection("users").document(uid).set(profile, SetOptions.merge()).await()
     }
@@ -226,6 +232,32 @@ class AndroidFirestore: Firestore {
                 .get().await()
         }
         return result.documents.firstOrNull()?.toObject<ProjectDto>()
+    }
+
+    override fun observeProject(uid: String, ownerId: String, projectId: String): Flow<ProjectDto?> {
+        val collection = db.collection("users").document(ownerId).collection("projects")
+
+        val query = if (ownerId != uid) {
+            collection
+                .where(
+                    Filter.and(
+                        Filter.equalTo("public", true),
+                        Filter.equalTo("id", projectId)
+                    )
+                )
+        } else {
+            collection
+                .where(
+                    Filter.and(
+                        Filter.equalTo("createdBy", uid),
+                        Filter.equalTo("id", projectId)
+                    )
+                )
+        }
+
+        return query.snapshots().map { snapshots ->
+            snapshots.documents.firstOrNull()?.toObject<ProjectDto>()
+        }
     }
 
     override suspend fun updateProject(uid: String, id: String?, project: ProjectDto) {

@@ -1,5 +1,6 @@
 package pl.krzyssko.portfoliobrowser.repository
 
+import kotlinx.coroutines.flow.Flow
 import pl.krzyssko.portfoliobrowser.data.Project
 import pl.krzyssko.portfoliobrowser.data.Stack
 
@@ -24,5 +25,6 @@ interface ProjectRepository {
     suspend fun nextPage(nextPageKey: Any?, category: String? = null): Result<List<Project>>
     suspend fun fetchProjectsByIds(docIds: List<String>): Result<List<Project>>
     suspend fun fetchProjectDetails(uid: String, id: String): Result<Project>
+    fun observeProjectDetails(ownerId: String, projectId: String): Flow<Project?>
     suspend fun nextFavoritePage(nextPageKey: Any?): Result<List<Project>>
 }

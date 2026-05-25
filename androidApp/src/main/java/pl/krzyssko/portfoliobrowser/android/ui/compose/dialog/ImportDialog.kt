@@ -12,15 +12,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import pl.krzyssko.portfoliobrowser.android.MyApplicationTheme
 import pl.krzyssko.portfoliobrowser.store.OnboardingState
 
@@ -28,11 +24,10 @@ import pl.krzyssko.portfoliobrowser.store.OnboardingState
 fun ImportDialog(
     modifier: Modifier = Modifier,
     title: String,
-    importState: StateFlow<OnboardingState>,
+    state: OnboardingState,
     onCancel: () -> Unit,
     onComplete: () -> Unit
 ) {
-    val state by importState.collectAsState()
     val isDone = state is OnboardingState.OnboardingCompleted
     Dialog(
         onDismissRequest = onCancel
@@ -49,8 +44,7 @@ fun ImportDialog(
                         }
                         is OnboardingState.ImportProgress -> {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                val data = (state as OnboardingState.ImportProgress)
-                                val text = "${data.progress}/${data.total} Importing ${data.displayName}"
+                                val text = "${state.progress}/${state.total} Importing ${state.displayName}"
                                 Text(text = text, style = MaterialTheme.typography.bodyMedium)
                                 CircularProgressIndicator(
                                     modifier = Modifier
@@ -88,7 +82,7 @@ private fun ImportDialogPreview() {
     MyApplicationTheme {
         ImportDialog(
             title = "Importing Data",
-            importState = MutableStateFlow(OnboardingState.ImportProgress(50, 100, "Projects")),
+            state = OnboardingState.ImportProgress(50, 100, "Projects"),
             onCancel = {},
             onComplete = {}
         )

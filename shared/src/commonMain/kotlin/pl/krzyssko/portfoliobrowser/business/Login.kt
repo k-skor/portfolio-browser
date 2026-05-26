@@ -21,7 +21,7 @@ import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
-import pl.krzyssko.portfoliobrowser.platform.Config
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.LoginState
@@ -231,7 +231,7 @@ class Login(
         }
             .flowOn(dispatcherIO)
             .onStart {
-                config.update(Config(gitHubApiToken = user.oauthAccessToken.orEmpty()))
+                config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
             }
             .map {
                 when {
@@ -244,7 +244,7 @@ class Login(
             }
             .filterNotNull()
             .collect { name ->
-                config.update(config.config.copy(gitHubApiUser = name, lastSignInMethod = user.signInMethod.orEmpty()))
+                config.update(config.configurationData.copy(gitHubApiUser = name, lastSignInMethod = user.signInMethod.orEmpty()))
                 val updatedUser = user.copy(
                     account = user.account.copy(
                         name = name
@@ -301,10 +301,10 @@ class Login(
         emit(userRepository.fetchUser().getOrThrow())
     }
         .onStart {
-            config.update(Config(gitHubApiToken = user.oauthAccessToken.orEmpty()))
+            config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
         }
         .onEach {
-            config.update(config.config.copy(gitHubApiUser = it, lastSignInMethod = user.signInMethod.orEmpty()))
+            config.update(config.configurationData.copy(gitHubApiUser = it, lastSignInMethod = user.signInMethod.orEmpty()))
         }
 
     //@OptIn(OrbitExperimental::class)

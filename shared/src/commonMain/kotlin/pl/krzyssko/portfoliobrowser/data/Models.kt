@@ -54,7 +54,7 @@ typealias AdditionalUserData = Map<String, Any>
 data class Account(
     val id: String,
     val name: String?,
-    val email: String?,
+    val email: String,
     val avatarUrl: String?,
     val isEmailVerified: Boolean,
     val anonymous: Boolean

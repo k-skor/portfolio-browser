@@ -32,7 +32,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
     private val log = getLogging()
 
     private fun getHttpRequestBuilderBlock(builder: HttpRequestBuilder, path: String, block: HttpRequestBuilder.() -> Unit) {
-        val token = configuration.config.gitHubApiToken
+        val token = configuration.configurationData.gitHubApiToken
         with(builder) {
             url( Url("$BASE_URL/$path") )
             headers {
@@ -79,7 +79,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
     }
 
     override suspend fun getRepos(): List<GitHubProject> {
-        val user = configuration.config.gitHubApiUser
+        val user = configuration.configurationData.gitHubApiUser
         //return try {
         //} catch (e: Exception) {
         //    throw GitHubException(e)
@@ -104,7 +104,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
         //} catch (e: Exception) {
         //    throw GitHubException(e)
         //}
-        val user = configuration.config.gitHubApiUser
+        val user = configuration.configurationData.gitHubApiUser
         val request = httpClient.get {
             getHttpRequestBuilderBlock(this, "users/$user/repos") {
                 if (queryParams == null) {
@@ -140,7 +140,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
     }
 
     override suspend fun getRepoLanguages(repoName: String): GitHubLanguage {
-        val user = configuration.config.gitHubApiUser
+        val user = configuration.configurationData.gitHubApiUser
         //return try {
         //} catch (e: Exception) {
         //    throw GitHubException(e)
@@ -161,7 +161,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
     }
 
     override suspend fun getRepoBy(name: String): GitHubProject? {
-        val user = configuration.config.gitHubApiUser
+        val user = configuration.configurationData.gitHubApiUser
         //try {
         //} catch (e: Exception) {
         //    return ApiResponse.Failure(e)
@@ -180,7 +180,7 @@ class GitHubApi(private val httpClient: HttpClient, private val configuration: C
     }
 
     private fun getSearchQuery(phrase: String): String {
-        val user = configuration.config.gitHubApiUser
+        val user = configuration.configurationData.gitHubApiUser
         return "q=${phrase} in:name in:description user:${user}"
     }
 

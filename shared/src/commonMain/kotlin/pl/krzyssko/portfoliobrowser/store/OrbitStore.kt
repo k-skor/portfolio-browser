@@ -9,7 +9,7 @@ import org.orbitmvi.orbit.syntax.Syntax
 
 typealias OrbitStoreOnCreate<TState> = suspend Syntax<TState, UserSideEffects>.() -> Unit
 
-open class OrbitStore<TState : Any>(
+abstract class OrbitStore<TState : Any>(
     coroutineScope: CoroutineScope,
     initialState: TState
 ) : ContainerHost<TState, UserSideEffects>, KoinComponent {

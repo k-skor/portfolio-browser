@@ -18,20 +18,20 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.tasks.await
+import pl.krzyssko.portfoliobrowser.BuildConfig
 import pl.krzyssko.portfoliobrowser.data.Follower
 import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.db.transfer.DataSyncDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
 import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.platform.isEmulator
 
 
 class AndroidFirestore: Firestore {
     private val db: FirebaseFirestore
 
     init {
-        if (isEmulator) {
+        if (BuildConfig.EMULATOR) {
             Firebase.firestore.useEmulator("10.0.2.2", 8080)
         }
         db = Firebase.firestore

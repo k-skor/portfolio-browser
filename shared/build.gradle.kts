@@ -51,6 +51,10 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.coroutines.test)
+            implementation(libs.koin.test)
+            implementation(libs.mockito)
+            implementation(libs.orbitmvi.test)
         }
     }
 }
@@ -60,6 +64,7 @@ android {
     compileSdk = 34
     defaultConfig {
         minSdk = 24
+        buildConfigField("boolean", "EMULATOR", "Boolean.parseBoolean(\"false\")")
     }
     buildFeatures {
         buildConfig = true
@@ -71,6 +76,7 @@ android {
     buildTypes {
         create("emulator") {
             initWith(getByName("debug"))
+            buildConfigField("boolean", "EMULATOR", "Boolean.parseBoolean(\"true\")")
         }
     }
     sourceSets {

@@ -14,13 +14,13 @@ class AndroidAzureTokenProvider(
 ) : AzureTokenProvider {
 
     override val token: String
-        get() = configuration.config.azureApiToken.orEmpty()
+        get() = configuration.configurationData.azureApiToken.orEmpty()
 
     override val refreshToken: String
-        get() = configuration.config.azureApiRefreshToken.orEmpty()
+        get() = configuration.configurationData.azureApiRefreshToken.orEmpty()
 
     init {
-        val config = configuration.config.copy(azureApiToken = null, azureApiRefreshToken = null)
+        val config = configuration.configurationData.copy(azureApiToken = null, azureApiRefreshToken = null)
         configuration.update(config)
     }
 
@@ -29,10 +29,10 @@ class AndroidAzureTokenProvider(
     }
 
     override suspend fun getAccessToken(): String? {
-        val tenantId = configuration.config.azureTenantId ?: return null
-        val clientId = configuration.config.azureClientId ?: return null
-        val clientSecret = configuration.config.azureClientSecret ?: return null
-        val scope = configuration.config.azureScope ?: return null
+        val tenantId = configuration.configurationData.azureTenantId ?: return null
+        val clientId = configuration.configurationData.azureClientId ?: return null
+        val clientSecret = configuration.configurationData.azureClientSecret ?: return null
+        val scope = configuration.configurationData.azureScope ?: return null
 
         val url = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
 
@@ -48,7 +48,7 @@ class AndroidAzureTokenProvider(
         
         val response: AzureTokenResponse = res.body()
 
-        configuration.update(configuration.config.copy(
+        configuration.update(configuration.configurationData.copy(
             azureApiToken = response.accessToken,
             azureApiRefreshToken = response.refreshToken
         ))
@@ -57,8 +57,8 @@ class AndroidAzureTokenProvider(
     }
 
     override suspend fun refreshToken(oldTokens: BearerTokens?, requestBlock: HttpRequestBuilder.() -> Unit): BearerTokens? {
-        val tenantId = configuration.config.azureTenantId ?: return null
-        val clientId = configuration.config.azureClientId ?: return null
+        val tenantId = configuration.configurationData.azureTenantId ?: return null
+        val clientId = configuration.configurationData.azureClientId ?: return null
 
         val url = "https://login.microsoftonline.com/$tenantId/oauth2/v2.0/token"
 
@@ -73,7 +73,7 @@ class AndroidAzureTokenProvider(
         
         val response: AzureTokenResponse = res.body()
 
-        configuration.update(configuration.config.copy(
+        configuration.update(configuration.configurationData.copy(
             azureApiToken = response.accessToken,
             azureApiRefreshToken = oldTokens?.refreshToken!!
         ))

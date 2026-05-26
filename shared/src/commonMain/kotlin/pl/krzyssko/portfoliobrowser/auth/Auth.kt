@@ -28,7 +28,7 @@ abstract class Auth(protected val config: Configuration) {
     }
 
     protected val oauthToken: String?
-        get() = config.config.gitHubApiToken
+        get() = config.configurationData.gitHubApiToken
 
     fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerData?.any { it.providerId == providerType.toProviderId() } == false
 
@@ -70,7 +70,7 @@ abstract class Auth(protected val config: Configuration) {
     abstract val hasEmailProvider: Boolean
     abstract val userState: StateFlow<UserInfo?>
 
-    abstract fun userFlow(): Flow<UserInfo?>
+    protected abstract fun userFlow(): Flow<UserInfo?>
     protected abstract suspend fun signInAnonymous(): User?
     protected abstract suspend fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false): User?
     protected abstract suspend fun signInLinkWithGitHub(uiHandler: Any?): User?

@@ -59,9 +59,12 @@ dependencies {
     implementation(libs.coil)
     implementation(libs.coil.network)
     implementation(libs.coil.svg)
+    implementation(libs.kvault)
     //implementation(files("slf4j-simple-2.0.9"))
     //implementation(libs.logging.backend)
     debugImplementation(libs.compose.ui.tooling)
 
-    testImplementation(libs.koin.test)
+    //testImplementation(libs.junit)
+    //testImplementation(libs.coroutines.test)
+    //testImplementation(libs.koin.test)
 }

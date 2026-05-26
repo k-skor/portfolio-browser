@@ -22,6 +22,8 @@ firebaseAuthKtx = "23.1.0"
 kvault = "1.12.0"
 konform = "0.10.0"
 msal = "5.5.0"
+coroutines-test = "1.11.0"
+mockito = "6.3.0"
 
 [libraries]
 msal = { module = "com.microsoft.identity.client:msal", version.ref = "msal" }
@@ -45,6 +47,7 @@ compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview"
 compose-foundation = { module = "androidx.compose.foundation:foundation", version.ref = "compose" }
 compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "compose-material3" }
 orbitmvi-core = { module = "org.orbit-mvi:orbit-core", version.ref = "orbit-mvi" }
+orbitmvi-test = { module = "org.orbit-mvi:orbit-test", version.ref = "orbit-mvi" }
 orbitmvi-android = { module = "org.orbit-mvi:orbit-viewmodel", version.ref = "orbit-mvi" }
 orbitmvi-compose = { module = "org.orbit-mvi:orbit-compose", version.ref = "orbit-mvi" }
 koin = { module = "io.insert-koin:koin-core", version.ref = "koin" }
@@ -63,6 +66,8 @@ coil-svg = { module = "io.coil-kt.coil3:coil-svg", version.ref = "coil" }
 firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx", version.ref = "firebaseAuthKtx" }
 kvault = { module = "com.liftric:kvault", version.ref = "kvault" }
 konform = { module = "io.konform:konform", version.ref = "konform" }
+coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines-test" }
+mockito = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito"}
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

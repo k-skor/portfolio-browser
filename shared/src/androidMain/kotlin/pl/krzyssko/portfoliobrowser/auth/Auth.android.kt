@@ -24,13 +24,13 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
+import pl.krzyssko.portfoliobrowser.BuildConfig
 import pl.krzyssko.portfoliobrowser.data.Account
 import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.UserInfo
 import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.getLogging
-import pl.krzyssko.portfoliobrowser.platform.isEmulator
 
 actual val FirebaseProviderId: String = FirebaseAuthProvider.PROVIDER_ID
 actual val GitHubProviderId: String = GithubAuthProvider.PROVIDER_ID
@@ -40,7 +40,7 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
     private val auth: FirebaseAuth
 
     init {
-        if (isEmulator) {
+        if (BuildConfig.EMULATOR) {
             Firebase.auth.useEmulator("10.0.2.2", 9099)
         }
         auth = Firebase.auth
@@ -218,7 +218,7 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
 fun FirebaseUser.toAccount(): Account = Account(
     this.uid,
     this.displayName,
-    this.email,
+    this.email!!,
     this.photoUrl?.toString(),
     this.isEmailVerified,
     this.isAnonymous

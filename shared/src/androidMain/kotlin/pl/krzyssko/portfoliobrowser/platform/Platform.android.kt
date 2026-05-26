@@ -1,8 +1,6 @@
 package pl.krzyssko.portfoliobrowser.platform
 
-import android.content.Context
 import android.util.Log
-import com.liftric.kvault.KVault
 import mu.KotlinLogging
 import pl.krzyssko.portfoliobrowser.BuildConfig
 
@@ -10,13 +8,13 @@ class AndroidPlatform : Platform {
     override val name: String = "Android ${android.os.Build.VERSION.SDK_INT}"
 }
 
-class AndroidConfiguration(private val appContextHandle: Any?): Configuration() {
-    override val vault by lazy { KVault(appContextHandle as Context, "private_config") }
-    override var config: Config
-        get() = restore()
-        set(value) = save(value)
+class AndroidConfiguration(vaultProvider: VaultProvider): Configuration(vaultProvider) {
+    //override val vault by lazy { KVault(appContextHandle as Context, "private_config") }
+    //override var configurationData: ConfigurationData
+    //    get() = restore()
+    //    set(value) = save(value)
 
-    override fun restore(): Config {
+    override fun restore(): ConfigurationData {
         val restored = super.restore()
         return restored.copy(
             azureTenantId = restored.azureTenantId.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureTenantId,
@@ -46,5 +44,5 @@ class AndroidLogging: Logging {
 }
 
 actual fun getPlatform(): Platform = AndroidPlatform()
-actual fun getConfiguration(appContextHandle: Any?): Configuration = AndroidConfiguration(appContextHandle)
+actual fun getConfiguration(vaultProvider: VaultProvider): Configuration = AndroidConfiguration(vaultProvider)
 actual fun getLogging(): Logging = AndroidLogging()

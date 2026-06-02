@@ -1,6 +1,6 @@
 package pl.krzyssko.portfoliobrowser
 
-enum class OnboardingUseCase {
+enum class UseCase {
     ProfileIsCreatedWhenUserIsSignedIn,
     NewUserRequiresProfileCreation,
     UserExistsButNeedsImport,

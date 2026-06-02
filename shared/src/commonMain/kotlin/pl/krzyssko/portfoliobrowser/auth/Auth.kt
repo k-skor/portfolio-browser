@@ -7,6 +7,7 @@ import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.UserInfo
 import pl.krzyssko.portfoliobrowser.platform.Configuration
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationDataSaver
 
 class AuthInvalidUserException(throwable: Throwable?) : Exception("Invalid user.", throwable)
 class AuthPasswordTooWeakException(throwable: Throwable?) : Exception("Password is too weak.", throwable)
@@ -16,7 +17,7 @@ expect val FirebaseProviderId: String
 expect val GitHubProviderId: String
 expect val EmailProviderId: String
 
-abstract class Auth(protected val config: Configuration) {
+abstract class Auth(protected val config: ConfigurationDataSaver) {
 
     var requestedLoginMethod: LoginMethod? = null
         protected set

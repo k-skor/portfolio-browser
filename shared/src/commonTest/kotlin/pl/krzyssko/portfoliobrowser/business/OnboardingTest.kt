@@ -11,7 +11,8 @@ import org.koin.core.parameter.parametersOf
 import org.koin.test.KoinTest
 import org.koin.test.get
 import org.orbitmvi.orbit.test.test
-import pl.krzyssko.portfoliobrowser.OnboardingUseCase
+import pl.krzyssko.portfoliobrowser.UseCase
+import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.di.sharedAppModule
 import pl.krzyssko.portfoliobrowser.di.testModule
 import pl.krzyssko.portfoliobrowser.navigation.Route
@@ -41,7 +42,7 @@ class OnboardingTest : KoinTest {
     @Test
     fun `test onboarding flow for returning user`() = runTest {
         val onboarding = get<Onboarding> {
-            parametersOf(backgroundScope, OnboardingUseCase.ProfileIsCreatedWhenUserIsSignedIn)
+            parametersOf(backgroundScope, UseCase.ProfileIsCreatedWhenUserIsSignedIn)
         }
 
         onboarding.test(this) {
@@ -49,11 +50,8 @@ class OnboardingTest : KoinTest {
             runOnCreate()
             expectState { OnboardingState.ProfileExists }
             expectState { OnboardingState.OnboardingCompleted }
-            //expectSideEffect(UserSideEffects.NavigateTo(Route.List))
             val effect = awaitSideEffect()
-            assertTrue { effect is UserSideEffects.NavigateTo }
-            println("state=${onboarding.stateFlow.value}")
-            println("effect=${(effect as UserSideEffects.NavigateTo).route::class}")
+            assertTrue { effect is UserSideEffects.NavigateTo && effect.route is Route.List }
             cancelAndIgnoreRemainingItems()
         }
     }
@@ -61,15 +59,16 @@ class OnboardingTest : KoinTest {
     @Test
     fun `test onboarding flow for new user requiring profile creation`() = runTest {
         val onboarding = get<Onboarding> {
-            parametersOf(backgroundScope, OnboardingUseCase.NewUserRequiresProfileCreation)
+            parametersOf(backgroundScope, UseCase.NewUserRequiresProfileCreation)
         }
 
         onboarding.test(this) {
             expectInitialState()
             runOnCreate()
             expectState { OnboardingState.FirstTimeSignUp }
-            expectSideEffect(UserSideEffects.NavigateTo(Route.Onboarding))
-            
+            val effect = awaitSideEffect()
+            assertTrue { effect is UserSideEffects.NavigateTo && effect.route is Route.Onboarding }
+
             // Trigger profile creation
             containerHost.create()
             val state = awaitState()
@@ -81,7 +80,7 @@ class OnboardingTest : KoinTest {
     @Test
     fun `test onboarding flow for user needing import`() = runTest {
         val onboarding = get<Onboarding> {
-            parametersOf(backgroundScope, OnboardingUseCase.UserExistsButNeedsImport)
+            parametersOf(backgroundScope, UseCase.UserExistsButNeedsImport)
         }
 
         onboarding.test(this) {
@@ -89,7 +88,8 @@ class OnboardingTest : KoinTest {
             runOnCreate()
             expectState { OnboardingState.ProfileExists }
             expectState { OnboardingState.ImportSourceAvailable }
-            expectSideEffect(UserSideEffects.NavigateTo(Route.ProviderImport))
+            val effect = awaitSideEffect()
+            assertTrue { effect is UserSideEffects.NavigateTo && effect.route is Route.ProviderImport }
             cancelAndIgnoreRemainingItems()
         }
     }
@@ -97,7 +97,7 @@ class OnboardingTest : KoinTest {
     @Test
     fun `test import flow failure`() = runTest {
         val onboarding = get<Onboarding> {
-            parametersOf(backgroundScope, OnboardingUseCase.SyncFailureScenario)
+            parametersOf(backgroundScope, UseCase.SyncFailureScenario)
         }
 
         onboarding.test(this) {
@@ -105,10 +105,11 @@ class OnboardingTest : KoinTest {
             runOnCreate()
             expectState { OnboardingState.ProfileExists }
             expectState { OnboardingState.ImportSourceAvailable }
-            expectSideEffect(UserSideEffects.NavigateTo(Route.ProviderImport))
+            val effect = awaitSideEffect()
+            assertTrue { effect is UserSideEffects.NavigateTo && effect.route is Route.ProviderImport }
 
             // Start import which will eventually fail on save
-            containerHost.import(null, pl.krzyssko.portfoliobrowser.data.Source.GitHub)
+            containerHost.import(null, Source.GitHub)
             expectState { OnboardingState.ImportStarted }
             
             val progressState = awaitState()

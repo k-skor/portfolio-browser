@@ -5,26 +5,29 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import org.koin.core.parameter.parametersOf
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import pl.krzyssko.portfoliobrowser.OnboardingUseCase
+import pl.krzyssko.portfoliobrowser.api.Api
+import pl.krzyssko.portfoliobrowser.api.dto.GitHubProject
+import pl.krzyssko.portfoliobrowser.api.dto.GitHubUser
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.business.Onboarding
-import pl.krzyssko.portfoliobrowser.data.Project
+import pl.krzyssko.portfoliobrowser.UseCase
 import pl.krzyssko.portfoliobrowser.db.Firestore
-import pl.krzyssko.portfoliobrowser.platform.Configuration
-import pl.krzyssko.portfoliobrowser.platform.VaultProvider
-import pl.krzyssko.portfoliobrowser.repository.CategoriesRepository
-import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationDataSaver
 
 val testModule = module {
-    single<VaultProvider> {
-        return@single object : VaultProvider {
-            override val vault: Nothing
-                get() = throw NotImplementedError()
+    //single<VaultProvider> {
+    //    return@single object : VaultProvider {
+    //        override val vault: Nothing
+    //            get() = throw NotImplementedError()
+    //    }
+    //}
+    single {
+        object : ConfigurationDataSaver {
+            override fun save(data: ConfigurationData) { }
+            override fun restore(): ConfigurationData = ConfigurationData()
         }
-    }
-    single<Configuration> {
-        object : Configuration(get()) { }
-    }
+    } bind ConfigurationDataSaver::class
     single<Auth> { (isSignedIn: Boolean) ->
         if (isSignedIn) {
             FakeAuth(get(), true)
@@ -35,33 +38,33 @@ val testModule = module {
     factory<Firestore> { (userCreated: Boolean, lastSyncTimestamp: Long?, shouldFailSync: Boolean) ->
         FakeFirestore(userCreated, lastSyncTimestamp, shouldFailSync)
     }
-    factory(NAMED_GITHUB) { (projects: List<Project>) ->
-        FakeProjectRepository(projects, projects.size)
-    } bind ProjectRepository::class
-    factory(NAMED_GITHUB) { (projects: List<Project>) ->
-        FakeProjectRepository(projects, projects.size)
-    } bind CategoriesRepository::class
+    factory<Api> {
+        val user = GitHubUser(123, "k-skor", totalPublicRepos = 0, totalPrivateRepos = 0)
+        val projects = emptyList<GitHubProject>()
+        val langStack = emptyMap<String, Int>()
+        FakeApi(user, projects, langStack)
+    }
 
-    factory<Onboarding> { (coroutineScope: CoroutineScope, useCase: OnboardingUseCase) ->
+    factory<Onboarding> { (coroutineScope: CoroutineScope, useCase: UseCase) ->
         val (isSignedIn, hasUser) = when (useCase) {
-            OnboardingUseCase.ProfileIsCreatedWhenUserIsSignedIn,
-            OnboardingUseCase.UserExistsButNeedsImport,
-            OnboardingUseCase.SyncFailureScenario -> Pair(true, true)
-            OnboardingUseCase.NewUserRequiresProfileCreation -> Pair(true, false)
+            UseCase.ProfileIsCreatedWhenUserIsSignedIn,
+            UseCase.UserExistsButNeedsImport,
+            UseCase.SyncFailureScenario -> Pair(true, true)
+            UseCase.NewUserRequiresProfileCreation -> Pair(true, false)
         }
         val (timestamp, shouldFailSync) = when (useCase) {
-            OnboardingUseCase.ProfileIsCreatedWhenUserIsSignedIn -> Pair(123L, false)
-            OnboardingUseCase.NewUserRequiresProfileCreation,
-            OnboardingUseCase.UserExistsButNeedsImport -> Pair(null, false)
-            OnboardingUseCase.SyncFailureScenario -> Pair(null, true)
+            UseCase.ProfileIsCreatedWhenUserIsSignedIn -> Pair(123L, false)
+            UseCase.NewUserRequiresProfileCreation,
+            UseCase.UserExistsButNeedsImport -> Pair(null, false)
+            UseCase.SyncFailureScenario -> Pair(null, true)
         }
+
+        val auth = get<Auth> { parametersOf(isSignedIn) }
 
         Onboarding(
             coroutineScope,
             StandardTestDispatcher(),
-            get<Auth> {
-                parametersOf(isSignedIn)
-            },
+            auth,
             get<Firestore> {
                 parametersOf(hasUser, timestamp, shouldFailSync)
             }

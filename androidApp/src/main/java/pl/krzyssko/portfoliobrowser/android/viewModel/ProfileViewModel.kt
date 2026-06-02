@@ -37,6 +37,11 @@ class ProfileViewModel : ViewModel(), KoinComponent {
     val profile: Flow<Profile?>
         get() = userProfile.stateFlow.toProfile()
 
+    override fun onCleared() {
+        super.onCleared()
+        login.stop()
+    }
+
     fun welcome() {
         login.welcome()
     }

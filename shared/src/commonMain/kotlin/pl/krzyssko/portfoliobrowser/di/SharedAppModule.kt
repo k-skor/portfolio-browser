@@ -52,19 +52,18 @@ val NAMED_AZURE = named("azure")
 
 fun sharedAppModule() = module {
 
-    single<Api> { GitHubApi(get(qualifier = NAMED_GITHUB), get()) }
-    single<AzureApi> { AzureSearchApi(get(qualifier = NAMED_AZURE), get()) }
+    single { GitHubApi(get(qualifier = NAMED_GITHUB), get()) } bind Api::class
+    single { AzureSearchApi(get(qualifier = NAMED_AZURE), get()) } bind AzureApi::class
 
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind ProjectRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind SearchRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind UserRepository::class
     factory(NAMED_GITHUB) { GitHubProjectRepository(get(), get()) } bind CategoriesRepository::class
 
-    factory { GitHubProjectRepository(get(), get()) } bind UserRepository::class
-    
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind ProjectRepository::class
     factory(NAMED_FIRESTORE) { FirestoreProjectRepository(get(), get()) } bind CategoriesRepository::class
-    factory<SearchRepository>(NAMED_AZURE) { AzureSearchRepository(get(), get(qualifier = NAMED_FIRESTORE)) }
+
+    factory(NAMED_AZURE) { AzureSearchRepository(get(), get(qualifier = NAMED_FIRESTORE)) } bind SearchRepository::class
 
     single<AzureTokenProvider> {
         val azureHttpClient = get<HttpClient> (qualifier = NAMED_AZURE)
@@ -144,9 +143,9 @@ fun sharedAppModule() = module {
             get()
         )
     }
-    single<Login> { (coroutineScope: CoroutineScope) ->
+
+    single<Login> {
         Login(
-            coroutineScope,
             Dispatchers.IO,
             get(),
             get(),

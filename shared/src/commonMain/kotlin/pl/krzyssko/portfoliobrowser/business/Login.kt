@@ -1,18 +1,13 @@
 package pl.krzyssko.portfoliobrowser.business
 
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.orbitmvi.orbit.annotation.OrbitExperimental
@@ -21,26 +16,60 @@ import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
-import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
 import pl.krzyssko.portfoliobrowser.platform.Configuration
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
-import pl.krzyssko.portfoliobrowser.store.UserFetchException
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
+import pl.krzyssko.portfoliobrowser.store.onCreate
+import pl.krzyssko.portfoliobrowser.store.onInitialize
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
 
 class Login(
-    coroutineScope: CoroutineScope,
     private val dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
     private val config: Configuration,
     private val userRepository: UserRepository
-) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
+) : KoinComponent, OrbitStore<LoginState>(LoginState.Initialized) {
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        intent {
+            reduce {
+                LoginState.Error(throwable)
+            }
+            resetAuthSub()
+            postSideEffect(UserSideEffects.Error(throwable))
+            postSideEffect(UserSideEffects.NavigateTo(throwable.toRoute()))
+        }
+    }
+    private val coroutineScope = CoroutineScope(SupervisorJob() + exceptionHandler)
 
     init {
-        initialize()
+        storeConfig(coroutineScope) {
+            onCreate {
+                repeatOnSubscription {
+                    launch {
+                        stateFlow.collect(::handleInternalState)
+                    }
+                }
+            }
+            onInitialize {
+                initialize()
+            }
+        }
+    }
+
+    @OptIn(OrbitExperimental::class)
+    suspend fun handleInternalState(state: LoginState) = subIntent {
+        when (state) {
+            is LoginState.Error -> {
+
+            }
+
+            else -> {}
+        }
     }
 
     fun welcome() = intent {
@@ -70,73 +99,47 @@ class Login(
     }
 
     fun login() = intent {
-        loginAnonymous()
-            .catch { handleException(it) }
-            .flowOn(dispatcherIO)
-            .onCompletion {
-                if (it != null) {
-                    resetAuthSub()
-                }
-            }
-            .collect {
-                reduce {
-                    LoginState.Authenticated(user = User.Guest)
-                }
-                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
-            }
+        withContext(dispatcherIO) {
+            loginAnonymous()
+        }
+        reduce {
+            LoginState.Authenticated(user = User.Guest)
+        }
+        postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     fun login(uiHandler: Any?, refresh: Boolean = false, forceSignIn: Boolean = false) = intent {
-        loginProvider(uiHandler, refresh, forceSignIn)
-            .catch {
-                when (it) {
-                    is AuthAccountExistsException -> startLink()
-                    else -> handleException(it)
-                }
+        try {
+            val user = withContext(dispatcherIO) {
+                loginProvider(uiHandler, refresh, forceSignIn)
             }
-            .flatMapLatest { user ->
-                fetchGitHubUserFlow(user)
-                    .map { userName ->
-                        user.copy(
-                            account = user.account.copy(
-                                name = userName
-                            )
-                        )
-                    }
-                    .catch {
-                        handleException(UserFetchException(it))
-                    }
-            }
-            .flowOn(dispatcherIO)
-            .onCompletion {
-                if (it != null && it !is AuthAccountExistsException) {
-                    resetAuthSub()
-                }
-            }
-            .collect {
+            if (user != null) {
+                val userName = fetchGitHubUser(user)
+                val updatedUser = user.copy(
+                    account = user.account.copy(
+                        name = userName
+                    )
+                )
                 reduce {
-                    LoginState.Authenticated(it)
+                    LoginState.Authenticated(updatedUser)
                 }
                 postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
             }
+        } catch (e: AuthAccountExistsException) {
+            startLink()
+        }
     }
 
     fun login(uiHandler: Any?, login: String, password: String, create: Boolean = false) = intent {
-        loginEmail(uiHandler, login, password, create)
-            .catch { handleException(it) }
-            .flowOn(dispatcherIO)
-            .onCompletion {
-                if (it != null) {
-                    resetAuthSub()
-                }
+        val user = withContext(dispatcherIO) {
+            loginEmail(uiHandler, login, password, create)
+        }
+        if (user != null) {
+            reduce {
+                LoginState.Authenticated(user = user)
             }
-            .collect {
-                reduce {
-                    LoginState.Authenticated(user = it)
-                }
-                postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
-            }
+            postSideEffect(UserSideEffects.NavigateTo(Route.HomeRoot))
+        }
     }
 
     fun logout() = intent {
@@ -156,6 +159,10 @@ class Login(
             LoginState.Initialized
         }
         postSideEffect(UserSideEffects.NavigateTo(Route.Welcome))
+    }
+
+    fun stop() {
+        coroutineScope.cancel()
     }
 
     @OptIn(OrbitExperimental::class)
@@ -188,32 +195,26 @@ class Login(
 
 
     // TODO: dokończyć i przenieść linkowanie konta
-    @OptIn(ExperimentalCoroutinesApi::class)
     fun link(uiHandler: Any?) = intent {
-        linkProvider(uiHandler)
-            .catch { handleException(it) }
-            .flatMapLatest { user ->
-                fetchGitHubUserFlow(user)
-                    .map { userName ->
-                        user.copy(
-                            account = user.account.copy(
-                                name = userName
-                            )
-                        )
-                    }
-                    .catch {
-                        handleException(UserFetchException(it))
-                    }
+        postSideEffect(UserSideEffects.Toast("Linking user account..."))
+        try {
+            val user = withContext(dispatcherIO) {
+                linkProvider(uiHandler)
             }
-            .onStart {
-                postSideEffect(UserSideEffects.Toast("Linking user account..."))
-            }
-            .flowOn(dispatcherIO)
-            .collect {
+            if (user != null) {
+                val userName = fetchGitHubUser(user)
+                val updatedUser = user.copy(
+                    account = user.account.copy(
+                        name = userName
+                    )
+                )
                 reduce {
-                    LoginState.Authenticated(it)
+                    LoginState.Authenticated(updatedUser)
                 }
             }
+        } catch (e: Exception) {
+            handleException(e)
+        }
     }
 
     @OptIn(OrbitExperimental::class)
@@ -224,88 +225,79 @@ class Login(
         }
     }
 
-    @OptIn(OrbitExperimental::class)
-    private suspend fun fetchGitHubUser(user: User.Authenticated) = subIntent {
-        flow {
-            emit(userRepository.fetchUser())
-        }
-            .flowOn(dispatcherIO)
-            .onStart {
-                config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
-            }
-            .map {
-                when {
-                    it.isSuccess -> it.getOrNull()
-                    else -> {
-                        handleException(UserFetchException(it.exceptionOrNull()))
-                        null
-                    }
-                }
-            }
-            .filterNotNull()
-            .collect { name ->
-                config.update(config.configurationData.copy(gitHubApiUser = name, lastSignInMethod = user.signInMethod.orEmpty()))
-                val updatedUser = user.copy(
-                    account = user.account.copy(
-                        name = name
-                    )
-                )
-                reduce {
-                    LoginState.Authenticated(updatedUser)
-                }
-            }
-    }
+    //@OptIn(OrbitExperimental::class)
+    //private suspend fun fetchGitHubUser(user: User.Authenticated) = subIntent {
+    //    flow {
+    //        emit(userRepository.fetchUser())
+    //    }
+    //        .flowOn(dispatcherIO)
+    //        .onStart {
+    //            config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
+    //        }
+    //        .map {
+    //            when {
+    //                it.isSuccess -> it.getOrNull()
+    //                else -> {
+    //                    handleException(UserFetchException(it.exceptionOrNull()))
+    //                    null
+    //                }
+    //            }
+    //        }
+    //        .filterNotNull()
+    //        .collect { name ->
+    //            config.update(config.configurationData.copy(gitHubApiUser = name, lastSignInMethod = user.signInMethod.orEmpty()))
+    //            val updatedUser = user.copy(
+    //                account = user.account.copy(
+    //                    name = name
+    //                )
+    //            )
+    //            reduce {
+    //                LoginState.Authenticated(updatedUser)
+    //            }
+    //        }
+    //}
 
-    private fun loginAnonymous() = flow {
-        emit(auth.startSignInFlow(uiHandler = null, providerType = Auth.LoginMethod.Anonymous))
-    }
+    private suspend fun loginAnonymous() = auth.startSignInFlow(uiHandler = null, providerType = Auth.LoginMethod.Anonymous)
 
-    private fun loginProvider(uiHandler: Any?, refresh: Boolean = false, forceSignIn: Boolean = false) = flow {
-        emit(
-            auth.startSignInFlow(
-                uiHandler = uiHandler,
-                providerType = Auth.LoginMethod.GitHub,
-                refresh = refresh,
-                linkWithProvider = !forceSignIn && auth.shouldLinkAccounts(Auth.LoginMethod.GitHub)
-            )
+    private suspend fun loginProvider(
+        uiHandler: Any?,
+        refresh: Boolean = false,
+        forceSignIn: Boolean = false
+    ) =
+        auth.startSignInFlow(
+            uiHandler = uiHandler,
+            providerType = Auth.LoginMethod.GitHub,
+            refresh = refresh,
+            linkWithProvider = !forceSignIn && auth.shouldLinkAccounts(Auth.LoginMethod.GitHub)
         )
-    }
-        // TODO: obsługa null usera
-        .filterNotNull()
 
-    private fun loginEmail(uiHandler: Any?, login: String, password: String, create: Boolean = false) = flow {
-        emit(
-            auth.startSignInFlow(
-                uiHandler = uiHandler,
-                providerType = Auth.LoginMethod.Email,
-                login = login,
-                password = password,
-                create = create
-            )
+    private suspend fun loginEmail(
+        uiHandler: Any?,
+        login: String,
+        password: String,
+        create: Boolean = false
+    ) =
+        auth.startSignInFlow(
+            uiHandler = uiHandler,
+            providerType = Auth.LoginMethod.Email,
+            login = login,
+            password = password,
+            create = create
         )
-    }
-        .filterNotNull()
 
-    private fun linkProvider(uiHandler: Any?) = flow {
-        emit(
-            auth.startSignInFlow(
-                uiHandler,
-                providerType = Auth.LoginMethod.GitHub,
-                linkWithProvider = true
-            )
+    private suspend fun linkProvider(uiHandler: Any?) =
+        auth.startSignInFlow(
+            uiHandler,
+            providerType = Auth.LoginMethod.GitHub,
+            linkWithProvider = true
         )
-    }
-        .filterNotNull()
 
-    private fun fetchGitHubUserFlow(user: User.Authenticated) = flow {
-        emit(userRepository.fetchUser().getOrThrow())
+    private suspend fun fetchGitHubUser(user: User.Authenticated): String? {
+        config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
+        val gitHubUser = userRepository.fetchUser().getOrNull()
+        config.update(config.configurationData.copy(gitHubApiUser = gitHubUser, lastSignInMethod = user.signInMethod.orEmpty()))
+        return gitHubUser
     }
-        .onStart {
-            config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
-        }
-        .onEach {
-            config.update(config.configurationData.copy(gitHubApiUser = it, lastSignInMethod = user.signInMethod.orEmpty()))
-        }
 
     //@OptIn(OrbitExperimental::class)
     //private suspend fun handleException(exception: Throwable?) = subIntent {

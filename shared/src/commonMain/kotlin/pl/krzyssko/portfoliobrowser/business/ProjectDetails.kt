@@ -25,6 +25,7 @@ import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.ProjectState
 import pl.krzyssko.portfoliobrowser.store.ProjectsQueryState
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
+import pl.krzyssko.portfoliobrowser.store.onCreate
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
 import kotlin.random.Random
@@ -37,21 +38,23 @@ class ProjectDetails(
     private val auth: Auth,
     private val firestore: Firestore,
     private val selectedFlow: Flow<ProjectsQueryState.DetailsSelected?>
-) : KoinComponent, OrbitStore<ProjectState>(coroutineScope, ProjectState.Initialized) {
+) : KoinComponent, OrbitStore<ProjectState>(ProjectState.Initialized) {
 
     init {
-        doOnCreate {
-            repeatOnSubscription {
-                selectedFlow
-                    .collectLatest {
-                        if (it != null) {
-                            observe(it.projectId, it.createdBy)
-                        } else {
-                            reduce {
-                                ProjectState.Initialized
+        storeConfig(coroutineScope) {
+            onCreate {
+                repeatOnSubscription {
+                    selectedFlow
+                        .collectLatest {
+                            if (it != null) {
+                                observe(it.projectId, it.createdBy)
+                            } else {
+                                reduce {
+                                    ProjectState.Initialized
+                                }
                             }
                         }
-                    }
+                }
             }
         }
     }

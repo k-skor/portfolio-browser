@@ -48,7 +48,7 @@ sealed class OnboardingState {
     data object ImportSourceAvailable: OnboardingState()
     data object ImportConfirmed: OnboardingState()
     data object ImportStarted: OnboardingState()
-    data class ImportProgress(val progress: Int, val total: Int, val displayName: String?): OnboardingState()
+    data class ImportProgress(val progress: Int = 0, val total: Int, val displayName: String? = null): OnboardingState()
     data class Error(val reason: Throwable?): OnboardingState()
     data object OnboardingCompleted: OnboardingState()
 }

@@ -16,9 +16,10 @@ import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 class ProjectsList(
     coroutineScope: CoroutineScope,
     private val azureAuth: AzureTokenProvider
-) : KoinComponent, OrbitStore<ProjectsQueryState>(coroutineScope, ProjectsQueryState.Initialized) {
+) : KoinComponent, OrbitStore<ProjectsQueryState>(ProjectsQueryState.Initialized) {
 
     init {
+        storeConfig(coroutineScope)
         coroutineScope.launch {
             azureAuth.initialize()
         }

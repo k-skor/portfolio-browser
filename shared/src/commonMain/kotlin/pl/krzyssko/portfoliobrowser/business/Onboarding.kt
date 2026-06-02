@@ -12,7 +12,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -41,6 +40,7 @@ import pl.krzyssko.portfoliobrowser.repository.ProjectRepository
 import pl.krzyssko.portfoliobrowser.store.OnboardingState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
+import pl.krzyssko.portfoliobrowser.store.onCreate
 
 interface ImportSource {
     suspend fun totalItems(): Int
@@ -49,7 +49,7 @@ interface ImportSource {
 
 class GitHubSource(private val repository: ProjectRepository, categoriesRepository: CategoriesRepository) : ImportSource {
 
-    override suspend fun totalItems() = repository.fetchTotalProjectsSize().getOrThrow()
+    override suspend fun totalItems() = repository.fetchTotalProjectsSize().getOrNull() ?: -1
 
     override fun importFlow() = flow {
         var isLastPage = false
@@ -71,7 +71,7 @@ class Onboarding(
     private val dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
     private val firestore: Firestore
-) : KoinComponent, OrbitStore<OnboardingState>(coroutineScope, OnboardingState.Initialized) {
+) : KoinComponent, OrbitStore<OnboardingState>(OnboardingState.Initialized) {
     private val repository: ProjectRepository by inject(NAMED_GITHUB)
     private val categoriesRepository: CategoriesRepository by inject(NAMED_GITHUB)
     private val projectsList: MutableList<ProjectDto> = mutableListOf()
@@ -80,46 +80,56 @@ class Onboarding(
     private var saveJob: Job? = null
 
     init {
-        doOnCreate {
-            repeatOnSubscription {
-                coroutineScope {
-                    launch {
-                        auth.userState
-                            .map {
-                                if (it != null && !it.isAnonymous) {
-                                    it.uid
-                                } else {
-                                    null
-                                }
-                            }
-                            .collectLatest {
-                                if (it != null) {
-                                    check(it)
-                                } else {
-                                    reduce {
-                                        OnboardingState.Initialized
+        storeConfig(coroutineScope) {
+            onCreate {
+                repeatOnSubscription {
+                    coroutineScope {
+                        launch {
+                            auth.userState
+                                .map {
+                                    if (it != null && !it.isAnonymous) {
+                                        it.uid
+                                    } else {
+                                        null
                                     }
                                 }
-                            }
-                    }
-                    launch {
-                        stateFlow.collect {
-                            when (it) {
-                                is OnboardingState.FirstTimeSignUp -> {
-                                    create()
+                                .collectLatest {
+                                    if (it != null) {
+                                        check(it)
+                                    } else {
+                                        reduce {
+                                            OnboardingState.Initialized
+                                        }
+                                    }
                                 }
-
-                                is OnboardingState.FirstTimeSignUpCompleted,
-                                is OnboardingState.ProfileExists -> {
-                                    start()
-                                }
-
-                                else -> {}
-                            }
+                        }
+                        launch {
+                            stateFlow.collect(::handleInternalState)
                         }
                     }
                 }
             }
+        }
+    }
+
+    @OptIn(OrbitExperimental::class)
+    suspend fun handleInternalState(state: OnboardingState) = subIntent {
+        when (state) {
+            is OnboardingState.FirstTimeSignUp -> {
+                create()
+            }
+
+            is OnboardingState.FirstTimeSignUpCompleted,
+            is OnboardingState.ProfileExists -> {
+                start()
+            }
+
+            is OnboardingState.Error -> {
+                postSideEffect(UserSideEffects.NavigateTo(state.reason.toRoute()))
+                postSideEffect(UserSideEffects.Error(state.reason))
+                cancel()
+            }
+            else -> {}
         }
     }
 
@@ -222,51 +232,52 @@ class Onboarding(
             Source.GitHub -> GitHubSource(repository, categoriesRepository)
         }
 
-        importJob = coroutineScope {
-            launch {
-                with(sourceProvider) {
-                    flow {
-                        emit(totalItems())
-                    }
-                        .onStart {
-                            auth.startSignInFlow(
-                                uiHandler = uiHandler,
-                                providerType = Auth.LoginMethod.GitHub,
-                                refresh = true
-                            )
+        with(sourceProvider) {
+            importJob = coroutineScope {
+                launch {
+                    val totalItems = withContext(dispatcherIO) {
+                        val user = auth.startSignInFlow(
+                            uiHandler = uiHandler,
+                            providerType = Auth.LoginMethod.GitHub,
+                            refresh = true
+                        )
+                        if (user == null) {
+                            reduce {
+                                OnboardingState.Error(IllegalStateException("User not signed in."))
+                            }
+                            -1
+                        } else {
                             reduce {
                                 OnboardingState.ImportStarted
                             }
+                            totalItems()
                         }
+                    }
+                    if (totalItems < 0) {
+                        return@launch
+                    }
+                    importFlow()
                         .flowOn(dispatcherIO)
-                        .onEach {
+                        .onStart {
+                            projectsList.clear()
                             reduce {
-                                OnboardingState.ImportProgress(0, it, null)
+                                OnboardingState.ImportProgress(total = totalItems)
                             }
                         }
-                        .flatMapLatest {
-                            importFlow()
-                                .flowOn(dispatcherIO)
-                                .onStart {
-                                    projectsList.clear()
-                                }
-                                .map { it.toDto() }
-                                .onEach {
-                                    projectsList += it
-                                    reduce {
-                                        (state as OnboardingState.ImportProgress).copy(
-                                            progress = projectsList.size,
-                                            displayName = it.name
-                                        )
-                                    }
-                                }
+                        .map { it.toDto() }
+                        .onEach {
+                            projectsList += it
+                            reduce {
+                                (state as OnboardingState.ImportProgress).copy(
+                                    progress = projectsList.size,
+                                    displayName = it.name
+                                )
+                            }
                         }
                         .catch {
                             reduce {
                                 OnboardingState.Error(it)
                             }
-                            postSideEffect(UserSideEffects.NavigateTo(it.toRoute()))
-                            postSideEffect(UserSideEffects.Error(it))
                         }
                         .onCompletion {
                             if (it == null) {
@@ -277,6 +288,7 @@ class Onboarding(
                                 }
                             }
                             importJob = null
+                            saveJob?.join()
                             saveJob = null
                         }
                         .collect()

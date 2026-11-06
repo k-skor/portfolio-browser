@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 import org.orbitmvi.orbit.annotation.OrbitExperimental
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
@@ -23,6 +24,8 @@ import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
 import pl.krzyssko.portfoliobrowser.platform.Config
 import pl.krzyssko.portfoliobrowser.platform.Configuration
+import pl.krzyssko.portfoliobrowser.platform.Logging
+import pl.krzyssko.portfoliobrowser.platform.getLogging
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
@@ -30,6 +33,7 @@ import pl.krzyssko.portfoliobrowser.store.UserFetchException
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
+import kotlin.getValue
 
 class Login(
     coroutineScope: CoroutineScope,
@@ -38,6 +42,8 @@ class Login(
     private val config: Configuration,
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(coroutineScope, LoginState.Initialized) {
+
+    private val logging: Logging by inject()
 
     init {
         initialize()
@@ -90,10 +96,7 @@ class Login(
     fun login(uiHandler: Any?, refresh: Boolean = false, forceSignIn: Boolean = false) = intent {
         loginProvider(uiHandler, refresh, forceSignIn)
             .catch {
-                when (it) {
-                    is AuthAccountExistsException -> startLink()
-                    else -> handleException(it)
-                }
+                handleException(it)
             }
             .flatMapLatest { user ->
                 fetchGitHubUserFlow(user)
@@ -177,6 +180,8 @@ class Login(
 
     @OptIn(OrbitExperimental::class)
     private suspend fun handleException(exception: Throwable?) = subIntent {
+        getLogging().info(exception.toString())
+
         reduce {
             LoginState.Error(exception)
         }
@@ -184,14 +189,24 @@ class Login(
         if (exception !is AuthAccountExistsException) {
             postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
         }
+        else {
+            postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
+        }
     }
 
 
     // TODO: dokończyć i przenieść linkowanie konta
     @OptIn(ExperimentalCoroutinesApi::class)
     fun link(uiHandler: Any?) = intent {
+        // CHECK: Can I place reduce here (from the startLink() method)?
+        reduce {
+            LoginState.LinkInProgress
+        }
+
         linkProvider(uiHandler)
-            .catch { handleException(it) }
+            .catch {
+                handleException(it)
+            }
             .flatMapLatest { user ->
                 fetchGitHubUserFlow(user)
                     .map { userName ->
@@ -217,11 +232,8 @@ class Login(
     }
 
     @OptIn(OrbitExperimental::class)
-    private suspend fun startLink() = subIntent {
+    private suspend fun displayWarningDialog() = subIntent {
         postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
-        reduce {
-            LoginState.LinkInProgress
-        }
     }
 
     @OptIn(OrbitExperimental::class)

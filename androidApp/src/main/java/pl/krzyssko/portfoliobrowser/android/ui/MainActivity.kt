@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -48,6 +49,7 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import org.orbitmvi.orbit.compose.collectAsState
 import org.orbitmvi.orbit.compose.collectSideEffect
+import pl.krzyssko.portfoliobrowser.R
 import pl.krzyssko.portfoliobrowser.android.ui.MainActivity.Companion.TAG
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.AccountsMergeDialog
 import pl.krzyssko.portfoliobrowser.android.ui.compose.dialog.ErrorDialog
@@ -351,10 +353,11 @@ fun AppContent(
             }
             dialog<Route.AccountsMerge> {
                 AccountsMergeDialog(
-                    title = "Accounts Merge",
-                    description = "New account will be override existing state. Continue?",
+                    title = stringResource(id = R.string.accounts_merge),
+                    description = stringResource(id = R.string.account_exists_message),
                     onConfirm = {
-                        profileViewModel.linkUser(context)
+                        //  TODO: CLear GitHub token
+                        profileViewModel.authenticateUser(activity = context, forceSignIn = true)
                         navController.popBackStack()
                     },
                     onDismiss = {

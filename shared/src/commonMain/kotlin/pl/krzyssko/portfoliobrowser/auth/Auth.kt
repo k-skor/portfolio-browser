@@ -71,6 +71,7 @@ abstract class Auth(protected val config: Configuration) {
     abstract val userState: StateFlow<UserInfo?>
 
     abstract fun userFlow(): Flow<UserInfo?>
+//    protected abstract suspend fun clearGitHubCredentials()
     protected abstract suspend fun signInAnonymous(): User?
     protected abstract suspend fun signInWithGitHub(uiHandler: Any?, token: String?, refresh: Boolean = false): User?
     protected abstract suspend fun signInLinkWithGitHub(uiHandler: Any?): User?

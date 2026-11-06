@@ -33,12 +33,16 @@ This project is a **Mobile Multiplatform GitHub Project Browser**, built using K
 
 1.  **Firebase Configuration:**
     -   Add `google-services.json` to `androidApp/src/debug/`.
-2.  **Secrets:**
-    -   Create a `secrets.local` file in the root directory with the following keys:
-        ```properties
-        githubApiKey=YOUR_GITHUB_TOKEN
-        githubApiUser=YOUR_GITHUB_USERNAME
-        ```
+   2.  **Secrets:**
+       -   Create a `secrets.local` file in the root directory with the following keys:
+           ```properties
+           azureTenantId=YOUR_AZURE_TENANT_ID
+           azureClientId=YOUR_AZURE_CLIENT_ID
+           azureClientSecret=YOUR_CLIENT_SECRET
+           azureSearchEndpoint=YOUR_AZURE_SEARCH_ENDPOINT
+           azureSearchIndex=YOUR_AZURE_SEARCH_INDEX
+           azureScope=YOUR_AZURE_SCOPE
+           ```
 3. **Configuration:**
     -   `BuildInfo.kt` for build constants
 

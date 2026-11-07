@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_exists_message">A user with this GitHub account already exists. Would you like to log in using this GitHub account? This would delete your current data.</string>
+    <string name="accounts_merge">Accounts Merge</string>
+</resources>

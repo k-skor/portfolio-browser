@@ -23,6 +23,13 @@ kotlin {
         }
     }
 
+    compilerOptions {
+        if (System.getProperty("idea.active") == "true") {
+            println("Enable coroutine debugging")
+            freeCompilerArgs = listOf("-Xdebug")
+        }
+    }
+
     sourceSets {
         commonMain.dependencies {
             //put your multiplatform dependencies here

@@ -25,7 +25,9 @@ class AndroidAzureTokenProvider(
     }
 
     override suspend fun initialize() {
-        getAccessToken()
+        runCatching {
+            getAccessToken()
+        }
     }
 
     override suspend fun getAccessToken(): String? {

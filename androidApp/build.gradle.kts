@@ -38,7 +38,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = "21"
-        freeCompilerArgs += "-Xdebug"
     }
 }
 

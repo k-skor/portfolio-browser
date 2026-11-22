@@ -33,7 +33,6 @@ import pl.krzyssko.portfoliobrowser.store.UserFetchException
 import pl.krzyssko.portfoliobrowser.store.UserSideEffects
 import pl.krzyssko.portfoliobrowser.util.Response
 import pl.krzyssko.portfoliobrowser.util.getOrNull
-import kotlin.getValue
 
 class Login(
     coroutineScope: CoroutineScope,
@@ -180,8 +179,6 @@ class Login(
 
     @OptIn(OrbitExperimental::class)
     private suspend fun handleException(exception: Throwable?) = subIntent {
-        getLogging().info(exception.toString())
-
         reduce {
             LoginState.Error(exception)
         }
@@ -189,23 +186,23 @@ class Login(
         if (exception !is AuthAccountExistsException) {
             postSideEffect(UserSideEffects.NavigateTo(exception.toRoute()))
         }
-        else {
-            postSideEffect(UserSideEffects.NavigateTo(Route.AccountsMerge))
-        }
     }
 
 
     // TODO: dokończyć i przenieść linkowanie konta
     @OptIn(ExperimentalCoroutinesApi::class)
     fun link(uiHandler: Any?) = intent {
-        // CHECK: Can I place reduce here (from the startLink() method)?
         reduce {
             LoginState.LinkInProgress
         }
 
         linkProvider(uiHandler)
-            .catch {
-                handleException(it)
+            .catch { it ->
+                if (it is AuthAccountExistsException) {
+                    displayWarningDialog()
+                } else {
+                    handleException(it)
+                }
             }
             .flatMapLatest { user ->
                 fetchGitHubUserFlow(user)

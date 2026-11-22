@@ -356,7 +356,6 @@ fun AppContent(
                     title = stringResource(id = R.string.accounts_merge),
                     description = stringResource(id = R.string.account_exists_message),
                     onConfirm = {
-                        //  TODO: CLear GitHub token
                         profileViewModel.authenticateUser(activity = context, forceSignIn = true)
                         navController.popBackStack()
                     },

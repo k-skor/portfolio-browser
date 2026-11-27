@@ -16,8 +16,8 @@ import pl.krzyssko.portfoliobrowser.auth.AuthAccountExistsException
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
-import pl.krzyssko.portfoliobrowser.platform.Configuration
 import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationSaver
 import pl.krzyssko.portfoliobrowser.repository.UserRepository
 import pl.krzyssko.portfoliobrowser.store.LoginState
 import pl.krzyssko.portfoliobrowser.store.OrbitStore
@@ -30,7 +30,7 @@ import pl.krzyssko.portfoliobrowser.util.getOrNull
 class Login(
     private val dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
-    private val config: Configuration,
+    private val config: ConfigurationSaver,
     private val userRepository: UserRepository
 ) : KoinComponent, OrbitStore<LoginState>(LoginState.Initialized) {
 
@@ -295,7 +295,7 @@ class Login(
     private suspend fun fetchGitHubUser(user: User.Authenticated): String? {
         config.update(ConfigurationData(gitHubApiToken = user.oauthAccessToken.orEmpty()))
         val gitHubUser = userRepository.fetchUser().getOrNull()
-        config.update(config.configurationData.copy(gitHubApiUser = gitHubUser, lastSignInMethod = user.signInMethod.orEmpty()))
+        config.update(config.data.copy(gitHubApiUser = gitHubUser, lastSignInMethod = user.signInMethod.orEmpty()))
         return gitHubUser
     }
 

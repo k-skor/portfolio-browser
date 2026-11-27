@@ -22,8 +22,8 @@ firebaseAuthKtx = "23.1.0"
 kvault = "1.12.0"
 konform = "0.10.0"
 msal = "5.5.0"
-coroutines-test = "1.11.0"
-mockito = "6.3.0"
+coroutines-test = "1.10.1"
+mokkery = "2.7.1"
 
 [libraries]
 msal = { module = "com.microsoft.identity.client:msal", version.ref = "msal" }
@@ -52,7 +52,7 @@ orbitmvi-android = { module = "org.orbit-mvi:orbit-viewmodel", version.ref = "or
 orbitmvi-compose = { module = "org.orbit-mvi:orbit-compose", version.ref = "orbit-mvi" }
 koin = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
-koin-test = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
+koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 ktor-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-auth = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
@@ -67,7 +67,6 @@ firebase-auth-ktx = { group = "com.google.firebase", name = "firebase-auth-ktx",
 kvault = { module = "com.liftric:kvault", version.ref = "kvault" }
 konform = { module = "io.konform:konform", version.ref = "konform" }
 coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines-test" }
-mockito = { module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito"}
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
@@ -77,3 +76,4 @@ kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref =
 kotlinCocoapods = { id = "org.jetbrains.kotlin.native.cocoapods", version.ref = "kotlin" }
 compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinx-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+mokkery = { id = "dev.mokkery", version.ref = "mokkery" }

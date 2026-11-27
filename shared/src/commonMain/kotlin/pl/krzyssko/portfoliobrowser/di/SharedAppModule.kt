@@ -140,7 +140,9 @@ fun sharedAppModule() = module {
             coroutineScope,
             Dispatchers.IO,
             get(),
-            get()
+            get(),
+            get(qualifier = NAMED_GITHUB),
+            get(qualifier = NAMED_GITHUB)
         )
     }
 

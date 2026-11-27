@@ -7,7 +7,6 @@ import pl.krzyssko.portfoliobrowser.data.Provider
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.UserInfo
 import pl.krzyssko.portfoliobrowser.platform.Configuration
-import pl.krzyssko.portfoliobrowser.platform.ConfigurationDataSaver
 
 class AuthInvalidUserException(throwable: Throwable?) : Exception("Invalid user.", throwable)
 class AuthPasswordTooWeakException(throwable: Throwable?) : Exception("Password is too weak.", throwable)
@@ -17,10 +16,8 @@ expect val FirebaseProviderId: String
 expect val GitHubProviderId: String
 expect val EmailProviderId: String
 
-abstract class Auth(protected val config: ConfigurationDataSaver) {
-
-    var requestedLoginMethod: LoginMethod? = null
-        protected set
+interface Auth {
+    val requestedLoginMethod: LoginMethod?
 
     enum class LoginMethod {
         Anonymous,
@@ -28,48 +25,70 @@ abstract class Auth(protected val config: ConfigurationDataSaver) {
         Email
     }
 
-    protected val oauthToken: String?
-        get() = config.configurationData.gitHubApiToken
+    val isUserSignedIn: Boolean
+    val userAccount: Account?
+    val userInfo: UserInfo?
+    val providerData: List<Provider>?
+    val hasGitHubProvider: Boolean
+    val hasEmailProvider: Boolean
+    val userState: StateFlow<UserInfo?>
 
-    fun shouldLinkAccounts(providerType: LoginMethod) = isUserSignedIn && providerData?.any { it.providerId == providerType.toProviderId() } == false
+    fun shouldLinkAccounts(providerType: LoginMethod): Boolean
 
-    open suspend fun startSignInFlow(
+    suspend fun startSignInFlow(
         uiHandler: Any?,
         providerType: LoginMethod,
         create: Boolean = false,
         login: String? = null,
         password: String? = null,
         refresh: Boolean = false,
-        token: String? = oauthToken,
+        token: String? = null,
         linkWithProvider: Boolean = false
-    ): User.Authenticated? {
+    ): User.Authenticated?
 
+    fun signOut()
+    suspend fun delete()
+}
+
+abstract class BaseAuth(protected val config: Configuration) : Auth {
+
+    override var requestedLoginMethod: Auth.LoginMethod? = null
+        protected set
+
+    protected val oauthToken: String?
+        get() = config.data.gitHubApiToken
+
+    override fun shouldLinkAccounts(providerType: Auth.LoginMethod) =
+        isUserSignedIn && providerData?.any { it.providerId == providerType.toProviderId() } == false
+
+    override suspend fun startSignInFlow(
+        uiHandler: Any?,
+        providerType: Auth.LoginMethod,
+        create: Boolean,
+        login: String?,
+        password: String?,
+        refresh: Boolean,
+        token: String?,
+        linkWithProvider: Boolean
+    ): User.Authenticated? {
+        val resolvedToken = token ?: oauthToken
         return if (linkWithProvider) {
             when {
-                providerType == LoginMethod.Email && login != null && password != null && !hasEmailProvider -> linkWithProvider(login, password)
-                providerType == LoginMethod.GitHub && !hasGitHubProvider -> signInLinkWithGitHub(uiHandler)
+                providerType == Auth.LoginMethod.Email && login != null && password != null && !hasEmailProvider -> linkWithProvider(login, password)
+                providerType == Auth.LoginMethod.GitHub && !hasGitHubProvider -> signInLinkWithGitHub(uiHandler)
                 else -> null
             }
         } else {
             when {
-                providerType == LoginMethod.Anonymous -> signInAnonymous()
-                providerType == LoginMethod.Email && login != null && password != null ->
+                providerType == Auth.LoginMethod.Anonymous -> signInAnonymous()
+                providerType == Auth.LoginMethod.Email && login != null && password != null ->
                     if (create) createWithEmail(uiHandler, login, password)
                     else signInWithEmail(uiHandler, login, password)
-                providerType == LoginMethod.GitHub -> signInWithGitHub(uiHandler, token, refresh)
+                providerType == Auth.LoginMethod.GitHub -> signInWithGitHub(uiHandler, resolvedToken, refresh)
                 else -> null
             }
         } as? User.Authenticated
     }
-
-    abstract val isUserSignedIn: Boolean
-    abstract val userAccount: Account?
-    abstract val userInfo: UserInfo?
-    abstract val providerData: List<Provider>?
-    //abstract var accessToken: String?
-    abstract val hasGitHubProvider: Boolean
-    abstract val hasEmailProvider: Boolean
-    abstract val userState: StateFlow<UserInfo?>
 
     protected abstract fun userFlow(): Flow<UserInfo?>
     protected abstract suspend fun signInAnonymous(): User?
@@ -79,8 +98,6 @@ abstract class Auth(protected val config: ConfigurationDataSaver) {
     protected abstract suspend fun signInWithEmail(uiHandler: Any?, login: String, password: String): User?
     protected abstract suspend fun linkWithProvider(token: String): User?
     protected abstract suspend fun linkWithProvider(login: String, password: String): User?
-    abstract fun signOut()
-    abstract suspend fun delete()
 }
 
 expect fun Auth.LoginMethod.toProviderId(): String

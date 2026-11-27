@@ -8,21 +8,18 @@ class AndroidPlatform : Platform {
     override val name: String = "Android ${android.os.Build.VERSION.SDK_INT}"
 }
 
-class AndroidConfiguration(vaultProvider: VaultProvider): Configuration(vaultProvider) {
-    //override val vault by lazy { KVault(appContextHandle as Context, "private_config") }
-    //override var configurationData: ConfigurationData
-    //    get() = restore()
-    //    set(value) = save(value)
+class AndroidConfiguration(vaultProvider: VaultProvider) : Configuration(vaultProvider) {
+    override fun restore(defaults: ConfigurationData?): ConfigurationData =
+        super.restore(defaults ?: DEFAULTS)
 
-    override fun restore(): ConfigurationData {
-        val restored = super.restore()
-        return restored.copy(
-            azureTenantId = restored.azureTenantId.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureTenantId,
-            azureClientId = restored.azureClientId.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureClientId,
-            azureClientSecret = restored.azureClientSecret.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureClientSecret,
-            azureSearchEndpoint = restored.azureSearchEndpoint.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchEndpoint,
-            azureSearchIndex = restored.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureSearchIndex,
-            azureScope = restored.azureScope.takeIf { !it.isNullOrBlank() } ?: BuildConfig.azureScope,
+    companion object {
+        val DEFAULTS = ConfigurationData(
+            azureTenantId = BuildConfig.azureTenantId,
+            azureClientId = BuildConfig.azureClientId,
+            azureClientSecret = BuildConfig.azureClientSecret,
+            azureSearchEndpoint = BuildConfig.azureSearchEndpoint,
+            azureSearchIndex = BuildConfig.azureSearchIndex,
+            azureScope = BuildConfig.azureScope,
         )
     }
 }

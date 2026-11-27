@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.androidLibrary)
     id("com.google.android.libraries.mapsplatform.secrets-gradle-plugin")
     alias(libs.plugins.kotlinx.serialization)
+    alias(libs.plugins.mokkery)
 }
 
 kotlin {
@@ -53,7 +54,6 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.coroutines.test)
             implementation(libs.koin.test)
-            implementation(libs.mockito)
             implementation(libs.orbitmvi.test)
         }
     }

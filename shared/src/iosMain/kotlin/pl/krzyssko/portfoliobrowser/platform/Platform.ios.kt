@@ -6,8 +6,7 @@ class IOSPlatform: Platform {
     override val name: String = UIDevice.currentDevice.systemName() + " " + UIDevice.currentDevice.systemVersion
 }
 
-class IosConfiguration(vaultProvider: VaultProvider): Configuration(vaultProvider) {
-}
+class IosConfiguration(vaultProvider: VaultProvider) : Configuration(vaultProvider)
 
 class IosLogging: Logging {
     override fun debug(message: String) {

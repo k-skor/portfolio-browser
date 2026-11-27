@@ -25,8 +25,8 @@ class AzureSearchApi(private val httpClient: HttpClient, private val configurati
         skip: Int?,
         filter: String?
     ): AzureSearchResponse<SearchDocDto> {
-        val endpoint = configuration.configurationData.azureSearchEndpoint ?: throw Exception("Missing azureSearchEndpoint")
-        val index = configuration.configurationData.azureSearchIndex ?: throw Exception("Missing azureSearchIndex")
+        val endpoint = configuration.data.azureSearchEndpoint ?: throw Exception("Missing azureSearchEndpoint")
+        val index = configuration.data.azureSearchIndex ?: throw Exception("Missing azureSearchIndex")
 
         val url = "$endpoint/indexes('$index')/docs/search.post.search?api-version=$apiVersion"
 

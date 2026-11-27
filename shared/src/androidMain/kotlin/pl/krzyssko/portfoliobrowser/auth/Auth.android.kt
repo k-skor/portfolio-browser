@@ -36,7 +36,7 @@ actual val FirebaseProviderId: String = FirebaseAuthProvider.PROVIDER_ID
 actual val GitHubProviderId: String = GithubAuthProvider.PROVIDER_ID
 actual val EmailProviderId: String = EmailAuthProvider.PROVIDER_ID
 
-class AndroidAuth(configuration: Configuration): Auth(configuration) {
+class AndroidAuth(configuration: Configuration): BaseAuth(configuration) {
     private val auth: FirebaseAuth
 
     init {
@@ -88,7 +88,7 @@ class AndroidAuth(configuration: Configuration): Auth(configuration) {
 
     override suspend fun startSignInFlow(
         uiHandler: Any?,
-        providerType: LoginMethod,
+        providerType: Auth.LoginMethod,
         create: Boolean,
         login: String?,
         password: String?,

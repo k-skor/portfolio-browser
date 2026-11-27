@@ -1,222 +1,136 @@
 package pl.krzyssko.portfoliobrowser.di
 
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import pl.krzyssko.portfoliobrowser.api.Api
-import pl.krzyssko.portfoliobrowser.api.PagedResponse
-import pl.krzyssko.portfoliobrowser.api.PagedSearchResult
-import pl.krzyssko.portfoliobrowser.api.dto.GitHubLanguage
-import pl.krzyssko.portfoliobrowser.api.dto.GitHubProject
-import pl.krzyssko.portfoliobrowser.api.dto.GitHubSearch
-import pl.krzyssko.portfoliobrowser.api.dto.GitHubUser
+import kotlinx.coroutines.flow.asStateFlow
 import pl.krzyssko.portfoliobrowser.auth.Auth
+import pl.krzyssko.portfoliobrowser.auth.EmailProviderId
+import pl.krzyssko.portfoliobrowser.auth.GitHubProviderId
+import pl.krzyssko.portfoliobrowser.auth.toProviderId
 import pl.krzyssko.portfoliobrowser.data.Account
-import pl.krzyssko.portfoliobrowser.data.Follower
 import pl.krzyssko.portfoliobrowser.data.Provider
-import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.data.User
 import pl.krzyssko.portfoliobrowser.data.UserInfo
-import pl.krzyssko.portfoliobrowser.db.Firestore
-import pl.krzyssko.portfoliobrowser.db.QueryPagedResult
-import pl.krzyssko.portfoliobrowser.db.transfer.ProfileDto
-import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
-import pl.krzyssko.portfoliobrowser.platform.ConfigurationDataSaver
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationData
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationSaver
 
+class InMemoryConfigurationSaver(
+    initialData: ConfigurationData = ConfigurationData()
+) : ConfigurationSaver {
+    private var storedData: ConfigurationData = initialData
 
-class FakeAuth(configuration: ConfigurationDataSaver, isSignedIn: Boolean = false) : Auth(configuration) {
-    override val isUserSignedIn: Boolean = isSignedIn
+    override val data: ConfigurationData
+        get() = restore()
+
+    override fun save(data: ConfigurationData) {
+        storedData = data
+    }
+
+    override fun restore(defaults: ConfigurationData?): ConfigurationData = ConfigurationData(
+        gitHubApiUser = storedData.gitHubApiUser.takeIf { !it.isNullOrBlank() } ?: defaults?.gitHubApiUser,
+        gitHubApiToken = storedData.gitHubApiToken.takeIf { !it.isNullOrBlank() } ?: defaults?.gitHubApiToken,
+        lastSignInMethod = storedData.lastSignInMethod.takeIf { !it.isNullOrBlank() } ?: defaults?.lastSignInMethod,
+        azureSearchEndpoint = storedData.azureSearchEndpoint.takeIf { !it.isNullOrBlank() } ?: defaults?.azureSearchEndpoint,
+        azureSearchIndex = storedData.azureSearchIndex.takeIf { !it.isNullOrBlank() } ?: defaults?.azureSearchIndex,
+        azureTenantId = storedData.azureTenantId.takeIf { !it.isNullOrBlank() } ?: defaults?.azureTenantId,
+        azureClientId = storedData.azureClientId.takeIf { !it.isNullOrBlank() } ?: defaults?.azureClientId,
+        azureClientSecret = storedData.azureClientSecret.takeIf { !it.isNullOrBlank() } ?: defaults?.azureClientSecret,
+        azureApiToken = storedData.azureApiToken.takeIf { !it.isNullOrBlank() } ?: defaults?.azureApiToken,
+        azureApiRefreshToken = storedData.azureApiRefreshToken.takeIf { !it.isNullOrBlank() } ?: defaults?.azureApiRefreshToken,
+        azureScope = storedData.azureScope.takeIf { !it.isNullOrBlank() } ?: defaults?.azureScope
+    )
+
+    override fun clear() {
+        storedData = ConfigurationData()
+    }
+
+    override fun update(data: ConfigurationData) {
+        save(data)
+    }
+}
+
+/**
+ * Stateful in-memory [Auth] fake designed for testing reactive flows (e.g. [userState] -> Onboarding)
+ * as well as sign-in / sign-out / delete state transitions without constructor parameter explosion.
+ */
+class FakeAuth(
+    initialAccount: Account? = null,
+    initialProviders: List<Provider> = emptyList()
+) : Auth {
+    private val _userState = MutableStateFlow(initialAccount?.toUserInfo())
+    override val userState: StateFlow<UserInfo?> = _userState.asStateFlow()
+
+    override var requestedLoginMethod: Auth.LoginMethod? = null
+        private set
+
+    var currentAccount: Account? = initialAccount
+        private set
+
+    var providers: List<Provider> = initialProviders
+
+    /**
+     * Optional hook to script [startSignInFlow] outcomes (success or exception) in a specific test.
+     * When null, defaults to signing in with [currentAccount] if present.
+     */
+    var onSignIn: (suspend (Auth.LoginMethod, Boolean) -> User.Authenticated?)? = null
+
+    override val isUserSignedIn: Boolean
+        get() = currentAccount != null
+
     override val userAccount: Account?
-        get() = if (isUserSignedIn) Account("uid123", "user", "user@email.com", null, isEmailVerified = false, anonymous = false) else null
-    override val userInfo: UserInfo? = if (isUserSignedIn) UserInfo("uid123", false) else null
-    override val providerData: List<Provider> = emptyList()
-    override val hasGitHubProvider: Boolean
-        get() = TODO("Not yet implemented")
-    override val hasEmailProvider: Boolean
-        get() = TODO("Not yet implemented")
-    //override val userState: StateFlow<UserInfo?> = userFlow().stateIn(
-    //    CoroutineScope(StandardTestDispatcher()),
-    //    SharingStarted.WhileSubscribed(),
-    //    null
-    //)
-    override val userState: StateFlow<UserInfo?> = MutableStateFlow(userInfo)
+        get() = currentAccount
 
-    override fun userFlow(): Flow<UserInfo?> {
-        TODO("Not yet implemented")
+    override val userInfo: UserInfo?
+        get() = _userState.value
+
+    override val providerData: List<Provider>
+        get() = providers
+
+    override val hasGitHubProvider: Boolean
+        get() = providers.any { it.providerId == GitHubProviderId }
+
+    override val hasEmailProvider: Boolean
+        get() = providers.any { it.providerId == EmailProviderId }
+
+    override fun shouldLinkAccounts(providerType: Auth.LoginMethod): Boolean =
+        isUserSignedIn && providers.none { it.providerId == providerType.toProviderId() }
+
+    fun setSignedIn(account: Account, providers: List<Provider> = this.providers) {
+        this.currentAccount = account
+        this.providers = providers
+        _userState.value = account.toUserInfo()
     }
 
     override suspend fun startSignInFlow(
         uiHandler: Any?,
-        providerType: LoginMethod,
+        providerType: Auth.LoginMethod,
         create: Boolean,
         login: String?,
         password: String?,
         refresh: Boolean,
         token: String?,
         linkWithProvider: Boolean
-    ): User.Authenticated? = if (isUserSignedIn && userAccount != null) User.Authenticated(userAccount!!) else null
-
-    override suspend fun signInAnonymous(): User? = null
-
-    override suspend fun signInWithGitHub(
-        uiHandler: Any?,
-        token: String?,
-        refresh: Boolean
-    ): User? = null
-
-    override suspend fun signInLinkWithGitHub(uiHandler: Any?): User? = null
-
-    override suspend fun createWithEmail(
-        uiHandler: Any?,
-        login: String,
-        password: String
-    ): User? = null
-
-    override suspend fun signInWithEmail(
-        uiHandler: Any?,
-        login: String,
-        password: String
-    ): User? = null
-
-    override suspend fun linkWithProvider(token: String): User? = null
-
-    override suspend fun linkWithProvider(
-        login: String,
-        password: String
-    ): User? = null
+    ): User.Authenticated? {
+        requestedLoginMethod = providerType
+        val result = onSignIn?.invoke(providerType, linkWithProvider)
+            ?: currentAccount?.let { User.Authenticated(it) }
+        if (result != null) {
+            setSignedIn(result.account)
+        } else if (providerType == Auth.LoginMethod.Anonymous) {
+            setSignedIn(Account("anon-uid", null, "", null, isEmailVerified = false, anonymous = true))
+        }
+        return result
+    }
 
     override fun signOut() {
-        TODO("Not yet implemented")
+        currentAccount = null
+        providers = emptyList()
+        _userState.value = null
     }
 
     override suspend fun delete() {
-        TODO("Not yet implemented")
-    }
-}
-
-class FakeFirestore(
-    val hasUser: Boolean = false,
-    val lastSyncTimestamp: Long? = null,
-    private val shouldFailSync: Boolean = false
-) : Firestore {
-    override suspend fun hasUser(uid: String): Boolean = hasUser
-
-    override suspend fun getProfile(uid: String): ProfileDto? {
-        TODO("Not yet implemented")
+        signOut()
     }
 
-    override fun observeProfile(uid: String): Flow<ProfileDto?> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun createProfile(
-        uid: String,
-        profile: ProfileDto
-    ) { }
-
-    override suspend fun createProjects(): String {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun syncProjects(
-        uid: String,
-        projectsList: List<ProjectDto>,
-        source: Source
-    ) {
-        if (shouldFailSync) throw RuntimeException("Sync failed")
-    }
-
-    override suspend fun getProjects(
-        cursor: Any?,
-        uid: String,
-        category: String?
-    ): QueryPagedResult<ProjectDto> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun getProject(
-        uid: String,
-        ownerId: String,
-        projectId: String
-    ): ProjectDto? {
-        TODO("Not yet implemented")
-    }
-
-    override fun observeProject(
-        uid: String,
-        ownerId: String,
-        projectId: String
-    ): Flow<ProjectDto?> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun updateProject(
-        uid: String,
-        id: String?,
-        project: ProjectDto
-    ) {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun toggleFollowProject(
-        uid: String,
-        id: String,
-        follower: Follower,
-        toggle: Boolean
-    ) {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun getFavoriteProjects(
-        cursor: Any?,
-        uid: String
-    ): QueryPagedResult<ProjectDto> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun getSearchResults(documentIds: List<String>): List<ProjectDto> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun searchProjects(
-        phrase: String,
-        cursor: Any?,
-        uid: String
-    ): QueryPagedResult<ProjectDto> {
-        TODO("Not yet implemented")
-    }
-
-    override suspend fun getLastSyncTimestampForSource(
-        uid: String,
-        source: Source
-    ): Long? = lastSyncTimestamp
-}
-
-class FakeApi(
-    private val user: GitHubUser? = null,
-    private val projects: List<GitHubProject> = emptyList(),
-    private val languages: GitHubLanguage = emptyMap()
-) : Api {
-    override suspend fun getUser(): GitHubUser? = user
-
-    override suspend fun getRepos(): List<GitHubProject> = projects
-
-    override suspend fun getRepos(queryParams: String?): PagedResponse<GitHubProject> {
-        return PagedResponse(page = projects)
-    }
-
-    override suspend fun getRepoLanguages(repoName: String): GitHubLanguage = languages
-
-    override suspend fun getRepoBy(name: String): GitHubProject? {
-        return projects.find { it.name == name }
-    }
-
-    override suspend fun searchRepos(
-        searchPhrase: String,
-        queryParams: String?
-    ): PagedSearchResult<GitHubSearch> {
-        return PagedSearchResult(
-            page = GitHubSearch(projects)
-        )
-    }
+    private fun Account.toUserInfo(): UserInfo = UserInfo(id, anonymous)
 }

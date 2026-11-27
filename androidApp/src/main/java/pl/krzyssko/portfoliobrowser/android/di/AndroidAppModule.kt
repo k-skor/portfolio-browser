@@ -4,12 +4,14 @@ import androidx.lifecycle.SavedStateHandle
 import com.liftric.kvault.KVault
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModel
+import org.koin.dsl.bind
 import org.koin.dsl.module
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProfileViewModel
 import pl.krzyssko.portfoliobrowser.android.viewModel.ProjectViewModel
 import pl.krzyssko.portfoliobrowser.di.NAMED_AZURE
 import pl.krzyssko.portfoliobrowser.di.NAMED_FIRESTORE
 import pl.krzyssko.portfoliobrowser.platform.Configuration
+import pl.krzyssko.portfoliobrowser.platform.ConfigurationSaver
 import pl.krzyssko.portfoliobrowser.platform.VaultProvider
 import pl.krzyssko.portfoliobrowser.platform.getConfiguration
 
@@ -26,5 +28,5 @@ val androidAppModule = module {
                 get() = KVault(androidContext(), "private_config")
         }
     }
-    single<Configuration> { getConfiguration(get()) }
+    single<Configuration> { getConfiguration(get()) } bind ConfigurationSaver::class
 }

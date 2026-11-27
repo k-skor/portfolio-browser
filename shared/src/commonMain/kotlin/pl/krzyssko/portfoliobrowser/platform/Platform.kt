@@ -20,61 +20,65 @@ data class ConfigurationData(
     val azureScope: String? = null
 )
 
-interface ConfigurationDataSaver {
-    var configurationData: ConfigurationData
-        get() = restore()
-        set(value) = save(value)
-
+interface ConfigurationSaver {
+    val data: ConfigurationData
     fun save(data: ConfigurationData)
-    fun restore(): ConfigurationData
+    fun restore(defaults: ConfigurationData? = null): ConfigurationData
+    fun clear()
+    fun update(data: ConfigurationData)
 }
 
 interface VaultProvider {
     val vault: KVault
 }
 
-abstract class Configuration(vaultProvider: VaultProvider) : ConfigurationDataSaver {
+abstract class Configuration(vaultProvider: VaultProvider) : ConfigurationSaver {
+
+    override val data: ConfigurationData
+        get() = restore()
 
     private val vault by lazy {
         vaultProvider.vault
     }
 
     override fun save(data: ConfigurationData) {
-        data.gitHubApiUser?.let { vault.set("$KEY_CONFIG.gitHubApiUser", it) } ?: vault.deleteObject("$KEY_CONFIG.gitHubApiUser")
-        data.gitHubApiToken?.let { vault.set("$KEY_CONFIG.gitHubApiToken", it) } ?: vault.deleteObject("$KEY_CONFIG.gitHubApiToken")
-        data.lastSignInMethod?.let { vault.set("$KEY_CONFIG.lastSignInMethod", it) } ?: vault.deleteObject("$KEY_CONFIG.lastSignInMethod")
-        data.azureSearchEndpoint?.let { vault.set("$KEY_CONFIG.azureSearchEndpoint", it) } ?: vault.deleteObject("$KEY_CONFIG.azureSearchEndpoint")
-        data.azureSearchIndex?.let { vault.set("$KEY_CONFIG.azureSearchIndex", it) } ?: vault.deleteObject("$KEY_CONFIG.azureSearchIndex")
-        data.azureTenantId?.let { vault.set("$KEY_CONFIG.azureTenantId", it) } ?: vault.deleteObject("$KEY_CONFIG.azureTenantId")
-        data.azureClientId?.let { vault.set("$KEY_CONFIG.azureClientId", it) } ?: vault.deleteObject("$KEY_CONFIG.azureClientId")
-        data.azureClientSecret?.let { vault.set("$KEY_CONFIG.azureClientSecret", it) } ?: vault.deleteObject("$KEY_CONFIG.azureClientSecret")
-        data.azureApiToken?.let { vault.set("$KEY_CONFIG.azureApiToken", it) } ?: vault.deleteObject("$KEY_CONFIG.azureApiToken")
-        data.azureApiRefreshToken?.let { vault.set("$KEY_CONFIG.azureApiRefreshToken", it) } ?: vault.deleteObject("$KEY_CONFIG.azureApiRefreshToken")
-        data.azureScope?.let { vault.set("$KEY_CONFIG.azureScope", it) } ?: vault.deleteObject("$KEY_CONFIG.azureScope")
+        with(data) {
+            gitHubApiUser?.let { vault.set("$KEY_CONFIG.gitHubApiUser", it) } ?: vault.deleteObject("$KEY_CONFIG.gitHubApiUser")
+            gitHubApiToken?.let { vault.set("$KEY_CONFIG.gitHubApiToken", it) } ?: vault.deleteObject("$KEY_CONFIG.gitHubApiToken")
+            lastSignInMethod?.let { vault.set("$KEY_CONFIG.lastSignInMethod", it) } ?: vault.deleteObject("$KEY_CONFIG.lastSignInMethod")
+            azureSearchEndpoint?.let { vault.set("$KEY_CONFIG.azureSearchEndpoint", it) } ?: vault.deleteObject("$KEY_CONFIG.azureSearchEndpoint")
+            azureSearchIndex?.let { vault.set("$KEY_CONFIG.azureSearchIndex", it) } ?: vault.deleteObject("$KEY_CONFIG.azureSearchIndex")
+            azureTenantId?.let { vault.set("$KEY_CONFIG.azureTenantId", it) } ?: vault.deleteObject("$KEY_CONFIG.azureTenantId")
+            azureClientId?.let { vault.set("$KEY_CONFIG.azureClientId", it) } ?: vault.deleteObject("$KEY_CONFIG.azureClientId")
+            azureClientSecret?.let { vault.set("$KEY_CONFIG.azureClientSecret", it) } ?: vault.deleteObject("$KEY_CONFIG.azureClientSecret")
+            azureApiToken?.let { vault.set("$KEY_CONFIG.azureApiToken", it) } ?: vault.deleteObject("$KEY_CONFIG.azureApiToken")
+            azureApiRefreshToken?.let { vault.set("$KEY_CONFIG.azureApiRefreshToken", it) } ?: vault.deleteObject("$KEY_CONFIG.azureApiRefreshToken")
+            azureScope?.let { vault.set("$KEY_CONFIG.azureScope", it) } ?: vault.deleteObject("$KEY_CONFIG.azureScope")
+        }
     }
 
-    override fun restore(): ConfigurationData {
+    override fun restore(defaults: ConfigurationData?): ConfigurationData {
         return ConfigurationData(
-            gitHubApiUser = vault.string("$KEY_CONFIG.gitHubApiUser"),
-            gitHubApiToken = vault.string("$KEY_CONFIG.gitHubApiToken"),
-            lastSignInMethod = vault.string("$KEY_CONFIG.lastSignInMethod"),
-            azureSearchEndpoint = vault.string("$KEY_CONFIG.azureSearchEndpoint"),
-            azureSearchIndex = vault.string("$KEY_CONFIG.azureSearchIndex"),
-            azureTenantId = vault.string("$KEY_CONFIG.azureTenantId"),
-            azureClientId = vault.string("$KEY_CONFIG.azureClientId"),
-            azureClientSecret = vault.string("$KEY_CONFIG.azureClientSecret"),
-            azureApiToken = vault.string("$KEY_CONFIG.azureApiToken"),
-            azureApiRefreshToken = vault.string("$KEY_CONFIG.azureApiRefreshToken"),
-            azureScope = vault.string("$KEY_CONFIG.azureScope")
+            gitHubApiUser = vault.string("$KEY_CONFIG.gitHubApiUser").takeIf { !it.isNullOrBlank() } ?: defaults?.gitHubApiUser,
+            gitHubApiToken = vault.string("$KEY_CONFIG.gitHubApiToken").takeIf { !it.isNullOrBlank() } ?: defaults?.gitHubApiToken,
+            lastSignInMethod = vault.string("$KEY_CONFIG.lastSignInMethod").takeIf { !it.isNullOrBlank() } ?: defaults?.lastSignInMethod,
+            azureSearchEndpoint = vault.string("$KEY_CONFIG.azureSearchEndpoint").takeIf { !it.isNullOrBlank() } ?: defaults?.azureSearchEndpoint,
+            azureSearchIndex = vault.string("$KEY_CONFIG.azureSearchIndex").takeIf { !it.isNullOrBlank() } ?: defaults?.azureSearchIndex,
+            azureTenantId = vault.string("$KEY_CONFIG.azureTenantId").takeIf { !it.isNullOrBlank() } ?: defaults?.azureTenantId,
+            azureClientId = vault.string("$KEY_CONFIG.azureClientId").takeIf { !it.isNullOrBlank() } ?: defaults?.azureClientId,
+            azureClientSecret = vault.string("$KEY_CONFIG.azureClientSecret").takeIf { !it.isNullOrBlank() } ?: defaults?.azureClientSecret,
+            azureApiToken = vault.string("$KEY_CONFIG.azureApiToken").takeIf { !it.isNullOrBlank() } ?: defaults?.azureApiToken,
+            azureApiRefreshToken = vault.string("$KEY_CONFIG.azureApiRefreshToken").takeIf { !it.isNullOrBlank() } ?: defaults?.azureApiRefreshToken,
+            azureScope = vault.string("$KEY_CONFIG.azureScope").takeIf { !it.isNullOrBlank() } ?: defaults?.azureScope
         )
     }
 
-    fun clear() {
+    override fun clear() {
         vault.clear()
     }
 
-    fun update(data: ConfigurationData) {
-        this.configurationData = data
+    override fun update(data: ConfigurationData) {
+        save(data)
     }
 
     companion object {

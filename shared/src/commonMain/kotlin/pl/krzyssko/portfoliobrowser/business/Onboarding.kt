@@ -21,8 +21,6 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.koin.core.component.KoinComponent
-import org.koin.core.component.inject
 import org.orbitmvi.orbit.annotation.OrbitExperimental
 import pl.krzyssko.portfoliobrowser.auth.Auth
 import pl.krzyssko.portfoliobrowser.data.Profile.Companion.DefaultProfile
@@ -31,7 +29,6 @@ import pl.krzyssko.portfoliobrowser.data.Source
 import pl.krzyssko.portfoliobrowser.db.Firestore
 import pl.krzyssko.portfoliobrowser.db.transfer.ProjectDto
 import pl.krzyssko.portfoliobrowser.db.transfer.toDto
-import pl.krzyssko.portfoliobrowser.di.NAMED_GITHUB
 import pl.krzyssko.portfoliobrowser.navigation.Route
 import pl.krzyssko.portfoliobrowser.navigation.ViewType
 import pl.krzyssko.portfoliobrowser.navigation.toRoute
@@ -70,10 +67,10 @@ class Onboarding(
     coroutineScope: CoroutineScope,
     private val dispatcherIO: CoroutineDispatcher,
     private val auth: Auth,
-    private val firestore: Firestore
-) : KoinComponent, OrbitStore<OnboardingState>(OnboardingState.Initialized) {
-    private val repository: ProjectRepository by inject(NAMED_GITHUB)
-    private val categoriesRepository: CategoriesRepository by inject(NAMED_GITHUB)
+    private val firestore: Firestore,
+    private val repository: ProjectRepository,
+    private val categoriesRepository: CategoriesRepository
+) : OrbitStore<OnboardingState>(OnboardingState.Initialized) {
     private val projectsList: MutableList<ProjectDto> = mutableListOf()
     private var checkJob: Job? = null
     private var importJob: Job? = null
